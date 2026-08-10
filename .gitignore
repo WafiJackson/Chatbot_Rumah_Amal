@@ -1,0 +1,41 @@
+# ==========================================
+# GITIGNORE - RUMAH AMAL BOT
+# ==========================================
+
+# 1. Environment & Rahasia API Key (SANGAT KRITIS)
+.env
+.env.local
+.env.*.local
+
+# 2. Database Lokal (SQLite)
+*.db
+*.db-journal
+donatur.db
+
+# 3. Log System & Production Logs
+logs/
+*.log
+
+# 4. Berkas Privasi & 'Bumbu Dapur' Internal Proyek
+llm_agent.py
+admin_scripts.py
+Bueprint.txt
+test_hybrid.py
+scratch/
+
+# 5. Virtual Environment & Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+
+# 6. Editor & System Junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

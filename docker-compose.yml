@@ -1,0 +1,51 @@
+services:
+  # 1. Container untuk Logika Bot (FastAPI + Regex/Qwen Engine)
+  api-bot:
+    build: .
+    container_name: rumah_amal_api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - WAHA_ENDPOINT=http://waha-gateway:3000
+      - WAHA_API_KEY=${WAHA_API_KEY:-amalmaximal123}
+      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
+      - DB_PATH=/code/app_db/donatur.db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - sqlite_data:/code/app_db
+    networks:
+      - bot_network
+
+  # 2. Container untuk Gateway WhatsApp (WAHA WebJS)
+  waha-gateway:
+    image: devlikeapro/waha
+    container_name: rumah_amal_waha
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - WAHA_PRINT_QR=True
+      - WAHA_ZIP_SESSIONS=True
+      - WAHA_API_KEY=${WAHA_API_KEY:-amalmaximal123}
+      - WAHA_API_KEY_SECRET=${WAHA_API_KEY:-amalmaximal123}
+      - WHATSAPP_HOOK_URL=http://api-bot:8000/webhook
+      - WHATSAPP_HOOK_EVENTS=message
+    volumes:
+      - waha_sessions:/tmp/waha-sessions
+    networks:
+      - bot_network
+
+# 3. Jembatan Komunikasi Internal & Persistence Volume
+networks:
+  bot_network:
+    driver: bridge
+
+volumes:
+  waha_sessions:
+    driver: local
+  sqlite_data:
+    driver: local
