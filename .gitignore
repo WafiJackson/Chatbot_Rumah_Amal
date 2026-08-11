@@ -17,8 +17,6 @@ logs/
 *.log
 
 # 4. Berkas Privasi & 'Bumbu Dapur' Internal Proyek
-llm_agent.py
-admin_scripts.py
 Bueprint.txt
 test_hybrid.py
 scratch/
