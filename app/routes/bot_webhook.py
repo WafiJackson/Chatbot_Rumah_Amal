@@ -255,26 +255,26 @@ async def waha_webhook(request: Request):
         # Unduh / decode gambar jika payload mengandung media
         image_bytes = None
         if has_media:
-            # 1. Decode base64 dari payload WAHA (hanya jika data penuh > 5KB)
+            # 1. Decode base64 dari payload WAHA (hanya jika data penuh > 30KB, gambar HP biasanya thumbnail < 20KB)
             media_data = (
                 payload_waha.get("media", {}).get("data") or
                 payload_waha.get("data")
             )
             mimetype = (
-                payload_waha.get("media", {}).get("mimetype") or
+                media_obj.get("mimetype") or
                 payload_waha.get("mimetype") or ""
             )
 
-            if media_data and len(media_data) > 5000:
+            if media_data and len(media_data) > 30000:
                 import base64
                 try:
                     image_bytes = base64.b64decode(media_data)
-                    print(f"[Debug Media] Berhasil decode base64 gambar ({len(image_bytes)} bytes)")
+                    print(f"[Debug Media] Berhasil decode base64 gambar asli ({len(image_bytes)} bytes)")
                 except Exception as e_b64:
                     print(f"[Warning Base64 Media Decode] {e_b64}")
 
-            # 2. Jika base64 tidak ada atau hanya thumbnail kecil (<5KB), unduh gambar penuh via URL WAHA
-            if not image_bytes or len(image_bytes) < 5000:
+            # 2. Jika base64 tidak ada atau hanya thumbnail HP (<30KB), unduh gambar penuh via URL WAHA
+            if not image_bytes or len(image_bytes) < 30000:
                 media_url = (
                     payload_waha.get("mediaUrl") or
                     media_obj.get("url") or
@@ -292,7 +292,7 @@ async def waha_webhook(request: Request):
                     try:
                         headers_img = {"X-Api-Key": WAHA_API_KEY, "Accept": "*/*"}
                         res_img = requests.get(media_url, headers=headers_img, timeout=5)
-                        if res_img.status_code == 200 and len(res_img.content) > 1000:
+                        if res_img.status_code == 200 and len(res_img.content) > 5000:
                             image_bytes = res_img.content
                             print(f"[Debug Media] Berhasil unduh gambar penuh dari URL ({len(image_bytes)} bytes)")
                         else:
@@ -300,15 +300,15 @@ async def waha_webhook(request: Request):
                     except Exception as e_img:
                         print(f"[Warning Webhook Image Download Error] {e_img}")
 
-            # 3. Fallback: Unduh via WAHA Message Media API jika pesan memiliki ID
+            # 3. Fallback Utama WA HP: Unduh via WAHA Message Media API (Mengambil Gambar Asli Beresolusi Tinggi dari Server WA)
             msg_id = payload_waha.get("id") or (data_obj.get("id", {}).get("_serialized") if isinstance(data_obj.get("id"), dict) else None)
-            if (not image_bytes or len(image_bytes) < 5000) and msg_id:
+            if (not image_bytes or len(image_bytes) < 30000) and msg_id:
                 try:
                     waha_media_endpoint = f"{WAHA_ENDPOINT}/api/{nama_sesi}/messages/{msg_id}/media"
-                    res_msg_media = requests.get(waha_media_endpoint, headers={"X-Api-Key": WAHA_API_KEY}, timeout=5)
-                    if res_msg_media.status_code == 200 and len(res_msg_media.content) > 1000:
+                    res_msg_media = requests.get(waha_media_endpoint, headers={"X-Api-Key": WAHA_API_KEY}, timeout=8)
+                    if res_msg_media.status_code == 200 and len(res_msg_media.content) > 5000:
                         image_bytes = res_msg_media.content
-                        print(f"[Debug Media] Berhasil unduh dari WAHA Message API ({len(image_bytes)} bytes)")
+                        print(f"[Debug Media] Berhasil unduh gambar HD dari WAHA Message API ({len(image_bytes)} bytes)")
                 except Exception as e_msg_media:
                     print(f"[Warning WAHA Message Media API Error] {e_msg_media}")
 
