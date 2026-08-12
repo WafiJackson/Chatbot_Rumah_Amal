@@ -183,10 +183,24 @@ PROCESSED_MSG_IDS = set()
 async def waha_webhook(request: Request):
     try:
         data = await request.json()
-        event_name = data.get("event", "")
-        payload_waha = data.get("payload", {})
-        chat_id_asli = payload_waha.get("from", "")
-        nama_sesi = data.get("session", "default")
+        if not isinstance(data, dict):
+            data = {}
+
+        event_name = data.get("event") or ""
+        payload_waha = data.get("payload")
+        if not isinstance(payload_waha, dict):
+            payload_waha = {}
+
+        media_obj = payload_waha.get("media")
+        if not isinstance(media_obj, dict):
+            media_obj = {}
+
+        data_obj = payload_waha.get("_data")
+        if not isinstance(data_obj, dict):
+            data_obj = {}
+
+        chat_id_asli = payload_waha.get("from") or ""
+        nama_sesi = data.get("session") or "default"
 
         # KASUS 2: Filter event Panggilan Suara / Video (call)
         if "call" in event_name or payload_waha.get("type") in ["call", "call_log", "voice_call"]:
@@ -206,12 +220,12 @@ async def waha_webhook(request: Request):
             return {"status": "diabaikan"}
 
         # Filter khusus Stiker WhatsApp (Abaikan stiker agar tidak memicu doa/error)
-        mimetype_raw = str(payload_waha.get("media", {}).get("mimetype") or payload_waha.get("mimetype") or "").lower()
+        mimetype_raw = str(media_obj.get("mimetype") or payload_waha.get("mimetype") or "").lower()
         if payload_waha.get("type") in ["sticker", "ptt", "audio"] or "webp" in mimetype_raw:
             return {"status": "diabaikan_stiker"}
 
         # KASUS 1 & Deduplikasi: Mencegah race condition dari webhook ganda / replay
-        msg_id = payload_waha.get("id") or payload_waha.get("_data", {}).get("id", {}).get("_serialized")
+        msg_id = payload_waha.get("id") or data_obj.get("id", {}).get("_serialized") if isinstance(data_obj.get("id"), dict) else None
         if msg_id:
             if msg_id in PROCESSED_MSG_IDS:
                 print(f"[Deduplikasi] Pesan ID {msg_id} telah diproses sebelumnya. Mengabaikan event duplikat.")
@@ -220,7 +234,7 @@ async def waha_webhook(request: Request):
             if len(PROCESSED_MSG_IDS) > 2000:
                 PROCESSED_MSG_IDS.clear()
 
-        pesan = payload_waha.get("body", "")
+        pesan = payload_waha.get("body") or ""
         raw_no_wa = payload_waha.get("author") or chat_id_asli
         nomor_wa = raw_no_wa.split('@')[0] if raw_no_wa else "0000000000"
         has_media = payload_waha.get("hasMedia", False) or bool(payload_waha.get("media")) or bool(payload_waha.get("mediaUrl"))
@@ -228,7 +242,7 @@ async def waha_webhook(request: Request):
         nama_pengirim = (
             payload_waha.get("pushname") or
             payload_waha.get("notifyName") or
-            payload_waha.get("_data", {}).get("notifyName") or
+            data_obj.get("notifyName") or
             "Kak"
         )
 
@@ -263,9 +277,9 @@ async def waha_webhook(request: Request):
             if not image_bytes or len(image_bytes) < 5000:
                 media_url = (
                     payload_waha.get("mediaUrl") or
-                    payload_waha.get("media", {}).get("url") or
-                    payload_waha.get("_data", {}).get("deprecatedMms3Url") or
-                    payload_waha.get("_data", {}).get("directPath")
+                    media_obj.get("url") or
+                    data_obj.get("deprecatedMms3Url") or
+                    data_obj.get("directPath")
                 )
 
                 # Fix URL WAHA API jika menggunakan localhost:3000 atau path relatif /api/files/...
@@ -287,7 +301,7 @@ async def waha_webhook(request: Request):
                         print(f"[Warning Webhook Image Download Error] {e_img}")
 
             # 3. Fallback: Unduh via WAHA Message Media API jika pesan memiliki ID
-            msg_id = payload_waha.get("id") or payload_waha.get("_data", {}).get("id", {}).get("_serialized")
+            msg_id = payload_waha.get("id") or (data_obj.get("id", {}).get("_serialized") if isinstance(data_obj.get("id"), dict) else None)
             if (not image_bytes or len(image_bytes) < 5000) and msg_id:
                 try:
                     waha_media_endpoint = f"{WAHA_ENDPOINT}/api/{nama_sesi}/messages/{msg_id}/media"
