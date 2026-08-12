@@ -205,6 +205,11 @@ async def waha_webhook(request: Request):
         if payload_waha.get("fromMe") is True:
             return {"status": "diabaikan"}
 
+        # Filter khusus Stiker WhatsApp (Abaikan stiker agar tidak memicu doa/error)
+        mimetype_raw = str(payload_waha.get("media", {}).get("mimetype") or payload_waha.get("mimetype") or "").lower()
+        if payload_waha.get("type") in ["sticker", "ptt", "audio"] or "webp" in mimetype_raw:
+            return {"status": "diabaikan_stiker"}
+
         # KASUS 1 & Deduplikasi: Mencegah race condition dari webhook ganda / replay
         msg_id = payload_waha.get("id") or payload_waha.get("_data", {}).get("id", {}).get("_serialized")
         if msg_id:

@@ -11,10 +11,20 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash").strip()
 
 
-def _panggil_gemini_api(prompt: str, image_bytes: bytes = None, is_json: bool = False, timeout: int = 7) -> str:
+def _detect_mime_type(image_bytes: bytes) -> str:
+    if not image_bytes:
+        return "image/jpeg"
+    if image_bytes.startswith(b"\x89PNG"):
+        return "image/png"
+    if image_bytes.startswith(b"RIFF") and b"WEBP" in image_bytes[:16]:
+        return "image/webp"
+    return "image/jpeg"
+
+
+def _panggil_gemini_api(prompt: str, image_bytes: bytes = None, is_json: bool = False, timeout: int = 8) -> str:
     """
     Helper utama untuk memanggil Google Gemini Cloud API (gemini-2.5-flash).
-    Mendukung pengiriman teks prompt dan gambar (multimodal OCR Vision).
+    Mendukung pengiriman teks prompt dan gambar (multimodal OCR Vision JPEG/PNG/WEBP).
     """
     api_key = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY).strip()
     model = os.getenv("MODEL_NAME", MODEL_NAME).strip()
@@ -27,10 +37,11 @@ def _panggil_gemini_api(prompt: str, image_bytes: bytes = None, is_json: bool = 
     parts = []
     if image_bytes and len(image_bytes) > 500:
         try:
+            mime = _detect_mime_type(image_bytes)
             img_b64 = base64.b64encode(image_bytes).decode("utf-8")
             parts.append({
                 "inline_data": {
-                    "mime_type": "image/jpeg",
+                    "mime_type": mime,
                     "data": img_b64
                 }
             })
