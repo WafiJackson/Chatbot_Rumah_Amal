@@ -1,12 +1,12 @@
-# 🤖 Bot WhatsApp Rumah Amal USK (Hybrid & Modular Engine)
+# 🤖 Bot WhatsApp Rumah Amal USK (Hybrid & Cloud AI Engine)
 
-Sistem Bot WhatsApp cerdas, ter-modularisasi, dan berkemampuan hibrida (*Fast-Path Regex + State Machine + AI Vision OCR + Supabase Cloud*) yang dibangun khusus untuk melayani informasi program, penyaluran donasi/zakat, permohonan bantuan (PINTAS/BPRA-UKT), cek riwayat transaksi, deteksi sapaan gender dinamis, dan notifikasi *alert* otomatis ke Admin Rumah Amal Masjid Jamik USK.
+Sistem Bot WhatsApp cerdas, ter-modularisasi, dan berkemampuan hibrida (*Fast-Path Regex + State Machine + Google Gemini 2.5 Flash Cloud AI + AI Vision OCR + Supabase Cloud*) yang dibangun khusus untuk melayani informasi program, penyaluran donasi/zakat, permohonan bantuan (PINTAS/BPRA-UKT), cek riwayat transaksi, deteksi sapaan gender dinamis, dan notifikasi *alert* otomatis ke Admin Rumah Amal Masjid Jamik USK.
 
 ---
 
 ## 🏛️ 1. Arsitektur Sistem Utama
 
-Berikut adalah arsitektur menyeluruh sistem **Bot WhatsApp Rumah Amal USK**, menggambarkan alur komunikasi antar-komponen dari Pengguna, WAHA Engine, FastAPI Controller, State Machine (FSM), AI Vision/LLM, hingga Database Supabase Cloud dan WhatsApp Admin:
+Berikut adalah arsitektur menyeluruh sistem **Bot WhatsApp Rumah Amal USK**, menggambarkan alur komunikasi antar-komponen dari Pengguna, WAHA Engine, FastAPI Controller, State Machine (FSM), Google Gemini Cloud AI, hingga Database Supabase Cloud dan WhatsApp Admin:
 
 ```mermaid
 flowchart TD
@@ -17,34 +17,36 @@ flowchart TD
     end
 
     subgraph App_Layer ["🚀 FastAPI Webhook Engine (main.py / bot_webhook.py)"]
-        Router["HTTP Router (/api/webhook & /webhook)"]
+        Router["HTTP Router (/webhook)"]
         AuthCheck["🔒 Security Check (WAHA_API_KEY Header)"]
+        Deduplication["🛡️ Message Deduplication (PROCESSED_MSG_IDS)"]
         GenderEngine["👤 Gender Detector Engine (Bapak/Ibu/Kak)"]
         MediaDecoder["🖼️ Base64 & Media URL Image Downloader"]
         LIDResolver["🔍 LID & Contact Resolver (LID -> Phone Number & Name)"]
-        FastPath["⚡ Fast-Path Intent Router (0.001s Regex)"]
+        FastPath["⚡ Fast-Path Intent Router (0.001s Regex & Typo-Tolerant)"]
     end
 
     subgraph State_Layer ["💾 State Machine & Dual Storage Engine"]
         FSM["🔄 Finite State Machine (IDLE / TANYA_PROGRAM / PILIH_PROGRAM / MENUNGGU_ADMIN / NUNGGU_BUKTI_TRANSFER)"]
-        SQLiteDB[("💾 Local SQLite DB (donatur.db)")]
+        SQLiteDB[("💾 Local SQLite DB (donatur.db in Docker Volume)")]
         SupabaseDB[("☁️ Supabase Cloud DB (transaksi_donasi & master_program)")]
     end
 
-    subgraph AI_Layer ["🧠 AI & Vision Processing Layer"]
-        OllamaLLM["🤖 Ollama LLM (NLU & Open Q&A Generator)"]
+    subgraph AI_Layer ["🧠 Google Gemini Cloud AI Layer (Zero VPS Load)"]
+        GeminiAPI["☁️ Google Gemini 2.5 Flash API (NLU, Q&A & NER)"]
         Guardrail["🛡️ Anti-Hallucination Guardrail Verifier"]
-        VisionOCR["👁️ Vision OCR Engine (Receipt Reader)"]
+        VisionOCR["👁️ Multimodal Vision OCR (Resi BSI Mobile & BYOND Reader)"]
     end
 
     subgraph Log_Layer ["📝 Logging & Observability Layer"]
         ProdLogger["📊 Production Logger (RotatingFileHandler -> logs/app.log)"]
     end
 
-    User -->|"1. Kirim Pesan / Resi"| WAHA
+    User -->|"1. Kirim Pesan / Resi / Panggilan"| WAHA
     WAHA -->|"2. HTTP POST Webhook Payload"| Router
     Router --> AuthCheck
-    AuthCheck --> MediaDecoder
+    AuthCheck --> Deduplication
+    Deduplication --> MediaDecoder
     MediaDecoder --> LIDResolver
     LIDResolver --> GenderEngine
     GenderEngine --> FastPath
@@ -54,8 +56,8 @@ flowchart TD
     FSM <-->|"Sync Transaksi & Master Program"| SupabaseDB
 
     FastPath -->|"Foto Resi (Media)"| VisionOCR
-    FastPath -->|"Pertanyaan Bebas (Q&A)"| OllamaLLM
-    OllamaLLM --> Guardrail
+    FastPath -->|"Pertanyaan Bebas (Q&A)"| GeminiAPI
+    GeminiAPI --> Guardrail
 
     FastPath -->|"Pengajuan Admin (PINTAS/BPRA-UKT/DLL)"| AdminWA
     FastPath -->|"Balasan Pesan WA"| WAHA
@@ -110,7 +112,7 @@ stateDiagram-v2
 
     state NUNGGU_BUKTI_TRANSFER {
         [*] --> WaitReceipt
-        WaitReceipt --> ProcessingOCR : Kirim Foto Resi
+        WaitReceipt --> ProcessingOCR : Kirim Foto Resi / Input Manual
         ProcessingOCR --> SaveSuccess : OCR / Vision Sukses
         ProcessingOCR --> RetryReceipt : Gambar Buram / Error
     }
@@ -152,27 +154,33 @@ flowchart TD
 
 ---
 
-## ⚡ 4. Fast-Path Router Bahasa Santai / Nyeleneh (0.001 Detik)
+## ⚡ 4. Fast-Path Router Bahasa Santai / Nyeleneh / Sapaan Gaul (0.001 Detik)
 
-Diagram alur keputusan Fast-Path instan untuk menangkap pertanyaan santai/nyeleneh tanpa tergantung pada server LLM:
+Diagram alur keputusan Fast-Path instan untuk menangkap pertanyaan santai/nyeleneh & sapaan gaul tanpa tergantung pada server LLM:
 
 ```mermaid
 flowchart TD
     IncomingMsg["📩 Pesan Teks Diterima (Status: IDLE)"] --> FastCheck{"⚡ Jalur Fast-Path (0.001s)"}
 
+    FastCheck -- "oi lek / woi / p / halo / hai / assalamualaikum" --> ResSapaan["👋 Balas Menu Utama Sapaan Instant"]
     FastCheck -- "rumah amal letaknya dimana / gmaps" --> ResAlamat["📍 Balas Alamat Kantor (Lantai 1 Masjid Jamik USK)"]
     FastCheck -- "info beasiswa / beasiswa apa saja" --> ResBeasiswa["🎓 Balas Katalog 4 Beasiswa Resmi USK"]
+    FastCheck -- "kurang dana ukt / bayar ukt / bpra" --> ResUKT["📚 Balas Detail Program BPRA-UKT & Opsional Admin"]
+    FastCheck -- "meminjam uang / pintas / pinjam" --> ResPintas["💸 Balas Detail Program PINTAS & Opsional Admin"]
     FastCheck -- "jam kerja / buka jam berapa" --> ResJam["⏰ Balas Jam Operasional (Senin-Jumat 08.00-16.30 WIB)"]
     FastCheck -- "rekening bsi / norek" --> ResRek["🏦 Balas Rekening BSI 7099400409 a.n. Rumah Amal Mesjid Unsyiah"]
-    FastCheck -- "cek riwayat / riwayat donasi / Ketik 4" --> ResRiwayat["📜 Balas 5 Riwayat Donasi Terakhir (Supabase Cloud)"]
+    FastCheck -- "liat riwayat / riwayat donasi / Ketik 4" --> ResRiwayat["📜 Balas Riwayat Donasi Terakhir (Supabase Cloud / SQLite)"]
 
-    ResAlamat --> FinishFast["✅ Kirim Balasan WA Instan"]
+    ResSapaan --> FinishFast["✅ Kirim Balasan WA Instan (0.001s)"]
+    ResAlamat --> FinishFast
     ResBeasiswa --> FinishFast
+    ResUKT --> FinishFast
+    ResPintas --> FinishFast
     ResJam --> FinishFast
     ResRek --> FinishFast
     ResRiwayat --> FinishFast
 
-    FastCheck -- "Pertanyaan Kompleks / Bebas" --> LLMRoute["🤖 Teruskan ke Ollama LLM RAG Engine"]
+    FastCheck -- "Pertanyaan Kompleks / Bebas" --> LLMRoute["☁️ Teruskan ke Google Gemini 2.5 Flash Cloud API"]
 ```
 
 ---
@@ -183,8 +191,8 @@ Diagram alur berikut menjelaskan bagaimana fitur Cek Riwayat Transaksi bekerja s
 
 ```mermaid
 flowchart TD
-    UserReq["📜 Pengguna Memilih Menu 4 / Ketik 'cek riwayat'"] --> GetPhone["📱 Ekstrak Nomor HP Real via LID Resolver"]
-    GetPhone --> QuerySupabase["☁️ Query DB Supabase (transaksi_donasi WHERE no_wa = phone)"]
+    UserReq["📜 Pengguna Memilih Menu 4 / Ketik 'liat riwayat'"] --> GetPhone["📱 Ekstrak Nomor HP Real via LID Resolver"]
+    GetPhone --> QuerySupabase["☁️ Query DB Supabase / SQLite (transaksi_donasi WHERE no_wa = phone)"]
     QuerySupabase --> CheckData{"📊 Data Transaksi Ditemukan?"}
 
     CheckData -- "Ada Transaksi" --> FormatHistory["✨ Format List Transaksi (Tanggal | Nominal | Program | Status)"]
@@ -199,17 +207,17 @@ flowchart TD
 
 ---
 
-## 📸 6. Alur Pemrosesan Resi & AI Vision OCR
+## 📸 6. Alur Pemrosesan Resi & Multimodal Vision OCR (`Gemini 2.5 Flash`)
 
 Diagram urutan berikut menjelaskan alur pemrosesan foto resi transfer BSI Mobile / BYOND dari donatur hingga pencatatan ke database:
 
 ```mermaid
 flowchart TD
     StartResi["📸 Donatur Mengirim Foto Resi (BSI Mobile / BYOND)"] --> DownloadImg["📥 WAHA HTTP Downloader (Headers: X-Api-Key)"]
-    DownloadImg --> ExecOCR["👁️ Ekstraksi AI Vision OCR (Membaca Nominal & Nama)"]
+    DownloadImg --> ExecOCR["👁️ Ekstraksi Multimodal Vision (Google Gemini 2.5 Flash API)"]
     ExecOCR --> CheckNominal{"🔍 Nominal & Data Terbaca?"}
 
-    CheckNominal -- "Ya (Sukses)" --> SaveSupabase["☁️ Simpan Transaksi Donasi ke Supabase Cloud"]
+    CheckNominal -- "Ya (Sukses)" --> SaveSupabase["☁️ Simpan Transaksi Donasi ke Supabase Cloud / SQLite"]
     SaveSupabase --> ResetFSM["🔄 Reset Status Pengguna ke IDLE"]
     ResetFSM --> SendDoa["🙏 Kirim Pesan Terimakasih & Doa Spesifik Program"]
     SendDoa --> EndSuccess["✅ Alur Resi Selesai"]
@@ -254,16 +262,16 @@ flowchart TD
 
 3. **Gender Detector & Salutation Engine (`services/gender_detector.py`):**
    - Deteksi gender otomatis dari nama/pushname (Unicode NFKD Transliteration + Unspacing Single-Letter).
-   - Menyapa **Bapak** / **Ibu** secara konsisten di seluruh layar percakapan, tanpa menyebut "Kakak" lagi kepada pengguna pria/wanita.
+   - Menyapa **Bapak** / **Ibu** secara konsisten di seluruh layar percakapan.
 
-4. **Fast-Path Router Bahasa Santai / Nyeleneh (0.001 Detik):**
-   - Respon instan kilat untuk alamat (*"letaknya dimana"*), info beasiswa (*"info beasiswa"*), jam kerja (*"buka jam berapa"*), dan nomor rekening (*"norek bsi"*).
+4. **Fast-Path Router Bahasa Santai & Typo-Tolerant (0.001 Detik):**
+   - Respon instan kilat untuk sapaan gaul (*"oi lek"*, *"woi"*), alamat (*"letaknya dimana"*), info beasiswa (*"info beasiswa"*), bantuan UKT (*"kurang dana ukt"*), pinjaman (*"meminjam uang"*), jam kerja (*"buka jam berapa"*), nomor rekening (*"norek bsi"*), dan riwayat (*"liat riwayat"*).
 
-5. **AI Vision OCR Pembaca Resi Transfer:**
-   - Membaca nominal, nama donatur, dan tanggal transfer dari resi BSI Mobile / BYOND secara otomatis.
+5. **Google Gemini 2.5 Flash Cloud AI (Zero VPS Load):**
+   - Menggunakan model cloud `gemini-2.5-flash` untuk NLU, Q&A, dan Vision OCR resi transfer. Latensi super cepat (~0.3s) dan beban VPS 0%.
 
-6. **Dual Database Sync (Supabase Cloud + Local SQLite):**
-   - Sinkronisasi real-time ke Supabase Cloud dengan proteksi offline fallback otomatis ke SQLite lokal.
+6. **Dual Database Sync (Supabase Cloud + Local SQLite Volume):**
+   - Sinkronisasi real-time ke Supabase Cloud dengan proteksi offline fallback otomatis ke SQLite lokal (`sqlite_data` volume).
 
 ---
 
@@ -272,41 +280,33 @@ flowchart TD
 Buat atau perbarui berkas `.env` di direktori utama proyek dengan variabel berikut:
 
 ```env
-# Credentials Supabase Cloud
+# Credentials Supabase Cloud (Opsional - Fallback ke SQLite)
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_KEY=your-supabase-anon-key
 
-# Nomor WhatsApp Admin Penerima Notifikasi Alert
-ADMIN_WA_NUMBER=62812xxxxxxx@c.us
+# WAHA WhatsApp Gateway Configuration
+WAHA_ENDPOINT=http://waha-gateway:3000
+WAHA_API_KEY=amalmaximal123
 
-# API Key Keamanan WAHA Docker Container
-WAHA_API_KEY=your-waha-api-key
+# Google Gemini Cloud AI API Key
+GEMINI_API_KEY=your-gemini-api-key-from-google-ai-studio
+MODEL_NAME=gemini-2.5-flash
+
+# Nomor WhatsApp Admin Penerima Notifikasi Alert
+ADMIN_WA_NUMBER=6281269666776@c.us
 ```
 
 ---
 
-## 🚀 Panduan Jalankan & Deployment
+## 🚀 Panduan Jalankan & Local Docker Deployment
 
-### 1. Jalankan Kontainer Docker WAHA
+### Jalankan Komplit via Docker Compose (Rekomendasi Utama)
 ```bash
-docker run -it --rm \
-  -e WAHA_API_KEY=your-waha-api-key \
-  -e WHATSAPP_HOOK_URL=https://<your-ngrok-or-domain>/api/webhook \
-  -e WHATSAPP_HOOK_EVENTS=message \
-  -p 3000:3000 \
-  devlikeapro/waha
+docker compose up -d --build
 ```
 
-### 2. Jalankan Server Bot Python (FastAPI)
-```bash
-# Aktifkan virtual environment
-.\.venv\Scripts\activate
-
-# Jalankan server bot
-python main.py
-```
-
-Server bot akan berjalan di `http://localhost:8000`.
+- **Dashboard WAHA:** `http://localhost:3000` (Scan QR Code)
+- **FastAPI Bot Webhook:** `http://localhost:8000/webhook`
 
 ---
 
@@ -323,25 +323,25 @@ python test_hybrid.py
 ## 📂 Struktur Folder Proyek
 
 ```text
-rumah_amal_bot/
-├── main.py                  # Entry point FastAPI & route listener
-├── admin_scripts.py         # Skrip fakta resmi & matcher intent
-├── test_hybrid.py           # Automated test suite
+bot-rumah-amal/
+├── Dockerfile               # Konfigurasi container Docker FastAPI
+├── docker-compose.yml       # Production stack (api-bot + waha-gateway + volumes)
 ├── .env                     # File konfigurasi rahasia (API Key & Supabase)
 ├── .env.example             # Template file environment
 ├── README.md                # Dokumentasi arsitektur & panduan sistem lengkap
-├── routes/
-│   └── bot_webhook.py       # Handler webhook WAHA, FSM, & router utama
-├── services/
-│   ├── gender_detector.py   # Engine deteksi gender (Bapak/Ibu/Kak) & normalisasi nama
-│   ├── logger.py            # Production logger (RotatingFileHandler)
-│   ├── program_manager.py   # Pengelola 10 data resmi program Rumah Amal
-│   ├── state_manager.py     # Pengelola FSM State (SQLite + Supabase sync)
-│   ├── supabase_client.py   # Client Supabase & PostgREST fallback
-│   ├── form_parser.py       # Parser regex formulir donasi
-│   └── llm_agent.py         # Client Ollama LLM & AI Vision OCR
-└── logs/
-    └── app.log              # Log berkas produksi otomatis
+└── app/
+    ├── main.py              # Entry point FastAPI & route listener
+    ├── admin_scripts.py     # Skrip fakta resmi & matcher intent
+    ├── routes/
+    │   └── bot_webhook.py   # Handler webhook WAHA, FSM, & router utama
+    └── services/
+        ├── gender_detector.py # Engine deteksi gender (Bapak/Ibu/Kak)
+        ├── logger.py          # Production logger (RotatingFileHandler)
+        ├── program_manager.py # Pengelola 10 data resmi program Rumah Amal
+        ├── state_manager.py   # Pengelola FSM State (SQLite + Supabase sync)
+        ├── supabase_client.py # Client Supabase & PostgREST fallback
+        ├── form_parser.py     # Parser regex formulir donasi
+        └── llm_agent.py       # Client Google Gemini 2.5 Flash API & Vision OCR
 ```
 
 ---
