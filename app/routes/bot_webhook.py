@@ -342,7 +342,7 @@ async def waha_webhook(request: Request):
 
                 # Fix path relatif WAHA API (misal /api/files/...)
                 if media_url and media_url.startswith("/"):
-                    media_url = f"http://localhost:3000{media_url}"
+                    media_url = f"{WAHA_ENDPOINT}{media_url}"
 
                 if media_url and media_url.startswith("http"):
                     try:
@@ -360,7 +360,7 @@ async def waha_webhook(request: Request):
             msg_id = payload_waha.get("id") or payload_waha.get("_data", {}).get("id", {}).get("_serialized")
             if (not image_bytes or len(image_bytes) < 5000) and msg_id:
                 try:
-                    waha_media_endpoint = f"http://localhost:3000/api/{nama_sesi}/messages/{msg_id}/media"
+                    waha_media_endpoint = f"{WAHA_ENDPOINT}/api/{nama_sesi}/messages/{msg_id}/media"
                     res_msg_media = requests.get(waha_media_endpoint, headers={"X-Api-Key": WAHA_API_KEY}, timeout=5)
                     if res_msg_media.status_code == 200 and len(res_msg_media.content) > 1000:
                         image_bytes = res_msg_media.content
