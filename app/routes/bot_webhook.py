@@ -19,16 +19,45 @@ from services.gender_detector import deteksi_sapaan_gender
 from services.logger import logger
 
 router = APIRouter()
-WAHA_ENDPOINT = os.getenv("WAHA_ENDPOINT", "http://waha-gateway:3000").rstrip("/")
-WAHA_SEND_URL = f"{WAHA_ENDPOINT}/api/sendText"
+WAHA_SEND_URL = "http://localhost:3000/api/sendText"
 WAHA_API_KEY = os.getenv("WAHA_API_KEY", "amalmaximal123")
 user_sessions = {}
+
+
+LAST_HEALTH_ALERT_TIME = 0
+
+
+def check_waha_session_health():
+    """
+    Memeriksa kesehatan sesi WAHA (Health Check) dan mengirim notifikasi alert ke Admin WA
+    jika status sesi WhatsApp terputus (DISCONNECTED / PAUSED / STOPPED).
+    """
+    global LAST_HEALTH_ALERT_TIME
+    import time
+    now = time.time()
+    if now - LAST_HEALTH_ALERT_TIME < 300:
+        return
+
+    try:
+        url = f"{WAHA_ENDPOINT}/api/sessions"
+        res = requests.get(url, headers={"X-Api-Key": WAHA_API_KEY}, timeout=3)
+        if res.status_code == 200:
+            sessions = res.json()
+            is_working = any(s.get("status") == "WORKING" for s in sessions)
+            if not is_working:
+                LAST_HEALTH_ALERT_TIME = now
+                notify_admin(
+                    "⚠️ [ALERT SYSTEM] Sesi WhatsApp WAHA terdeteksi TIDAK AKTIF (PAUSED/DISCONNECTED). Mohon lakukan scan QR ulang via Dashboard WAHA."
+                )
+    except Exception as e:
+        print(f"[Warning Health Check WAHA] {e}")
 
 
 def _get_active_waha_session() -> str:
     """Mengambil nama sesi WAHA yang sedang aktif (WORKING)."""
     try:
-        res = requests.get(f"{WAHA_ENDPOINT}/api/sessions", headers={"X-Api-Key": WAHA_API_KEY}, timeout=2)
+        url = f"{WAHA_ENDPOINT}/api/sessions"
+        res = requests.get(url, headers={"X-Api-Key": WAHA_API_KEY}, timeout=2)
         if res.status_code == 200:
             sessions = res.json()
             for s in sessions:
@@ -49,7 +78,7 @@ def _resolve_waha_chat_id(chat_id: str, session_name: str) -> str:
     digits = re.sub(r"[^\d]", "", chat_id)
     if digits:
         try:
-            url = f"http://waha-gateway:3000/api/contacts/check-exists?phone={digits}&session={session_name}"
+            url = f"http://localhost:3000/api/contacts/check-exists?phone={digits}&session={session_name}"
             res = requests.get(url, headers={"X-Api-Key": WAHA_API_KEY}, timeout=3)
             if res.status_code == 200:
                 data = res.json()
@@ -88,7 +117,7 @@ def _dapatkan_nomor_hp_asli(chat_id_asli: str, payload_waha: dict = None, sessio
         session_name = _get_active_waha_session()
 
     try:
-        url = f"{WAHA_ENDPOINT}/api/contacts/all?session={session_name}"
+        url = f"http://localhost:3000/api/contacts/all?session={session_name}"
         res = requests.get(url, headers={"X-Api-Key": WAHA_API_KEY}, timeout=3)
         if res.status_code == 200:
             contacts = res.json()
@@ -104,12 +133,12 @@ def _dapatkan_nomor_hp_asli(chat_id_asli: str, payload_waha: dict = None, sessio
     except Exception as e:
         print(f"[Warning Resolve LID Contact] {e}")
 
-    # Fallback jika nomor adalah LID Admin
+    # Fallback to ADMIN_WA_NUMBER if matching admin LID
     admin_wa = os.getenv("ADMIN_WA_NUMBER", "6281269666776@c.us")
     admin_digits = re.sub(r"[^\d]", "", admin_wa)
-    if clean_id == admin_digits:
+    if clean_id in [admin_digits, "39303296057346"]:
         formatted_phone = f"0{admin_digits[2:]}" if admin_digits.startswith("62") else admin_digits
-        nama = (payload_waha or {}).get("pushname") or "Admin"
+        nama = (payload_waha or {}).get("pushname") or "Yafi Hidayatullah"
         return (formatted_phone, nama)
 
     return (clean_id, (payload_waha or {}).get("pushname") or "Donatur")
@@ -166,22 +195,45 @@ def notify_admin(pesan_peringatan: str, session_name: str = "default"):
 
 
 
-def _dapatkan_doa_spesifik(program_code: str) -> str:
-    """Mengambil template doa spesifik dari admin_scripts sesuai jenis program."""
-    code_up = (program_code or "").upper()
-    if "ZKT-PENGHASILAN" in code_up:
-        return ambil_balasan("doa_zakat_penghasilan")
-    elif "ZKT" in code_up or "ZAKAT" in code_up:
-        return ambil_balasan("doa_zakat_mal")
-    return ambil_balasan("doa_infak")
+USER_RATE_LIMIT = {}  # {nomor_wa: [timestamps]}
+
+
+def _check_rate_limit(nomor_wa: str) -> bool:
+    import time
+    now = time.time()
+    timestamps = USER_RATE_LIMIT.get(nomor_wa, [])
+    timestamps = [t for t in timestamps if now - t < 60]
+    if len(timestamps) >= 20:
+        return False
+    timestamps.append(now)
+    USER_RATE_LIMIT[nomor_wa] = timestamps
+    return True
+
+
+def _dapatkan_doa_spesifik(program_code: str, nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:
+    """Mengambil variasi Doa Syar'i acak dari admin_scripts."""
+    try:
+        from admin_scripts import _dapatkan_doa_spesifik as gen_doa
+        prog_name = PETA_NAMA.get(program_code, program_code or "Donasi")
+        return gen_doa(prog_name, nama_donatur, nominal_fmt)
+    except Exception as e:
+        print(f"[Warning Doa Gen] {e}")
+        return ambil_balasan("doa_infak")
 
 
 PROCESSED_MSG_IDS = set()
 
 
 @router.post("/webhook")
+@router.post("/api/webhook")
 async def waha_webhook(request: Request):
     try:
+        # Trigger Background Sync offline SQLite -> Supabase Cloud
+        try:
+            state_manager.sync_offline_sqlite_to_supabase()
+        except Exception as e_sync:
+            print(f"[Warning Auto Sync Background] {e_sync}")
+
         data = await request.json()
         if not isinstance(data, dict):
             data = {}
@@ -225,7 +277,7 @@ async def waha_webhook(request: Request):
             return {"status": "diabaikan_stiker"}
 
         # KASUS 1 & Deduplikasi: Mencegah race condition dari webhook ganda / replay
-        msg_id = payload_waha.get("id") or data_obj.get("id", {}).get("_serialized") if isinstance(data_obj.get("id"), dict) else None
+        msg_id = payload_waha.get("id") or (data_obj.get("id", {}).get("_serialized") if isinstance(data_obj.get("id"), dict) else None)
         if msg_id:
             if msg_id in PROCESSED_MSG_IDS:
                 print(f"[Deduplikasi] Pesan ID {msg_id} telah diproses sebelumnya. Mengabaikan event duplikat.")
@@ -237,12 +289,17 @@ async def waha_webhook(request: Request):
         pesan = payload_waha.get("body") or ""
         raw_no_wa = payload_waha.get("author") or chat_id_asli
         nomor_wa = raw_no_wa.split('@')[0] if raw_no_wa else "0000000000"
+
+        # Rate Limiter Anti-Spam (Maksimal 20 pesan per menit per nomor WA)
+        if not _check_rate_limit(nomor_wa):
+            print(f"[Rate Limit Exceeded] Nomor {nomor_wa} melampaui batas 20 pesan/menit.")
+            return {"status": "rate_limit_exceeded"}
         has_media = payload_waha.get("hasMedia", False) or bool(payload_waha.get("media")) or bool(payload_waha.get("mediaUrl"))
 
         nama_pengirim = (
             payload_waha.get("pushname") or
             payload_waha.get("notifyName") or
-            data_obj.get("notifyName") or
+            payload_waha.get("_data", {}).get("notifyName") or
             "Kak"
         )
 
@@ -255,44 +312,42 @@ async def waha_webhook(request: Request):
         # Unduh / decode gambar jika payload mengandung media
         image_bytes = None
         if has_media:
-            # 1. Decode base64 dari payload WAHA (hanya jika data penuh > 30KB, gambar HP biasanya thumbnail < 20KB)
+            # 1. Decode base64 dari payload WAHA (hanya jika data penuh > 5KB)
             media_data = (
                 payload_waha.get("media", {}).get("data") or
                 payload_waha.get("data")
             )
             mimetype = (
-                media_obj.get("mimetype") or
+                payload_waha.get("media", {}).get("mimetype") or
                 payload_waha.get("mimetype") or ""
             )
 
-            if media_data and len(media_data) > 30000:
+            if media_data and len(media_data) > 5000:
                 import base64
                 try:
                     image_bytes = base64.b64decode(media_data)
-                    print(f"[Debug Media] Berhasil decode base64 gambar asli ({len(image_bytes)} bytes)")
+                    print(f"[Debug Media] Berhasil decode base64 gambar ({len(image_bytes)} bytes)")
                 except Exception as e_b64:
                     print(f"[Warning Base64 Media Decode] {e_b64}")
 
-            # 2. Jika base64 tidak ada atau hanya thumbnail HP (<30KB), unduh gambar penuh via URL WAHA
-            if not image_bytes or len(image_bytes) < 30000:
+            # 2. Jika base64 tidak ada atau hanya thumbnail kecil (<5KB), unduh gambar penuh via URL WAHA
+            if not image_bytes or len(image_bytes) < 5000:
                 media_url = (
                     payload_waha.get("mediaUrl") or
-                    media_obj.get("url") or
-                    data_obj.get("deprecatedMms3Url") or
-                    data_obj.get("directPath")
+                    payload_waha.get("media", {}).get("url") or
+                    payload_waha.get("_data", {}).get("deprecatedMms3Url") or
+                    payload_waha.get("_data", {}).get("directPath")
                 )
 
-                # Fix URL WAHA API jika menggunakan localhost:3000 atau path relatif /api/files/...
-                if media_url:
-                    media_url = media_url.replace("http://localhost:3000", WAHA_ENDPOINT).replace("http://127.0.0.1:3000", WAHA_ENDPOINT)
-                    if media_url.startswith("/"):
-                        media_url = f"{WAHA_ENDPOINT}{media_url}"
+                # Fix path relatif WAHA API (misal /api/files/...)
+                if media_url and media_url.startswith("/"):
+                    media_url = f"http://localhost:3000{media_url}"
 
                 if media_url and media_url.startswith("http"):
                     try:
                         headers_img = {"X-Api-Key": WAHA_API_KEY, "Accept": "*/*"}
                         res_img = requests.get(media_url, headers=headers_img, timeout=5)
-                        if res_img.status_code == 200 and len(res_img.content) > 5000:
+                        if res_img.status_code == 200 and len(res_img.content) > 1000:
                             image_bytes = res_img.content
                             print(f"[Debug Media] Berhasil unduh gambar penuh dari URL ({len(image_bytes)} bytes)")
                         else:
@@ -300,15 +355,15 @@ async def waha_webhook(request: Request):
                     except Exception as e_img:
                         print(f"[Warning Webhook Image Download Error] {e_img}")
 
-            # 3. Fallback Utama WA HP: Unduh via WAHA Message Media API (Mengambil Gambar Asli Beresolusi Tinggi dari Server WA)
-            msg_id = payload_waha.get("id") or (data_obj.get("id", {}).get("_serialized") if isinstance(data_obj.get("id"), dict) else None)
-            if (not image_bytes or len(image_bytes) < 30000) and msg_id:
+            # 3. Fallback: Unduh via WAHA Message Media API jika pesan memiliki ID
+            msg_id = payload_waha.get("id") or payload_waha.get("_data", {}).get("id", {}).get("_serialized")
+            if (not image_bytes or len(image_bytes) < 5000) and msg_id:
                 try:
-                    waha_media_endpoint = f"{WAHA_ENDPOINT}/api/{nama_sesi}/messages/{msg_id}/media"
-                    res_msg_media = requests.get(waha_media_endpoint, headers={"X-Api-Key": WAHA_API_KEY}, timeout=8)
-                    if res_msg_media.status_code == 200 and len(res_msg_media.content) > 5000:
+                    waha_media_endpoint = f"http://localhost:3000/api/{nama_sesi}/messages/{msg_id}/media"
+                    res_msg_media = requests.get(waha_media_endpoint, headers={"X-Api-Key": WAHA_API_KEY}, timeout=5)
+                    if res_msg_media.status_code == 200 and len(res_msg_media.content) > 1000:
                         image_bytes = res_msg_media.content
-                        print(f"[Debug Media] Berhasil unduh gambar HD dari WAHA Message API ({len(image_bytes)} bytes)")
+                        print(f"[Debug Media] Berhasil unduh dari WAHA Message API ({len(image_bytes)} bytes)")
                 except Exception as e_msg_media:
                     print(f"[Warning WAHA Message Media API Error] {e_msg_media}")
 
@@ -601,9 +656,9 @@ async def waha_webhook(request: Request):
 
 
         # =====================================================================
-        # FAST-PATH 1A-2: DETEKSI CEK RIWAYAT TRANSAKSI DONASI (TYPO TOLERANT)
+        # FAST-PATH 1A-2: DETEKSI CEK RIWAYAT TRANSAKSI DONASI
         # =====================================================================
-        is_cek_riwayat = (pesan_clean in ["4", "4.", "cek riwayat", "riwayat donasi", "histori donasi", "riwayat transaksi", "cek transaksi", "donasi saya", "riwayat saya", "histori saya", "lihat riawayat", "lihat riwayat", "liat riwayat"]) or bool(re.search(r"(cek|lihat|liat|tampilkan|minta|info|riwayat|riawayat|riwayt|history)\s*(riwayat|riawayat|riwayt|histori|history|transaksi|donasi|pembayaran)", pesan_clean)) or ("riwayat" in pesan_clean or "riawayat" in pesan_clean or "histori" in pesan_clean)
+        is_cek_riwayat = (pesan_clean in ["4", "4.", "cek riwayat", "riwayat donasi", "histori donasi", "riwayat transaksi", "cek transaksi", "donasi saya", "riwayat saya", "histori saya"]) or bool(re.search(r"(cek|lihat|tampilkan|minta|riwayat|histori|history)\s*(riwayat|histori|history|transaksi|donasi)", pesan_clean))
         if is_cek_riwayat and status_fsm == "IDLE":
             nomor_hp_pemohon, nama_pemohon = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
             riwayat_items = state_manager.ambil_riwayat_donasi(nomor_hp_pemohon) or state_manager.ambil_riwayat_donasi(nomor_wa)
@@ -860,6 +915,29 @@ async def waha_webhook(request: Request):
 
 
 
+
+            kode_target, nama_target = "INF-RUTIN", "Infak Rutin"
+            if pesan_clean in PETA_PILIHAN:
+                kode_target, nama_target = PETA_PILIHAN[pesan_clean]
+            else:
+                for k, (kode, nama_p) in PETA_PILIHAN.items():
+                    if k in pesan_clean:
+                        kode_target, nama_target = kode, nama_p
+                        break
+
+            state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=kode_target)
+            balasan = (
+                f"Baik Kak, untuk penyaluran *{nama_target}* silakan melakukan transfer ke rekening resmi kami:\n\n"
+                f"🏦 *Bank BSI:* 7099400409\n"
+                f"👤 *a.n.* Rumah Amal Mesjid Unsyiah\n\n"
+                f"Setelah melakukan transfer, silakan kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya Kak agar dapat kami proses dan catatkan. Terima kasih! 🙏"
+            )
+            user_sessions[nomor_wa] = session_data
+            send_message_to_waha(chat_id_asli, balasan, nama_sesi)
+            return {"status": "sukses", "intent": "pilih_program_selesai"}
+
+
+
         # =====================================================================
         # FAST-PATH 4: STATE NUNGGU_BUKTI_TRANSFER / KONFIRMASI / MEDIA RESI
         # (LOCAL PYTHON REGEX FIRST - 0.001s ANTI TIMEOUT)
@@ -902,7 +980,7 @@ async def waha_webhook(request: Request):
 
             if nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
-                state_manager.simpan_transaksi_final(nomor_hp_real, nama, f"Donasi {nama_program_layar}", nominal, kode_program=program_kode)
+                state_manager.simpan_transaksi_final(nomor_hp_real, nama, f"Donasi {nama_program_layar}", nominal)
                 state_manager.reset_status(nomor_wa)
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
@@ -1050,3 +1128,6 @@ async def waha_webhook(request: Request):
         print(f"[Error Webhook] {e}")
         return {"status": "error", "detail": str(e)}
 
+@router.post("/webhook")
+async def webhook_waha(request: Request):
+    return await waha_webhook(request)

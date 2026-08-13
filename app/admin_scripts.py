@@ -1,5 +1,6 @@
 import re
 import unicodedata
+import random
 from services.program_manager import (
     extract_program_keyword,
     format_program_response,
@@ -336,12 +337,61 @@ QA_SCRIPT = {
         "#rumahamalusk"
     ),
 
-    # Jaring pengaman
+    # Jaring pengaman (Jawaban Ramah OOT)
     "tidak_diketahui": (
-        "Mohon maaf, informasi tersebut belum tersedia di sistem kami. Untuk pertanyaan lebih lanjut, silakan hubungi WhatsApp resmi Rumah Amal "
-        "Masjid Jamik USK di nomor 0812-6966-6776."
+        "Wah, Mimin kurang paham nih kalau mengenai hal itu 🙏\n\n"
+        "Mimin fokus membantu seputar *Zakat, Infak, Sedekah,* serta *Program Beasiswa USK* ya {sapaan_panggilan}. Ada yang bisa Mimin bantu terkait program Rumah Amal USK hari ini? 😊\n\n"
+        "----------------------------------------\n"
+        "📌 *Pilihan Cepat:*\n"
+        "• Ketik *1* - Katalog Program & Beasiswa\n"
+        "• Ketik *2* - Panduan Berdonasi\n"
+        "• Ketik *0* - Kembali ke Menu Utama"
     ),
 }
+
+
+def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:
+    """
+    Generator Doa Syar'i Acak (Random Doa Generator):
+    Menghasilkan variasi doa syar'i berbahasa Arab + terjemahan yang berganti-ganti secara acak
+    agar balasan terima kasih donasi tidak monoton jika donatur berdonasi berkali-kali.
+    """
+    nom_str = f" sebesar *Rp {nominal_fmt}*" if nominal_fmt else ""
+    sapaan = nama_donatur if nama_donatur else "Bapak/Ibu"
+
+    variasi_doa = [
+        # Variasi 1: Doa Penyucian Harta & Pahala
+        (
+            f"Alhamdulillah! 🙏 Donasi/Penyaluran{nom_str} dari *{sapaan}* untuk program *{nama_program}* telah kami terima dengan baik.\n\n"
+            f"🤲 *Doa untuk {sapaan} & Keluarga:*\n"
+            f"\"آجَرَكَ اللهُ فِيْمَا أَعْطَيْتَ، وَبَارَكَ فِيْمَا أَبْقَيْتَ وَجَعَلَهُ لَكَ طَهُوْرًا\"\n"
+            f"_(\"Semoga Allah memberikan pahala atas apa yang {sapaan} berikan, memberkahi harta yang tersisa, dan menyucikan jiwa serta rezeki keluarga.\")_\n\n"
+            f"InsyaAllah donasi ini segera disalurkan kepada para penerima manfaat yang berhak. Jazakallahu Khairan atas kepercayaannya bersama Rumah Amal USK! ✨"
+        ),
+        # Variasi 2: Doa Keberkahan Kelipatan Rezeki
+        (
+            f"Alhamdulillah, masyaAllah! 🌟 Donasi/Penyaluran{nom_str} dari *{sapaan}* untuk program *{nama_program}* telah tercatat di sistem kami.\n\n"
+            f"🤲 *Doa Keberkahan Rezeki:*\n"
+            f"\"اللَّهُمَّ أَعْطِ مُنْفِقًا خَلَفًا\"\n"
+            f"_(\"Ya Allah, berikanlah ganti keberkahan yang berlipat ganda bagi {sapaan} yang telah berderma, serta mudahkanlah seluruh urusan keluarga.\")_\n\n"
+            f"Aamiin Yaa Rabbal 'Aalamiin. Terima kasih banyak {sapaan}! 🙏"
+        ),
+        # Variasi 3: Doa Kemudahan Urusan & Kebahagiaan
+        (
+            f"Alhamdulillah, terima kasih banyak {sapaan}! 🙏 Donasi/Penyaluran{nom_str} untuk program *{nama_program}* telah kami terima.\n\n"
+            f"🤲 *Doa Kemudahan & Kebahagiaan:*\n"
+            f"\"Ya Allah, berikanlah ganti bagi hamba-Mu yang dermawan ini. Mudahkanlah segala urusannya serta keluarganya, dan berikanlah kebahagiaan sejati di dunia dan akhirat.\"\n\n"
+            f"Semoga donasi ini menjadi amal jariyah yang terus mengalir pahalanya. Aamiin Yaa Rabbal 'Aalamiin. ✨"
+        ),
+        # Variasi 4: Doa Perlindungan & Kesucian Rezeki
+        (
+            f"Alhamdulillah! Donasi/Penyaluran{nom_str} dari *{sapaan}* untuk program *{nama_program}* sudah kami terima dan InsyaAllah akan segera disalurkan.\n\n"
+            f"🤲 *Doa Perlindungan & Keberkahan:*\n"
+            f"Semoga {sapaan} dan keluarga senantiasa diberikan kesehatan, kemudahan, keberkahan rezeki, dan dijauhkan dari segala marabahaya.\n\n"
+            f"Jazakallahu Khairan atas kepedulian bersama Rumah Amal Masjid Jamik USK! 🙏"
+        )
+    ]
+    return random.choice(variasi_doa)
 
 
 PROGRAM_UMUM_TERSEBUT = [

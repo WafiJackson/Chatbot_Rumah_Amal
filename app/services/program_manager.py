@@ -58,6 +58,46 @@ PROGRAMS = {
             }
         ]
     },
+    "ota_beasiswa": {
+        "nama": "BEASISWA ORANG TUA ASUH (OTA)",
+        "deskripsi": "Program beasiswa di mana donatur (Orang Tua Asuh) membiayai langsung satu atau lebih mahasiswa asuh.",
+        "syarat": [
+            "Mahasiswa berprestasi namun kurang mampu",
+            "Bersedia memberikan laporan perkembangan studi kepada donatur"
+        ],
+        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
+        "qna": [
+            {
+                "tanya": "Bagaimana sistem skema beasiswa Orang Tua Asuh (OTA)?",
+                "jawab": "Donatur (Orang Tua Asuh) memberikan bantuan beasiswa rutin untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK."
+            }
+        ]
+    },
+    "muallaf": {
+        "nama": "BEASISWA MUALLAF",
+        "deskripsi": "Program dukungan pendidikan khusus bagi mahasiswa atau masyarakat yang baru memeluk agama Islam (Muallaf).",
+        "syarat": [
+            "Memiliki sertifikat/surat keterangan syahadat",
+            "Membutuhkan dukungan finansial pendidikan"
+        ],
+        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
+        "qna": [
+            {
+                "tanya": "Apakah ada pembinaan khusus selain bantuan biaya bagi penerima beasiswa Muallaf?",
+                "jawab": "Ya, selain beasiswa pendidikan, penerima manfaat juga mendapatkan pendampingan dan pembinaan keagamaan."
+            }
+        ]
+    },
+    "bpmi": {
+        "nama": "BPMI",
+        "deskripsi": "Program Bantuan Pembinaan Masjid & Musholla serta kesejahteraan marbot/pengurus masjid di lingkungan USK.",
+        "syarat": [
+            "Pengurus / marbot masjid atau musholla di lingkungan kampus USK",
+            "Aktif menjalankan tugas kebersihan dan kemakmuran masjid"
+        ],
+        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
+        "qna": []
+    },
     "ota_palestina": {
         "nama": "OTA PALESTINA (Orang Tua Asuh Mahasiswa Palestina)",
         "deskripsi": "Program beasiswa dan bantuan biaya hidup khusus untuk mahasiswa asal Palestina.",
@@ -127,46 +167,6 @@ PROGRAMS = {
                 "jawab": "Berupa bantuan modal usaha, pelatihan, dan pendampingan UMKM dhuafa yang seleksinya dilakukan melalui survei lapangan oleh tim Rumah Amal."
             }
         ]
-    },
-    "ota_beasiswa": {
-        "nama": "BEASISWA ORANG TUA ASUH (OTA)",
-        "deskripsi": "Program beasiswa di mana donatur (Orang Tua Asuh) membiayai langsung satu atau lebih mahasiswa asuh.",
-        "syarat": [
-            "Mahasiswa berprestasi namun kurang mampu",
-            "Bersedia memberikan laporan perkembangan studi kepada donatur"
-        ],
-        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
-        "qna": [
-            {
-                "tanya": "Bagaimana sistem skema beasiswa Orang Tua Asuh (OTA)?",
-                "jawab": "Donatur (Orang Tua Asuh) memberikan bantuan beasiswa rutin untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK."
-            }
-        ]
-    },
-    "muallaf": {
-        "nama": "BEASISWA MUALLAF",
-        "deskripsi": "Program dukungan pendidikan khusus bagi mahasiswa atau masyarakat yang baru memeluk agama Islam (Muallaf).",
-        "syarat": [
-            "Memiliki sertifikat/surat keterangan syahadat",
-            "Membutuhkan dukungan finansial pendidikan"
-        ],
-        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
-        "qna": [
-            {
-                "tanya": "Apakah ada pembinaan khusus selain bantuan biaya bagi penerima beasiswa Muallaf?",
-                "jawab": "Ya, selain beasiswa pendidikan, penerima manfaat juga mendapatkan pendampingan dan pembinaan keagamaan."
-            }
-        ]
-    },
-    "bpmi": {
-        "nama": "BPMI",
-        "deskripsi": "Program Bantuan Pembinaan Masjid & Musholla serta kesejahteraan marbot/pengurus masjid di lingkungan USK.",
-        "syarat": [
-            "Pengurus / marbot masjid atau musholla di lingkungan kampus USK",
-            "Aktif menjalankan tugas kebersihan dan kemakmuran masjid"
-        ],
-        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
-        "qna": []
     }
 }
 
@@ -216,7 +216,26 @@ def get_all_programs_context() -> str:
     return konteks_teks
 
 def get_program_list():
-    return "\n".join([f"{i+1}. {prog['nama']}" for i, prog in enumerate(PROGRAMS.values())])
+    return (
+        "✨ *KATALOG PROGRAM & BANTUAN RUMAH AMAL USK*\n\n"
+        "Berikut program penyaluran & beasiswa yang tersedia:\n\n"
+        "🎓 *Beasiswa & Bantuan Mahasiswa:*\n"
+        " 1. 🎓 PINTAS (Pinjaman Tanpa Syarat)\n"
+        " 2. 📚 BPRA-UKT (Bantuan Pembayaran UKT)\n"
+        " 3. 👨‍👩‍👧 Beasiswa Orang Tua Asuh (OTA)\n"
+        " 4. 🌙 Beasiswa Muallaf\n"
+        " 5. 💼 BPMI (Bantuan Operasional Mahasiswa)\n\n"
+        "💚 *Penyaluran & Pemberdayaan Sosial:*\n"
+        " 6. 🇵🇸 OTA Palestina\n"
+        " 7. 🥩 Green Qurban\n"
+        " 8. 🍱 Bantuan Nasi Bungkus\n"
+        " 9. 🚀 ECRA (Entrepreneurship Club)\n"
+        " 10. 🏦 P2EMD (Modal Usaha Dhuafa)\n\n"
+        "----------------------------------------\n"
+        "📌 *Pilihan Navigasi:*\n"
+        "• Ketik angka *1 s.d. 10* untuk melihat detail program\n"
+        "• Ketik *0* untuk Kembali ke Menu Utama"
+    )
 
 def get_program_info(program_name: str) -> dict:
     keyword = program_name.lower().strip()

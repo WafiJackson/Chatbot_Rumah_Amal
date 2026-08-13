@@ -3,7 +3,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "..", "donatur.db"))
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "donatur.db")
 
 
 def get_db_connection():
@@ -179,24 +179,16 @@ def reset_status(no_wa: str):
         conn.commit()
 
 
-def simpan_transaksi_final(no_wa: str, nama: str, pekerjaan: str, nominal: str, kode_program: str = None):
+def simpan_transaksi_final(no_wa: str, nama: str, pekerjaan: str, nominal: str):
     """
     Menyimpan pendaftaran/transaksi ke tabel `transaksi_donasi`
-    berdasarkan `target_program` dari `sesi_percakapan` (atau parameter kode_program),
-    lalu mereset status ke IDLE.
+    berdasarkan `target_program` dari `sesi_percakapan`, lalu mereset status ke IDLE.
     """
     if not no_wa:
         return
 
-    # Normalisasi nomor WA untuk pencarian sesi
-    raw_digits = "".join(filter(str.isdigit, str(no_wa)))
-    session = get_session(raw_digits)
-    if not session.get("target_program") and raw_digits.startswith("0"):
-        session = get_session(raw_digits[1:])
-    elif not session.get("target_program") and raw_digits.startswith("62"):
-        session = get_session(raw_digits[2:])
-
-    final_kode = kode_program or session.get("target_program") or "INF-RUTIN"
+    session = get_session(no_wa)
+    kode_program = session.get("target_program") or "INF-RUTIN"
 
     # Bersihkan nominal menjadi integer murni
     nominal_clean = 0
@@ -212,7 +204,7 @@ def simpan_transaksi_final(no_wa: str, nama: str, pekerjaan: str, nominal: str, 
 
     if is_supabase_configured():
         try:
-            supabase_simpan_transaksi(no_wa_clean, nama, pekerjaan, nominal_clean, final_kode)
+            supabase_simpan_transaksi(no_wa_clean, nama, pekerjaan, nominal_clean, kode_program)
         except Exception as e:
             print(f"[Supabase Fallback to SQLite - simpan_transaksi] {e}")
 
@@ -220,7 +212,7 @@ def simpan_transaksi_final(no_wa: str, nama: str, pekerjaan: str, nominal: str, 
     with get_db_connection() as conn:
         conn.execute(
             "INSERT INTO transaksi_donasi (no_wa, nama_donatur, pekerjaan, kode_program, nominal, waktu_transaksi) VALUES (?, ?, ?, ?, ?, ?)",
-            (no_wa_clean, nama, pekerjaan, final_kode, nominal_clean, waktu_sekarang)
+            (no_wa_clean, nama, pekerjaan, kode_program, nominal_clean, waktu_sekarang)
         )
         conn.commit()
 
@@ -256,4 +248,46 @@ def ambil_riwayat_donasi(no_wa: str) -> list[dict]:
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+def sync_offline_sqlite_to_supabase():
+    """
+    Background Task:
+    Memeriksa transaksi offline di SQLite lokal yang belum tersinkron ke Supabase Cloud (synced_supabase = 0)
+    dan mengunggahnya secara otomatis ketika jaringan Supabase online kembali.
+    """
+    if not is_supabase_configured():
+        return
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.execute("PRAGMA table_info(transaksi_donasi)")
+            columns = [row["name"] for row in cursor.fetchall()]
+            if "synced_supabase" not in columns:
+                conn.execute("ALTER TABLE transaksi_donasi ADD COLUMN synced_supabase INTEGER DEFAULT 0")
+                conn.commit()
+
+            cursor = conn.execute("SELECT * FROM transaksi_donasi WHERE synced_supabase = 0 OR synced_supabase IS NULL LIMIT 50")
+            rows = cursor.fetchall()
+            if not rows:
+                return
+
+            synced_ids = []
+            for r in rows:
+                try:
+                    supabase_simpan_transaksi(
+                        r["no_wa"], r["nama_donatur"], r["pekerjaan"], r["nominal"], r["kode_program"]
+                    )
+                    synced_ids.append(r["id"])
+                except Exception as e_row:
+                    print(f"[Warning Sync Row {r['id']}] {e_row}")
+
+            if synced_ids:
+                placeholders = ",".join(["?"] * len(synced_ids))
+                conn.execute(f"UPDATE transaksi_donasi SET synced_supabase = 1 WHERE id IN ({placeholders})", synced_ids)
+                conn.commit()
+                print(f"[Auto Sync] Berhasil mengunggah {len(synced_ids)} transaksi offline SQLite -> Supabase Cloud")
+    except Exception as e:
+        print(f"[Warning Background Auto Sync SQLite->Supabase] {e}")
+
 
