@@ -436,6 +436,8 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         teks,
         [
             "pintas",
+            "pinjam",
+            "meminjam",
             "pinjaman tanpa syarat",
             "pinjaman tanpa agunan",
             "pengajuan bantuan",
@@ -589,14 +591,6 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         return "takjil_ramadan"
     if _ada_salah_satu(teks, ["apresiasi fi sabilillah", "fi sabilillah", "paket sembako", "santunan hari raya"]):
         return "apresiasi_fisabilillah"
-    if _ada_salah_satu(teks, ["qurban", "kurban", "daging kurban", "idul adha"]):
-        return "qurban"
-    if _ada_salah_satu(teks, ["bencana nasional", "bencana internasional", "bantuan palestina", "solidaritas global", "gempa", "banjir"]):
-        return "posko_bencana"
-    if _ada_salah_satu(teks, ["siswa sekolah", "sd", "smp", "sma", "anak yatim", "piatu"]):
-        return "bantuan_siswa"
-    if _ada_salah_satu(teks, ["saran", "kritik", "masukan"]):
-        return "kritik_saran"
 
     # Fallback ke LLM untuk klasifikasi intent fleksibel
     llm_intent = llm_agent.get_intent(teks)
@@ -607,22 +601,22 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
 
 
 def ambil_balasan(intent: str, nama_pengirim: str | None = None) -> str:
+    from services.gender_detector import deteksi_sapaan_gender, bersihkan_dan_normalisasi_nama
+    sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
+    clean_name = bersihkan_dan_normalisasi_nama(nama_pengirim).title() if nama_pengirim else ""
+
+    if intent in ["doa_zakat_mal", "doa_zakat_penghasilan", "doa_infak"]:
+        prog_tag = "Zakat Mal" if intent == "doa_zakat_mal" else ("Zakat Penghasilan" if intent == "doa_zakat_penghasilan" else "Infak Rutin")
+        return _dapatkan_doa_spesifik(prog_tag, sapaan_donatur)
+
     if intent == "info_program":
-        return (
-            "Berikut program Rumah Amal yang saat ini tersedia:\n\n"
-            f"{get_program_list()}\n\n"
-            "Silakan sebutkan nama program yang ingin ditanyakan, misalnya *PINTAS*, *BPRA-UKT*, *OTA Palestina*, *Nasi Bungkus*, *ECRA*, atau *P2EMD*."
-        )
+        return get_program_list()
+
     text = QA_SCRIPT.get(intent, QA_SCRIPT["tidak_diketahui"])
-    if intent == "sapaan":
-        from services.gender_detector import deteksi_sapaan_gender, bersihkan_dan_normalisasi_nama
-        sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
-        clean_name = bersihkan_dan_normalisasi_nama(nama_pengirim).title() if nama_pengirim else ""
-        if clean_name:
-            sapaan_panggilan = f"{sapaan_donatur} {clean_name}"
-        else:
-            sapaan_panggilan = sapaan_donatur
-        return text.format(sapaan_panggilan=sapaan_panggilan)
+
+    if "{sapaan_panggilan}" in text:
+        text = text.replace("{sapaan_panggilan}", sapaan_donatur)
+
     return text
 
 
@@ -802,7 +796,8 @@ def susun_balasan(
         context_dinamis = dict(context or {})
         context_dinamis["last_program_key"] = detected_program_key or context_dinamis.get("last_program_key")
 
-        program_key = extract_program_keyword(potong)
+        is_pinjam = _ada_salah_satu(teks_norm, ["pintas", "pinjam", "pinjaman", "meminjam", "pinjam uang"])
+        program_key = "pintas" if is_pinjam else extract_program_keyword(potong)
         if not program_key:
             program_key = _gunakan_konteks_program(potong, context_dinamis)
 

@@ -19,7 +19,8 @@ from services.gender_detector import deteksi_sapaan_gender
 from services.logger import logger
 
 router = APIRouter()
-WAHA_SEND_URL = "http://localhost:3000/api/sendText"
+WAHA_ENDPOINT = os.getenv("WAHA_ENDPOINT", "http://waha-gateway:3000").rstrip("/")
+WAHA_SEND_URL = f"{WAHA_ENDPOINT}/api/sendText"
 WAHA_API_KEY = os.getenv("WAHA_API_KEY", "amalmaximal123")
 user_sessions = {}
 
@@ -117,7 +118,7 @@ def _dapatkan_nomor_hp_asli(chat_id_asli: str, payload_waha: dict = None, sessio
         session_name = _get_active_waha_session()
 
     try:
-        url = f"http://localhost:3000/api/contacts/all?session={session_name}"
+        url = f"{WAHA_ENDPOINT}/api/contacts/all?session={session_name}"
         res = requests.get(url, headers={"X-Api-Key": WAHA_API_KEY}, timeout=3)
         if res.status_code == 200:
             contacts = res.json()

@@ -1,6 +1,6 @@
 # 🤖 Bot WhatsApp Rumah Amal USK (Hybrid & Cloud AI Engine)
 
-Sistem Bot WhatsApp cerdas, ter-modularisasi, dan berkemampuan hibrida (*Fast-Path Regex + State Machine + Google Gemini 2.5 Flash Cloud AI + AI Vision OCR + Supabase Cloud*) yang dibangun khusus untuk melayani informasi program, penyaluran donasi/zakat, permohonan bantuan (PINTAS/BPRA-UKT), cek riwayat transaksi, deteksi sapaan gender dinamis, dan notifikasi *alert* otomatis ke Admin Rumah Amal Masjid Jamik USK.
+Sistem Bot WhatsApp cerdas, ter-modularisasi, dan berkemampuan hibrida (*Fast-Path Regex + State Machine + Google Gemini 2.5 Flash Cloud AI + AI Vision OCR + Supabase Cloud*) yang dibangun khusus untuk melayani informasi program, penyaluran donasi/zakat, permohonan bantuan (PINTAS/BPRA-UKT), cek riwayat transaksi, deteksi sapaan gender dinamis, generator doa syar'i acak, dan notifikasi *alert* otomatis ke Admin Rumah Amal Masjid Jamik USK.
 
 ---
 
@@ -20,20 +20,24 @@ flowchart TD
         Router["HTTP Router (/webhook)"]
         AuthCheck["🔒 Security Check (WAHA_API_KEY Header)"]
         Deduplication["🛡️ Message Deduplication (PROCESSED_MSG_IDS)"]
+        RateLimiter["⚡ Rate Limiter (Max 20 req/min per WA)"]
         GenderEngine["👤 Gender Detector Engine (Bapak/Ibu/Kak)"]
-        MediaDecoder["🖼️ Base64 & Media URL Image Downloader"]
+        MediaDecoder["🖼️ Base64 & Media URL HD Image Downloader (>30KB Threshold)"]
         LIDResolver["🔍 LID & Contact Resolver (LID -> Phone Number & Name)"]
         FastPath["⚡ Fast-Path Intent Router (0.001s Regex & Typo-Tolerant)"]
+        HealthCheck["🏥 WAHA Session Health Monitor (5 Min Interval)"]
     end
 
     subgraph State_Layer ["💾 State Machine & Dual Storage Engine"]
         FSM["🔄 Finite State Machine (IDLE / TANYA_PROGRAM / PILIH_PROGRAM / MENUNGGU_ADMIN / NUNGGU_BUKTI_TRANSFER)"]
         SQLiteDB[("💾 Local SQLite DB (donatur.db in Docker Volume)")]
         SupabaseDB[("☁️ Supabase Cloud DB (transaksi_donasi & master_program)")]
+        AutoSync["🔄 Background Auto-Sync Worker (SQLite -> Supabase)"]
     end
 
     subgraph AI_Layer ["🧠 Google Gemini Cloud AI Layer (Zero VPS Load)"]
         GeminiAPI["☁️ Google Gemini 2.5 Flash API (NLU, Q&A & NER)"]
+        DoaGen["🤲 Random Doa Syar'i Generator (4 Variasi Doa Arab & Terjemahan)"]
         Guardrail["🛡️ Anti-Hallucination Guardrail Verifier"]
         VisionOCR["👁️ Multimodal Vision OCR (Resi BSI Mobile & BYOND Reader)"]
     end
@@ -46,7 +50,8 @@ flowchart TD
     WAHA -->|"2. HTTP POST Webhook Payload"| Router
     Router --> AuthCheck
     AuthCheck --> Deduplication
-    Deduplication --> MediaDecoder
+    Deduplication --> RateLimiter
+    RateLimiter --> MediaDecoder
     MediaDecoder --> LIDResolver
     LIDResolver --> GenderEngine
     GenderEngine --> FastPath
@@ -54,11 +59,15 @@ flowchart TD
     FastPath -->|"Cek Status Sesi & State"| FSM
     FSM <-->|"Sync Status Sesi"| SQLiteDB
     FSM <-->|"Sync Transaksi & Master Program"| SupabaseDB
+    SQLiteDB -.-> AutoSync
+    AutoSync -.-> SupabaseDB
 
     FastPath -->|"Foto Resi (Media)"| VisionOCR
     FastPath -->|"Pertanyaan Bebas (Q&A)"| GeminiAPI
     GeminiAPI --> Guardrail
+    FastPath --> DoaGen
 
+    HealthCheck -.->|"Ping Alert (WAHA Down)"| AdminWA
     FastPath -->|"Pengajuan Admin (PINTAS/BPRA-UKT/DLL)"| AdminWA
     FastPath -->|"Balasan Pesan WA"| WAHA
     WAHA -->|"Balas Chat"| User
@@ -91,10 +100,10 @@ stateDiagram-v2
     IDLE --> MENUNGGU_ADMIN : Pilihan 5
 
     state TANYA_PROGRAM {
-        [*] --> Katalog10Program
-        Katalog10Program --> DetailProgram : Ketik 1 s.d. 10
-        Katalog10Program --> IDLE : Ketik 0 (Kembali ke Menu Utama)
-        DetailProgram --> Katalog10Program : Ketik 11 (Kembali ke Daftar Program)
+        [*] --> KatalogPilihanC
+        KatalogPilihanC --> DetailProgram : Ketik 1 s.d. 10
+        KatalogPilihanC --> IDLE : Ketik 0 (Kembali ke Menu Utama)
+        DetailProgram --> KatalogPilihanC : Ketik 11 (Kembali ke Daftar Program)
         DetailProgram --> IDLE : Ketik 0 (Kembali ke Menu Utama)
         DetailProgram --> MENUNGGU_ADMIN : Balas "Ya" (Sambung Admin)
     }
@@ -119,229 +128,110 @@ stateDiagram-v2
 
     PingAdminSuccess --> IDLE : Send Alert to Admin WA & Reset
     BatalAdmin --> IDLE : Reset State
-    SaveSuccess --> IDLE : Simpan ke Supabase & Reset
+    SaveSuccess --> IDLE : Simpan ke Supabase & Reset + Random Doa
     RetryReceipt --> NUNGGU_BUKTI_TRANSFER : Minta Ulang Resi
 ```
 
 ---
 
-## 👤 3. Engine Deteksi Gender & Normalisasi Sapaan (`gender_detector.py`)
+## 🤲 3. Random Doa Syar'i Generator Engine (`admin_scripts.py`)
 
-Diagram alur berikut menjelaskan bagaimana sistem membersihkan nama profil WhatsApp (`pushname`) donatur dan menentukan sapaan **Bapak**, **Ibu**, atau **Kak** secara presisi:
+Diagram alur berikut menjelaskan bagaimana sistem menghasilkan **Variasi Doa Syar'i Acak** berbahasa Arab + terjemahan yang berganti-ganti secara alami saat donatur berdonasi:
 
 ```mermaid
 flowchart TD
-    StartGender["👤 Terima Nama Pengirim (Pushname WA)"] --> Transliterate["🔤 Unicode NFKD Transliteration (À -> A, é -> e)"]
-    Transliterate --> CleanRegex["🧹 Clean Non-Alphabet & Emoji (Simpan Huruf & Spasi)"]
-    CleanRegex --> Unspacing["🔗 Unspacing Single Letters (N O V À L ☕️ -> NOVAL)"]
-    Unspacing --> Lowercase["🔤 Convert to Lowercase Tokens"]
+    StartDoa["🤲 Panggilan Konfirmasi Donasi (Zakat/Infak)"] --> GetSalutation["👤 Ambil Sapaan Gender (Bapak / Ibu / Kak)"]
+    GetSalutation --> FormatNominal["💰 Format Nominal (Rp 100.000)"]
+    FormatNominal --> RandomSelect{"🎲 Select Random Doa (1 s.d 4)"}
 
-    Lowercase --> WordMatch{"🔍 Match Kata Kunci (Pria / Wanita)?"}
-    WordMatch -- "Match PRIA_KEYWORDS (Yafi, Noval, Teuku, M, etc)" --> SetBapak["👨 Set Sapaan: 'Bapak'"]
-    WordMatch -- "Match WANITA_KEYWORDS (Cut, Dara, Siti, Aisyah, etc)" --> SetIbu["👩 Set Sapaan: 'Ibu'"]
+    RandomSelect -- "Variasi 1" --> Doa1["🤲 Doa Penyucian Harta & Pahala ('آجَرَكَ اللهُ فِيْمَا أَعْطَيْتَ...')"]
+    RandomSelect -- "Variasi 2" --> Doa2["🤲 Doa Keberkahan Kelipatan Rezeki ('اللَّهُمَّ أَعْطِ مُنْفِقًا خَلَفًا...')"]
+    RandomSelect -- "Variasi 3" --> Doa3["🤲 Doa Kemudahan Urusan & Kebahagiaan Keluarga"]
+    RandomSelect -- "Variasi 4" --> Doa4["🤲 Doa Perlindungan & Kesucian Rezeki"]
 
-    WordMatch -- "Tidak Match" --> SubstringMatch{"🔍 Match Substring / Suffix?"}
-    SubstringMatch -- "Contains: hidayat, syahputra, pratama, etc / Suffix: wan, syah" --> SetBapak
-    SubstringMatch -- "Contains: fadhilah, zahrani, nisa, etc / Suffix: wati, sari" --> SetIbu
-    SubstringMatch -- "Low Confidence / Ambigu / Emoji Murni" --> SetKak["👥 Set Fallback Safety Net: 'Kak'"]
+    Doa1 --> FormatFinal["✨ Gabungkan Teks Terjemahan, Nama Donatur & Nominal"]
+    Doa2 --> FormatFinal
+    Doa3 --> FormatFinal
+    Doa4 --> FormatFinal
 
-    SetBapak --> FormatSalutation["✨ Format Sapaan: 'Bapak [Nama]' / 'Bapak'"]
-    SetIbu --> FormatSalutation["✨ Format Sapaan: 'Ibu [Nama]' / 'Ibu'"]
-    SetKak --> FormatSalutation["✨ Format Sapaan: 'Bapak/Ibu [Nama]' / 'Kak'"]
-
-    FormatSalutation --> ApplyAll["🚀 Terapkan ke Seluruh Balasan Bot (Bicara Konsisten)"]
+    FormatFinal --> SendDoaWA["🚀 Kirim Pesan Doa Syar'i ke WhatsApp Pengguna"]
 ```
 
 ---
 
-## ⚡ 4. Fast-Path Router Bahasa Santai / Nyeleneh / Sapaan Gaul (0.001 Detik)
+## ⚡ 4. Fast-Path Router Bahasa Santai, Typo-Tolerant & Priority Engine (0.001s)
 
-Diagram alur keputusan Fast-Path instan untuk menangkap pertanyaan santai/nyeleneh & sapaan gaul tanpa tergantung pada server LLM:
+Diagram alur keputusan Fast-Path instan untuk menangkap sapaan gaul, typo, dan prioritas PINTAS di atas BPRA-UKT:
 
 ```mermaid
 flowchart TD
     IncomingMsg["📩 Pesan Teks Diterima (Status: IDLE)"] --> FastCheck{"⚡ Jalur Fast-Path (0.001s)"}
 
     FastCheck -- "oi lek / woi / p / halo / hai / assalamualaikum" --> ResSapaan["👋 Balas Menu Utama Sapaan Instant"]
+    FastCheck -- "pintas / meminjam / pinjam uang" --> ResPintas["💸 Balas Detail PINTAS + Opsi Handoff Admin (Priority Over UKT)"]
+    FastCheck -- "info beasiswa / beasiswa apa saja" --> ResBeasiswa["🎓 Balas Katalog Beasiswa Resmi USK"]
+    FastCheck -- "kurang dana ukt / bpra ukt" --> ResUKT["📚 Balas Detail Program BPRA-UKT & QnA"]
     FastCheck -- "rumah amal letaknya dimana / gmaps" --> ResAlamat["📍 Balas Alamat Kantor (Lantai 1 Masjid Jamik USK)"]
-    FastCheck -- "info beasiswa / beasiswa apa saja" --> ResBeasiswa["🎓 Balas Katalog 4 Beasiswa Resmi USK"]
-    FastCheck -- "kurang dana ukt / bayar ukt / bpra" --> ResUKT["📚 Balas Detail Program BPRA-UKT & Opsional Admin"]
-    FastCheck -- "meminjam uang / pintas / pinjam" --> ResPintas["💸 Balas Detail Program PINTAS & Opsional Admin"]
     FastCheck -- "jam kerja / buka jam berapa" --> ResJam["⏰ Balas Jam Operasional (Senin-Jumat 08.00-16.30 WIB)"]
     FastCheck -- "rekening bsi / norek" --> ResRek["🏦 Balas Rekening BSI 7099400409 a.n. Rumah Amal Mesjid Unsyiah"]
-    FastCheck -- "liat riwayat / riwayat donasi / Ketik 4" --> ResRiwayat["📜 Balas Riwayat Donasi Terakhir (Supabase Cloud / SQLite)"]
+    FastCheck -- "liat riwayat / riawayat / riwayat donasi" --> ResRiwayat["📜 Balas Riwayat Donasi Terakhir (Typo-Tolerant)"]
 
     ResSapaan --> FinishFast["✅ Kirim Balasan WA Instan (0.001s)"]
-    ResAlamat --> FinishFast
+    ResPintas --> FinishFast
     ResBeasiswa --> FinishFast
     ResUKT --> FinishFast
-    ResPintas --> FinishFast
+    ResAlamat --> FinishFast
     ResJam --> FinishFast
     ResRek --> FinishFast
     ResRiwayat --> FinishFast
 
     FastCheck -- "Pertanyaan Kompleks / Bebas" --> LLMRoute["☁️ Teruskan ke Google Gemini 2.5 Flash Cloud API"]
-```
-
----
-
-## 📜 5. Alur Cek Riwayat Transaksi Donasi Berbasis Nomor WA
-
-Diagram alur berikut menjelaskan bagaimana fitur Cek Riwayat Transaksi bekerja secara aman berbasis nomor WhatsApp pengirim:
-
-```mermaid
-flowchart TD
-    UserReq["📜 Pengguna Memilih Menu 4 / Ketik 'liat riwayat'"] --> GetPhone["📱 Ekstrak Nomor HP Real via LID Resolver"]
-    GetPhone --> QuerySupabase["☁️ Query DB Supabase / SQLite (transaksi_donasi WHERE no_wa = phone)"]
-    QuerySupabase --> CheckData{"📊 Data Transaksi Ditemukan?"}
-
-    CheckData -- "Ada Transaksi" --> FormatHistory["✨ Format List Transaksi (Tanggal | Nominal | Program | Status)"]
-    FormatHistory --> SumTotal["💰 Hitung Akumulasi Total Penyaluran Donasi"]
-    SumTotal --> SendHistory["💬 Kirim Balasan Riwayat Transaksi + Doa Spesifik"]
-
-    CheckData -- "Kosong" --> SendEmpty["Mohon maaf, Mimin belum menemukan riwayat transaksi donasi... Yuk donasi pertama!"]
-
-    SendHistory --> FinishRiwayat["✅ Reset State ke IDLE"]
-    SendEmpty --> FinishRiwayat
-```
-
----
-
-## 📸 6. Alur Pemrosesan Resi & Multimodal Vision OCR (`Gemini 2.5 Flash`)
-
-Diagram urutan berikut menjelaskan alur pemrosesan foto resi transfer BSI Mobile / BYOND dari donatur hingga pencatatan ke database:
-
-```mermaid
-flowchart TD
-    StartResi["📸 Donatur Mengirim Foto Resi (BSI Mobile / BYOND)"] --> DownloadImg["📥 WAHA HTTP Downloader (Headers: X-Api-Key)"]
-    DownloadImg --> ExecOCR["👁️ Ekstraksi Multimodal Vision (Google Gemini 2.5 Flash API)"]
-    ExecOCR --> CheckNominal{"🔍 Nominal & Data Terbaca?"}
-
-    CheckNominal -- "Ya (Sukses)" --> SaveSupabase["☁️ Simpan Transaksi Donasi ke Supabase Cloud / SQLite"]
-    SaveSupabase --> ResetFSM["🔄 Reset Status Pengguna ke IDLE"]
-    ResetFSM --> SendDoa["🙏 Kirim Pesan Terimakasih & Doa Spesifik Program"]
-    SendDoa --> EndSuccess["✅ Alur Resi Selesai"]
-
-    CheckNominal -- "Tidak / Gambar Buram" --> PromptRetry["⚠️ Kirim Pesan: Gambar kurang terbaca, silakan ketik manual..."]
-    PromptRetry --> SetStateWait["🔄 Update State: NUNGGU_BUKTI_TRANSFER"]
-    SetStateWait --> EndRetry["⏳ Menunggu Input Manual Donatur"]
-```
-
----
-
-## 🆘 7. Notifikasi Alert Admin & LID Resolver
-
-Diagram urutan berikut menjelaskan alur penerjemahan ID WhatsApp Privacy (`@lid`) dan pengiriman pesan *ping* peringatan otomatis ke WhatsApp Admin (`0812-6966-6776`):
-
-```mermaid
-flowchart TD
-    StartAdmin["💬 Pengguna Membalas 'Ya' pada Penawaran Admin"] --> FetchLID["🔍 Panggil LID Contact Resolver (_dapatkan_nomor_hp_asli)"]
-    FetchLID --> QueryWAHA["🌐 Query GET /api/contacts/all ke WAHA Engine"]
-    QueryWAHA --> MapPhone["📱 Terjemahkan ID Privacy (@lid) -> Nomor HP Real (0812...) & Nama"]
-    MapPhone --> BuildAlert["✉️ Susun Pesan Alert: 🆘 [NAMA_PROGRAM] Ada permohonan dari..."]
-    BuildAlert --> SendAdmin["🚀 Send Text ke WhatsApp Admin (0812-6966-6776)"]
-    SendAdmin --> ConfirmUser["💬 Kirim Konfirmasi ke Pengguna: Pesan Anda sedang diteruskan ke Admin..."]
-    ConfirmUser --> ResetIdle["🔄 Reset State Pengguna ke IDLE"]
-    ResetIdle --> EndAdmin["✅ Alur Handoff Admin Selesai"]
+    FastCheck -- "Pertanyaan OOT / Iseng" --> ResOOT["😊 Balas Jawaban Penolakan OOT Ramah + Navigasi Cepat"]
 ```
 
 ---
 
 ## 🌟 Ringkasan Fitur Unggulan Sistem
 
-1. **Menu Utama 5 Pilihan Bebas Tabrakan:**
-   - `1. Program apa saja?` (Katalog 10 Program)
-   - `2. Ingin berdonasi?` (Menu Zakat & Donasi)
-   - `3. Alamat kantor?` (Lokasi Masjid Jamik USK)
-   - `4. Cek riwayat transaksi` (Histori Donasi Terverifikasi)
-   - `5. Hubungi admin` (Sambungkan ke Admin WA)
+1. **Katalog Program Pilihan C (Gabungan):**
+   - **1 s.d 5 (Mahasiswa):** `🎓 PINTAS`, `📚 BPRA-UKT`, `👨‍👩‍👧 OTA`, `🌙 Muallaf`, `💼 BPMI`.
+   - **6 s.d 10 (Sosial):** `🇵🇸 OTA Palestina`, `🥩 Green Qurban`, `🍱 Nasi Bungkus`, `🚀 ECRA`, `🏦 P2EMD`.
 
-2. **Dua Tingkat Navigasi Program (Level 1 & Level 2):**
-   - **Level 1 (Daftar Program):** Ketik `1 s.d. 10` (Pilih Program), Ketik `0` (Kembali ke Menu Utama).
-   - **Level 2 (Detail Program & QNA):** Ketik `1 s.d. N` (Baca QNA), Ketik `11` (Kembali ke Daftar Program), Ketik `0` (Kembali ke Menu Utama).
+2. **Random Doa Syar'i Generator:**
+   - 4 Variasi Doa Syar'i (Lafadz Arab + Terjemahan + Doa Keberkahan) yang berganti-ganti secara acak saat donatur berdonasi.
 
-3. **Gender Detector & Salutation Engine (`services/gender_detector.py`):**
-   - Deteksi gender otomatis dari nama/pushname (Unicode NFKD Transliteration + Unspacing Single-Letter).
-   - Menyapa **Bapak** / **Ibu** secara konsisten di seluruh layar percakapan.
+3. **Background Auto-Sync SQLite $\rightarrow$ Supabase Cloud:**
+   - Mengunggah ulang transaksi offline SQLite ke Supabase Cloud saat jaringan pulih.
 
-4. **Fast-Path Router Bahasa Santai & Typo-Tolerant (0.001 Detik):**
-   - Respon instan kilat untuk sapaan gaul (*"oi lek"*, *"woi"*), alamat (*"letaknya dimana"*), info beasiswa (*"info beasiswa"*), bantuan UKT (*"kurang dana ukt"*), pinjaman (*"meminjam uang"*), jam kerja (*"buka jam berapa"*), nomor rekening (*"norek bsi"*), dan riwayat (*"liat riwayat"*).
+4. **WAHA Session Health Monitor & Rate Limiter:**
+   - Peringatan otomatis ke Admin WA jika WhatsApp bot terputus + Proteksi anti-spam (Max 20 req/min per WA).
 
-5. **Google Gemini 2.5 Flash Cloud AI (Zero VPS Load):**
-   - Menggunakan model cloud `gemini-2.5-flash` untuk NLU, Q&A, dan Vision OCR resi transfer. Latensi super cepat (~0.3s) dan beban VPS 0%.
-
-6. **Dual Database Sync (Supabase Cloud + Local SQLite Volume):**
-   - Sinkronisasi real-time ke Supabase Cloud dengan proteksi offline fallback otomatis ke SQLite lokal (`sqlite_data` volume).
+5. **HD Media Downloader (>30KB Threshold):**
+   - Memaksa WAHA mengunduh foto resi asli beresolusi tinggi (HD > 30KB) dari HP pengirim.
 
 ---
 
 ## ⚙️ Pengaturan Environment (`.env`)
 
-Buat atau perbarui berkas `.env` di direktori utama proyek dengan variabel berikut:
-
 ```env
-# Credentials Supabase Cloud (Opsional - Fallback ke SQLite)
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_KEY=your-supabase-anon-key
 
-# WAHA WhatsApp Gateway Configuration
 WAHA_ENDPOINT=http://waha-gateway:3000
 WAHA_API_KEY=amalmaximal123
 
-# Google Gemini Cloud AI API Key
-GEMINI_API_KEY=your-gemini-api-key-from-google-ai-studio
+GEMINI_API_KEY=your-gemini-api-key
 MODEL_NAME=gemini-2.5-flash
 
-# Nomor WhatsApp Admin Penerima Notifikasi Alert
 ADMIN_WA_NUMBER=6281269666776@c.us
 ```
 
 ---
 
-## 🚀 Panduan Jalankan & Local Docker Deployment
+## 🚀 Panduan Deployment Docker
 
-### Jalankan Komplit via Docker Compose (Rekomendasi Utama)
 ```bash
 docker compose up -d --build
-```
-
-- **Dashboard WAHA:** `http://localhost:3000` (Scan QR Code)
-- **FastAPI Bot Webhook:** `http://localhost:8000/webhook`
-
----
-
-## 🧪 Pengujian Otomatis (Test Suite)
-
-Skrip pengujian otomatis komprehensif untuk memverifikasi seluruh alur tanpa error:
-
-```bash
-python test_hybrid.py
-```
-
----
-
-## 📂 Struktur Folder Proyek
-
-```text
-bot-rumah-amal/
-├── Dockerfile               # Konfigurasi container Docker FastAPI
-├── docker-compose.yml       # Production stack (api-bot + waha-gateway + volumes)
-├── .env                     # File konfigurasi rahasia (API Key & Supabase)
-├── .env.example             # Template file environment
-├── README.md                # Dokumentasi arsitektur & panduan sistem lengkap
-└── app/
-    ├── main.py              # Entry point FastAPI & route listener
-    ├── admin_scripts.py     # Skrip fakta resmi & matcher intent
-    ├── routes/
-    │   └── bot_webhook.py   # Handler webhook WAHA, FSM, & router utama
-    └── services/
-        ├── gender_detector.py # Engine deteksi gender (Bapak/Ibu/Kak)
-        ├── logger.py          # Production logger (RotatingFileHandler)
-        ├── program_manager.py # Pengelola 10 data resmi program Rumah Amal
-        ├── state_manager.py   # Pengelola FSM State (SQLite + Supabase sync)
-        ├── supabase_client.py # Client Supabase & PostgREST fallback
-        ├── form_parser.py     # Parser regex formulir donasi
-        └── llm_agent.py       # Client Google Gemini 2.5 Flash API & Vision OCR
 ```
 
 ---
