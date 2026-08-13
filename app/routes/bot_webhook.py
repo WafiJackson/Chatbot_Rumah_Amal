@@ -340,9 +340,12 @@ async def waha_webhook(request: Request):
                     payload_waha.get("_data", {}).get("directPath")
                 )
 
-                # Fix path relatif WAHA API (misal /api/files/...)
-                if media_url and media_url.startswith("/"):
-                    media_url = f"{WAHA_ENDPOINT}{media_url}"
+                # Fix URL WAHA API (ganti localhost:3000 dari payload WAHA menjadi WAHA_ENDPOINT internal Docker)
+                if media_url:
+                    if "localhost:3000" in media_url or "127.0.0.1:3000" in media_url:
+                        media_url = media_url.replace("http://localhost:3000", WAHA_ENDPOINT).replace("http://127.0.0.1:3000", WAHA_ENDPOINT)
+                    elif media_url.startswith("/"):
+                        media_url = f"{WAHA_ENDPOINT}{media_url}"
 
                 if media_url and media_url.startswith("http"):
                     try:
