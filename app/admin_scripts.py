@@ -870,3 +870,34 @@ def susun_balasan(
     }
 
 
+DAFTAR_DOA_SYARI = [
+    {
+        "arab": "اللَّهُمَّ أَعْطِ مُنْفِقًا خَلَفًا",
+        "arti": "Ya Allah, berikanlah ganti keberkahan yang berlipat ganda bagi {nama_donatur} yang telah berderma, serta mudahkanlah seluruh urusan keluarga."
+    },
+    {
+        "arab": "آجَرَكَ اللهُ فِيمَا أَعْطَيْتَ، وَبَارَكَ فِيمَا أَبْقَيْتَ، وَجَعَلَهُ لَكَ طَهُورًا",
+        "arti": "Semoga Allah memberikan pahala atas apa yang telah {nama_donatur} berikan, memberkahi harta yang masih tersisa, dan menjadikannya pembersih jiwa serta penolak bala."
+    },
+    {
+        "arab": "اللَّهُمَّ صَلِّ عَلَيْهِمْ وَبَارِكْ لَهُمْ فِي أَمْوَالِهِمْ",
+        "arti": "Ya Allah, limpahkanlah rahmat, ketenangan hati, dan keberkahan yang melimpah pada rezeki dan keluarga {nama_donatur}."
+    }
+]
+
+
+def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:
+    """Mengembalikan satu format doa keberkahan syar'i lengkap tanpa duplikasi kata."""
+    import random
+    doa = random.choice(DAFTAR_DOA_SYARI)
+    arti_doa = doa["arti"].replace("{nama_donatur}", nama_donatur)
+    nominal_teks = f"sebesar *Rp {nominal_fmt}* " if nominal_fmt else ""
+    return (
+        f"Alhamdulillah, masyaAllah! 🌟 Donasi/Penyaluran {nominal_teks}dari *{nama_donatur}* untuk program *{nama_program}* telah tercatat di sistem kami.\n\n"
+        f"🤲 *Doa Keberkahan Rezeki:*\n"
+        f"\"{doa['arab']}\"\n"
+        f"(\"{arti_doa}\")\n\n"
+        f"Aamiin Yaa Rabbal 'Aalamiin. Terima kasih banyak {nama_donatur}! 🙏"
+    )
+
+

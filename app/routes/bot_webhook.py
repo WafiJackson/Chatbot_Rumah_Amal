@@ -944,12 +944,13 @@ async def waha_webhook(request: Request):
 
             if nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
-                state_manager.simpan_transaksi_final(nomor_hp_real, nama, f"Donasi {nama_program_layar}", nominal)
+                pekerjaan_donatur = data_diekstrak.get("pekerjaan") or "Donatur"
+                state_manager.simpan_transaksi_final(nomor_hp_real, nama, pekerjaan_donatur, nominal, kode_program=program_kode)
                 state_manager.reset_status(nomor_wa)
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
-                doa_teks = _dapatkan_doa_spesifik(program_kode)
-                balasan = f"Alhamdulillah, donasi sebesar Rp{nominal} dari {sapaan_donatur} {nama} untuk program *{nama_program_layar}* telah kami terima.\n\n{doa_teks}"
+                nominal_fmt = f"{int(nominal):,}"
+                balasan = _dapatkan_doa_spesifik(program_kode, nama_donatur=f"{sapaan_donatur} {nama}", nominal_fmt=nominal_fmt)
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "konfirmasi_sukses"}

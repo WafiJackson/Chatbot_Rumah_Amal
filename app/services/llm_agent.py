@@ -144,16 +144,71 @@ def verifikasi_halusinasi(intent: str, jawaban_llm: str, fakta_script: str = "")
 
 
 def get_intent(pesan: str) -> str:
-    """Menggunakan Gemini 2.5 Flash untuk mengklasifikasikan intent dari pesan pengguna."""
+    """Menggunakan Gemini 2.5 Flash untuk mengklasifikasikan intent dari pesan pengguna ke salah satu dari 47 intent resmi."""
     system_prompt = """Anda adalah mesin pengklasifikasi niat untuk customer service Rumah Amal Masjid Jamik USK.
-Tugas Anda HANYA membalas dengan SATU KATA KUNCI dari daftar intent resmi. JANGAN TULIS HAL LAIN SAMA SEKALI.
+Tugas Anda HANYA membalas dengan SATU KATA KUNCI dari daftar di bawah ini yang paling sesuai dengan pesan pengguna. JANGAN TULIS HAL LAIN SAMA SEKALI.
 
-DAFTAR KATA KUNCI INTENT UTAMA:
-- info_jam_kerja, info_alamat, info_kontak, visi_lembaga, misi_lembaga, motto_lembaga, sasaran_mustahik
-- cara_donasi, info_rekening, info_qris, laporan_penyaluran, info_infak_rutin, daftar_infak_rutin, jenis_zakat
-- info_program, info_bpra_ukt, syarat_beasiswa_umum, double_funding, peduli_sigra, bantuan_bencana_mahasiswa
-- modal_usaha, pembinaan_umkm, mitra_eksternal
-- sapaan, ingin_donasi, minta_bantuan_pintas, konfirmasi_donasi, tidak_diketahui"""
+DAFTAR KATA KUNCI INTENT RESMI:
+[BAGIAN I: PROFIL & OPERASIONAL]
+- info_jam_kerja (jam operasional kantor, buka/tutup)
+- info_alamat (lokasi kantor, alamat masjid jamik USK)
+- info_kontak (nomor WhatsApp/hotline admin)
+- visi_lembaga (visi Rumah Amal USK)
+- misi_lembaga (misi Rumah Amal USK)
+- motto_lembaga (motto Rumah Amal USK)
+- sasaran_mustahik (sasaran penerima bantuan/mustahik)
+- direktur_lembaga (pimpinan/direktur lembaga)
+- status_resmi_usk (status kelembagaan resmi di bawah USK)
+
+[BAGIAN II: DONASI & ZAKAT]
+- cara_donasi (tata cara penyaluran donasi non-tunai/tunai)
+- info_rekening (nomor rekening bank BSI resmi)
+- info_qris (kode QRIS / e-wallet)
+- laporan_penyaluran (transparansi laporan penyaluran dana)
+- info_infak_rutin (penjelasan program sedekah/infak rutin)
+- daftar_infak_rutin (ingin mendaftar program infak rutin bulanan)
+- zakat_pajak (zakat sebagai pengurang pajak penghasilan)
+- jenis_zakat (jenis zakat: mal, penghasilan/profesi, fitrah)
+- donatur_umum (donasi dari umum/alumni/swasta/pemerintah)
+- kalkulator_zakat (fitur kalkulator zakat website)
+
+[BAGIAN III: BEASISWA & BANTUAN MAHASISWA]
+- info_program (daftar seluruh program beasiswa/bantuan)
+- info_bpra_ukt (beasiswa BPRA-UKT mahasiswa USK)
+- syarat_beasiswa_umum (syarat umum mendaftar beasiswa)
+- alasan_aturan_akhlak (alasan syarat tidak merokok/pacaran)
+- diskualifikasi_judol (diskualifikasi judi online / pelanggaran syariat)
+- cara_daftar_beasiswa (tata cara pendaftaran online beasiswa)
+- dokumen_beasiswa (syarat berkas/dokumen wajib beasiswa)
+- semester_beasiswa (batasan semester 2-8 / maba)
+- syarat_ipk (minimal IPK 3.00 beasiswa)
+- double_funding (aturan tidak sedang menerima beasiswa lain/KIP-K)
+- peduli_sigra (program bantuan darurat Peduli SIGRA)
+- bantuan_bencana_mahasiswa (bantuan darurat musibah/kebakaran/laptop)
+- seleksi_wawancara (tahap seleksi wawancara beasiswa)
+- survei_rumah (survei kunjungan lapangan ke rumah)
+- kewajiban_penerima (kewajiban pembinaan & sosial penerima beasiswa)
+- periode_beasiswa (jadwal pendaftaran dibuka berapa kali setahun)
+
+[BAGIAN IV: PEMBERDAYAAN & MITRA]
+- modal_usaha (bantuan modal usaha P2EMD dhuafa)
+- pembinaan_umkm (pembinaan UMKM & sertifikasi halal)
+- mitra_eksternal (kemitraan instansi & CSR perusahaan)
+- tujuan_kolaborasi_csr (tujuan kerja sama CSR)
+- laporan_publik (akses unduh laporan tahunan)
+
+[BAGIAN V: RAMADAN, QURBAN & LAINNYA]
+- takjil_ramadan (takjil & paket berbuka gratis ramadan)
+- apresiasi_fisabilillah (paket sembako/THR fisabilillah)
+- qurban (penyaluran hewan/daging kurban)
+- posko_bencana (bantuan bencana alam / solidaritas Palestina)
+
+[BAGIAN VI: SAPAAN, NIAT DONASI, MINTA BANTUAN & KONFIRMASI]
+- sapaan (pengguna menyapa: halo, assalamualaikum, selamat pagi, ping)
+- ingin_donasi (pengguna menyatakan niat ingin berdonasi, menyumbang, atau sedekah tapi belum menyebut programnya)
+- minta_bantuan_pintas (pengguna memohon bantuan dana, membutuhkan pinjaman, atau meminta donasi untuk diri sendiri)
+- konfirmasi_donasi (pengguna menyatakan SUDAH transfer, SUDAH membayar, atau mengirim resi/bukti transfer)
+- tidak_diketahui (di luar konteks atau pertanyaan tidak relevan)"""
 
     prompt = f"{system_prompt}\n\nPesan Pengguna: '{pesan}'\nBalasan:"
     res_intent = _panggil_gemini_api(prompt)

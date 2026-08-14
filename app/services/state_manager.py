@@ -179,16 +179,17 @@ def reset_status(no_wa: str):
         conn.commit()
 
 
-def simpan_transaksi_final(no_wa: str, nama: str, pekerjaan: str, nominal: str):
+def simpan_transaksi_final(no_wa: str, nama: str, pekerjaan: str, nominal: str, kode_program: str | None = None):
     """
     Menyimpan pendaftaran/transaksi ke tabel `transaksi_donasi`
-    berdasarkan `target_program` dari `sesi_percakapan`, lalu mereset status ke IDLE.
+    berdasarkan `kode_program` eksplisit atau `target_program` dari `sesi_percakapan`, lalu mereset status ke IDLE.
     """
     if not no_wa:
         return
 
-    session = get_session(no_wa)
-    kode_program = session.get("target_program") or "INF-RUTIN"
+    if not kode_program or kode_program in {"UMUM", "Donasi"}:
+        session = get_session(no_wa)
+        kode_program = session.get("target_program") or "INF-RUTIN"
 
     # Bersihkan nominal menjadi integer murni
     nominal_clean = 0
