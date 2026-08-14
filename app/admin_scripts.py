@@ -604,10 +604,11 @@ def ambil_balasan(intent: str, nama_pengirim: str | None = None) -> str:
     from services.gender_detector import deteksi_sapaan_gender, bersihkan_dan_normalisasi_nama
     sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
     clean_name = bersihkan_dan_normalisasi_nama(nama_pengirim).title() if nama_pengirim else ""
+    sapaan_lengkap = f"{sapaan_donatur} {clean_name}".strip() if clean_name else sapaan_donatur
 
     if intent in ["doa_zakat_mal", "doa_zakat_penghasilan", "doa_infak"]:
         prog_tag = "Zakat Mal" if intent == "doa_zakat_mal" else ("Zakat Penghasilan" if intent == "doa_zakat_penghasilan" else "Infak Rutin")
-        return _dapatkan_doa_spesifik(prog_tag, sapaan_donatur)
+        return _dapatkan_doa_spesifik(prog_tag, sapaan_lengkap)
 
     if intent == "info_program":
         return get_program_list()
@@ -615,7 +616,7 @@ def ambil_balasan(intent: str, nama_pengirim: str | None = None) -> str:
     text = QA_SCRIPT.get(intent, QA_SCRIPT["tidak_diketahui"])
 
     if "{sapaan_panggilan}" in text:
-        text = text.replace("{sapaan_panggilan}", sapaan_donatur)
+        text = text.replace("{sapaan_panggilan}", sapaan_lengkap)
 
     return text
 

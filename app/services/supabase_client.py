@@ -1,8 +1,10 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
+
+WIB = timezone(timedelta(hours=7))
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
 if "/rest/v1" in SUPABASE_URL:
@@ -42,7 +44,7 @@ def get_status(no_wa: str) -> str:
 def update_status(no_wa: str, status_baru: str, target_program: str | None = None):
     if not supabase_client:
         return
-    now_str = datetime.now().isoformat()
+    now_str = datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
     payload = {
         "no_wa": no_wa,
         "status": status_baru,
@@ -71,16 +73,14 @@ def get_session(no_wa: str) -> dict:
     return {"no_wa": no_wa, "status": "IDLE", "target_program": None}
 
 
-
-def simpan_transaksi_final(no_wa: str, nama_donatur: str, pekerjaan: str, nominal: str | int, kode_program: str = "INF-RUTIN"):
+def simpan_transaksi_final(no_wa: str, nama_donatur: str, nominal: str | int, kode_program: str = "INF-RUTIN", waktu_transaksi: str | None = None):
     if not supabase_client:
         return
-    now_str = datetime.now().isoformat()
+    now_str = waktu_transaksi or datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
     nom_clean = int(str(nominal).replace(".", "").replace(",", "").strip()) if nominal else 0
     payload = {
         "no_wa": no_wa,
         "nama_donatur": nama_donatur,
-        "pekerjaan": pekerjaan,
         "kode_program": kode_program,
         "nominal": nom_clean,
         "waktu_transaksi": now_str
@@ -98,8 +98,9 @@ def ambil_riwayat_donasi(no_wa: str) -> list[dict]:
     
     # Match by last 8 digits of WA number
     pattern = f"%{digits[-8:]}%" if len(digits) >= 8 else f"%{digits}%"
-    res = supabase_client.table("transaksi_donasi").select("*").ilike("no_wa", pattern).order("waktu_transaksi", desc=True).limit(5).execute()
-    if res.data:
-        return res.data
-    return []
-
+    try:
+        res = supabase_client.table("transaksi_donasi").select("*").ilike("no_wa", pattern).order("waktu_transaksi", desc=True).execute()
+        return res.data if res.data else []
+    except Exception as e:
+        print(f"[Supabase Error ambil_riwayat] {e}")
+        return []

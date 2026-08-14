@@ -423,6 +423,8 @@ async def waha_webhook(request: Request):
             "bpmi": "*BPMI*\nProgram Bantuan Pembinaan Masjid & Musholla serta kesejahteraan marbot/pengurus masjid di lingkungan Universitas Syiah Kuala."
         }
 
+        sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
+
         # =====================================================================
         # FAST-PATH 0: PERMOHONAN BANTUAN PINTAS (INTENT: minta_bantuan_pintas)
         # =====================================================================
@@ -435,7 +437,7 @@ async def waha_webhook(request: Request):
             # 1. Beri tahu user
             send_whatsapp_reply(
                 chat_id_asli,
-                "Baik Kak, permintaan Kakak sedang kami teruskan ke Admin untuk penanganan lebih lanjut. Mohon ditunggu ya.",
+                f"Baik {sapaan_donatur}, permintaan {sapaan_donatur} sedang kami teruskan ke Admin untuk penanganan lebih lanjut. Mohon ditunggu ya.",
                 nama_sesi
             )
 
@@ -451,8 +453,6 @@ async def waha_webhook(request: Request):
 
             user_sessions[nomor_wa] = session_data
             return {"status": "sukses", "intent": "minta_bantuan_pintas"}
-
-        sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
 
         # =====================================================================
         # FAST-PATH 0A: SAPAAN AWAL PADA STATE IDLE ("halo", "p", "assalamualaikum")
@@ -944,8 +944,7 @@ async def waha_webhook(request: Request):
 
             if nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
-                pekerjaan_donatur = data_diekstrak.get("pekerjaan") or "Donatur"
-                state_manager.simpan_transaksi_final(nomor_hp_real, nama, pekerjaan_donatur, nominal, kode_program=program_kode)
+                state_manager.simpan_transaksi_final(nomor_hp_real, nama, nominal, kode_program=program_kode)
                 state_manager.reset_status(nomor_wa)
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
@@ -976,21 +975,21 @@ async def waha_webhook(request: Request):
                 data_diekstrak = ekstrak_data_ner(pesan)
 
             nama = data_diekstrak.get("nama")
-            pekerjaan = data_diekstrak.get("pekerjaan") or "-"
             nominal = data_diekstrak.get("nominal")
 
             if nama and nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
-                state_manager.simpan_transaksi_final(nomor_hp_real, nama, pekerjaan, nominal)
+                state_manager.simpan_transaksi_final(nomor_hp_real, nama, nominal, kode_program="INF-RUTIN")
                 state_manager.reset_status(nomor_wa)
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
-                balasan = f"MasyaAllah, pendaftaran/pencatatan atas nama {sapaan_donatur} {nama} (profesi: {pekerjaan}) untuk nominal Rp{nominal} berhasil dicatat! Semoga berkah."
+                balasan = f"MasyaAllah, pencatatan atas nama {sapaan_donatur} {nama} untuk nominal Rp{nominal} berhasil dicatat! Semoga berkah."
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "one_shot_ner_infak"}
             else:
-                balasan = "Maaf Kak, Mimin kurang menangkap datanya. Boleh diulangi dengan menyebutkan Nama, Pekerjaan, dan Nominalnya?"
+                sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
+                balasan = f"Maaf {sapaan_donatur}, Mimin kurang menangkap datanya. Boleh diulangi dengan menyebutkan Nama dan Nominalnya?"
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "one_shot_ner_retry"}
@@ -1007,7 +1006,7 @@ async def waha_webhook(request: Request):
                 session_data["state"] = "IDLE"
 
                 # 1. Beri tahu user
-                balasan_user = "Baik Kak, permintaan Kakak sedang kami teruskan ke Admin untuk penanganan lebih lanjut. Mohon ditunggu ya."
+                balasan_user = f"Baik {sapaan_donatur}, permintaan {sapaan_donatur} sedang kami teruskan ke Admin untuk penanganan lebih lanjut. Mohon ditunggu ya."
                 send_whatsapp_reply(chat_id_asli, balasan_user, nama_sesi)
 
                 # 2. Kirim notifikasi (ping) ke Admin dengan Nomor HP Asli & Nama Pemohon
@@ -1026,7 +1025,7 @@ async def waha_webhook(request: Request):
             elif any(k in pesan_normal for k in ["batal", "cancel", "tidak", "ga", "gak"]):
                 state_manager.reset_status(nomor_wa)
                 session_data["state"] = "IDLE"
-                balasan_user = "Baik Kak, pengajuan sambung ke Admin telah dibatalkan. Ada lagi hal lain yang bisa Mimin bantu?"
+                balasan_user = f"Baik {sapaan_donatur}, pengajuan sambung ke Admin telah dibatalkan. Ada lagi hal lain yang bisa Mimin bantu?"
                 send_whatsapp_reply(chat_id_asli, balasan_user, nama_sesi)
                 user_sessions[nomor_wa] = session_data
                 return {"status": "sukses", "intent": "handoff_admin_cancel"}
