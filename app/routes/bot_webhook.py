@@ -514,23 +514,8 @@ async def waha_webhook(request: Request):
 
         if is_tanya_program and status_fsm == "IDLE":
             state_manager.update_status(nomor_wa, "TANYA_PROGRAM")
-            balasan = (
-                "Berikut pilihan program penyaluran yang tersedia di Rumah Amal USK:\n\n"
-                "1. PINTAS (Pinjaman Tanpa Syarat)\n"
-                "2. BPRA-UKT\n"
-                "3. OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)\n"
-                "4. GREEN QURBAN\n"
-                "5. Bantuan Nasi Bungkus\n"
-                "6. ECRA (Entrepreneurship Club Rumah Amal)\n"
-                "7. P2EMD\n"
-                "8. Beasiswa Orang Tua Asuh (OTA)\n"
-                "9. Beasiswa Muallaf\n"
-                "10. BPMI\n\n"
-                "----------------------------------------\n"
-                "📌 *Pilihan Navigasi:*\n"
-                f"• Ketik angka *1 s.d. 10* untuk melihat detail program di atas\n"
-                "• Ketik *0* untuk Kembali ke Menu Utama"
-            )
+            from services.program_manager import get_program_list
+            balasan = get_program_list()
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "tanya_program_prompt"}
@@ -548,14 +533,14 @@ async def waha_webhook(request: Request):
             PETA_INDEX_PROGRAM = {
                 "1": "pintas",
                 "2": "bpra_ukt",
-                "3": "ota_palestina",
-                "4": "green_qurban",
-                "5": "nasi_bungkus",
-                "6": "ecra",
-                "7": "p2emd",
-                "8": "ota_beasiswa",
-                "9": "muallaf",
-                "10": "bpmi"
+                "3": "ota_beasiswa",
+                "4": "muallaf",
+                "5": "bpmi",
+                "6": "ota_palestina",
+                "7": "green_qurban",
+                "8": "nasi_bungkus",
+                "9": "ecra",
+                "10": "p2emd"
             }
             prog_key = PETA_INDEX_PROGRAM.get(pesan_clean) or pesan_clean
             prog_data = get_program_info(prog_key)
