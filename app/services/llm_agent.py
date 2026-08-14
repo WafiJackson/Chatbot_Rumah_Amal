@@ -42,8 +42,9 @@ def _panggil_gemini_api(prompt: str, image_bytes: bytes | None = None, is_json: 
     if is_json:
         payload["generationConfig"] = {"response_mime_type": "application/json"}
 
+    timeout_val = 35 if image_bytes else 15
     try:
-        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        res = requests.post(url, headers=headers, json=payload, timeout=timeout_val)
         if res.status_code == 200:
             data = res.json()
             candidates = data.get("candidates", [])
