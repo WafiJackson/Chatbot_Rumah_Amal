@@ -729,8 +729,8 @@ async def waha_webhook(request: Request):
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "pilih_program_prompt"}
 
-        # Fast-Path Unlocking: Jika user sedang di status FSM aktif tetapi mengajukan pertanyaan baru spesifik, reset status ke IDLE
-        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "batal", "cancel", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat"]
+        # Fast-Path Unlocking: Jika user sedang di status FSM aktif tetapi mengajukan pertanyaan baru spesifik / sapaan baru, reset status ke IDLE
+        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "batal", "cancel", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "hi", "p", "assalamualaikum", "0", "menu utama"]
         if status_fsm in {"PILIH_PROGRAM", "NUNGGU_BUKTI_TRANSFER", "NUNGGU_DATA_KONFIRMASI", "NUNGGU_DATA_INFAK", "TANYA_PROGRAM"} and not has_media:
             if any(k in pesan_clean for k in KATA_KUNCI_OVERRIDE):
                 state_manager.reset_status(nomor_wa)
@@ -908,39 +908,14 @@ async def waha_webhook(request: Request):
 
             state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=kode_target)
             balasan = (
-                f"Baik Kak, untuk penyaluran *{nama_target}* silakan melakukan transfer ke rekening resmi kami:\n\n"
+                f"Baik {sapaan_donatur}, untuk penyaluran *{nama_target}* silakan melakukan transfer ke rekening resmi kami:\n\n"
                 f"🏦 *Bank BSI:* 7099400409\n"
                 f"👤 *a.n.* Rumah Amal Mesjid Unsyiah\n\n"
-                f"Setelah melakukan transfer, silakan kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya Kak agar dapat kami proses dan catatkan. Terima kasih! 🙏"
+                f"Setelah melakukan transfer, silakan kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya {sapaan_donatur} agar dapat kami proses dan catatkan. Terima kasih! 🙏"
             )
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "pilih_program_selesai"}
-
-
-
-
-            kode_target, nama_target = "INF-RUTIN", "Infak Rutin"
-            if pesan_clean in PETA_PILIHAN:
-                kode_target, nama_target = PETA_PILIHAN[pesan_clean]
-            else:
-                for k, (kode, nama_p) in PETA_PILIHAN.items():
-                    if k in pesan_clean:
-                        kode_target, nama_target = kode, nama_p
-                        break
-
-            state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=kode_target)
-            balasan = (
-                f"Baik Kak, untuk penyaluran *{nama_target}* silakan melakukan transfer ke rekening resmi kami:\n\n"
-                f"🏦 *Bank BSI:* 7099400409\n"
-                f"👤 *a.n.* Rumah Amal Mesjid Unsyiah\n\n"
-                f"Setelah melakukan transfer, silakan kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya Kak agar dapat kami proses dan catatkan. Terima kasih! 🙏"
-            )
-            user_sessions[nomor_wa] = session_data
-            send_message_to_waha(chat_id_asli, balasan, nama_sesi)
-            return {"status": "sukses", "intent": "pilih_program_selesai"}
-
-
 
         # =====================================================================
         # FAST-PATH 4: STATE NUNGGU_BUKTI_TRANSFER / KONFIRMASI / MEDIA RESI
