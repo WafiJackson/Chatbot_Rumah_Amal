@@ -604,7 +604,12 @@ def ambil_balasan(intent: str, nama_pengirim: str | None = None) -> str:
     from services.gender_detector import deteksi_sapaan_gender, bersihkan_dan_normalisasi_nama
     sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
     clean_name = bersihkan_dan_normalisasi_nama(nama_pengirim).title() if nama_pengirim else ""
-    sapaan_lengkap = f"{sapaan_donatur} {clean_name}".strip() if clean_name else sapaan_donatur
+    # Hindari duplikasi seperti "Kak Kak" saat nama asli tidak diketahui dan
+    # fallback-nya kebetulan sama dengan kata sapaan (mis. nama_pengirim="Kak").
+    if clean_name and clean_name.lower() != sapaan_donatur.lower():
+        sapaan_lengkap = f"{sapaan_donatur} {clean_name}"
+    else:
+        sapaan_lengkap = sapaan_donatur
 
     if intent in ["doa_zakat_mal", "doa_zakat_penghasilan", "doa_infak"]:
         prog_tag = "Zakat Mal" if intent == "doa_zakat_mal" else ("Zakat Penghasilan" if intent == "doa_zakat_penghasilan" else "Infak Rutin")

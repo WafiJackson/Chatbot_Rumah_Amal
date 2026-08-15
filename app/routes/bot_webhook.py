@@ -21,8 +21,22 @@ from services.logger import logger
 router = APIRouter()
 WAHA_ENDPOINT = os.getenv("WAHA_ENDPOINT", "http://waha-gateway:3000").rstrip("/")
 WAHA_SEND_URL = f"{WAHA_ENDPOINT}/api/sendText"
-WAHA_API_KEY = os.getenv("WAHA_API_KEY", "amalmaximal123")
+WAHA_API_KEY = os.getenv("WAHA_API_KEY", "")
+if not WAHA_API_KEY:
+    logger.warning("[Config] WAHA_API_KEY tidak diset di environment. Panggilan ke WAHA kemungkinan akan gagal otentikasi.")
 user_sessions = {}
+
+# Nomor rekening resmi Rumah Amal USK (satu sumber kebenaran, jangan hardcode ulang)
+BANK_REKENING_INFO = "🏦 *Bank BSI:* 7099400409\n👤 *a.n.* Rumah Amal Mesjid Unsyiah"
+
+
+def _sapaan_dengan_nama(sapaan: str, nama: str) -> str:
+    """Gabungkan sapaan gender + nama, hindari duplikasi kata seperti 'Kak Kak'
+    saat nama tidak diketahui dan kebetulan sama dengan kata sapaan itu sendiri."""
+    nama_bersih = (nama or "").strip()
+    if not nama_bersih or nama_bersih.lower() == sapaan.strip().lower():
+        return sapaan
+    return f"{sapaan} {nama_bersih}"
 
 
 LAST_HEALTH_ALERT_TIME = 0
@@ -79,7 +93,7 @@ def _resolve_waha_chat_id(chat_id: str, session_name: str) -> str:
     digits = re.sub(r"[^\d]", "", chat_id)
     if digits:
         try:
-            url = f"http://localhost:3000/api/contacts/check-exists?phone={digits}&session={session_name}"
+            url = f"{WAHA_ENDPOINT}/api/contacts/check-exists?phone={digits}&session={session_name}"
             res = requests.get(url, headers={"X-Api-Key": WAHA_API_KEY}, timeout=3)
             if res.status_code == 200:
                 data = res.json()
@@ -791,8 +805,7 @@ async def waha_webhook(request: Request):
         if is_tanya_rekening and status_fsm == "IDLE":
             balasan = (
                 "Berikut rekening resmi penyaluran donasi dan zakat Rumah Amal USK:\n\n"
-                "🏦 *Bank BSI:* 7099400409\n"
-                "👤 *a.n.* Rumah Amal Mesjid Unsyiah"
+                f"{BANK_REKENING_INFO}"
             )
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
@@ -829,8 +842,7 @@ async def waha_webhook(request: Request):
                 state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=target_prog_session)
                 balasan = (
                     f"Baik {sapaan_donatur}, untuk penyaluran *{nama_target}* silakan melakukan transfer ke rekening resmi kami:\n\n"
-                    f"🏦 *Bank BSI:* 7099400409\n"
-                    f"👤 *a.n.* Rumah Amal Mesjid Unsyiah\n\n"
+                    f"{BANK_REKENING_INFO}\n\n"
                     f"Setelah melakukan transfer, silakan kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya {sapaan_donatur} agar dapat kami proses dan catatkan. Terima kasih! 🙏"
                 )
                 user_sessions[nomor_wa] = session_data
@@ -844,7 +856,7 @@ async def waha_webhook(request: Request):
                 nama_prog = PETA_NAMA.get(target_prog_session, target_prog_session)
 
                 balasan = (
-                    f"Halo {sapaan_donatur} {nama_pengirim}! 🙏\n"
+                    f"Halo {_sapaan_dengan_nama(sapaan_donatur, nama_pengirim)}! 🙏\n"
                     f"Mimin mencatat sebelumnya {sapaan_donatur} sedang berada dalam proses penyaluran *{nama_prog}*.\n\n"
                     f"Apakah {sapaan_donatur} ingin melampirkan bukti transfernya sekarang, atau ingin membatalkan dan menanyakan hal lain?\n\n"
                     f"Ketik:\n"
@@ -888,8 +900,7 @@ async def waha_webhook(request: Request):
             state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=kode_target)
             balasan = (
                 f"Baik {sapaan_donatur}, untuk penyaluran *{nama_target}* silakan melakukan transfer ke rekening resmi kami:\n\n"
-                f"🏦 *Bank BSI:* 7099400409\n"
-                f"👤 *a.n.* Rumah Amal Mesjid Unsyiah\n\n"
+                f"{BANK_REKENING_INFO}\n\n"
                 f"Setelah melakukan transfer, silakan kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya {sapaan_donatur} agar dapat kami proses dan catatkan. Terima kasih! 🙏"
             )
             user_sessions[nomor_wa] = session_data
@@ -943,7 +954,7 @@ async def waha_webhook(request: Request):
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
                 nominal_fmt = f"{int(nominal):,}"
-                balasan = _dapatkan_doa_spesifik(program_kode, nama_donatur=f"{sapaan_donatur} {nama}", nominal_fmt=nominal_fmt)
+                balasan = _dapatkan_doa_spesifik(program_kode, nama_donatur=_sapaan_dengan_nama(sapaan_donatur, nama), nominal_fmt=nominal_fmt)
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "konfirmasi_sukses"}
@@ -953,7 +964,7 @@ async def waha_webhook(request: Request):
                 if has_media:
                     balasan = f"Mohon maaf, gambar resi kurang terbaca. Boleh {sapaan_donatur} ketikkan secara manual Nama dan Nominalnya?"
                 else:
-                    balasan = f"Mohon maaf {sapaan_donatur} {nama_pengirim}, Mimin kurang menangkap nominal transfernya. Boleh diulangi dengan menyebutkan *Nama Lengkap*, *Nominal Transfer*, dan *Program Donasinya*? Atau {sapaan_donatur} bisa langsung melampirkan foto resi transfer BSI Mobile / BYOND ke sini."
+                    balasan = f"Mohon maaf {_sapaan_dengan_nama(sapaan_donatur, nama_pengirim)}, Mimin kurang menangkap nominal transfernya. Boleh diulangi dengan menyebutkan *Nama Lengkap*, *Nominal Transfer*, dan *Program Donasinya*? Atau {sapaan_donatur} bisa langsung melampirkan foto resi transfer BSI Mobile / BYOND ke sini."
 
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
@@ -977,7 +988,7 @@ async def waha_webhook(request: Request):
                 state_manager.reset_status(nomor_wa)
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
-                balasan = f"MasyaAllah, pencatatan atas nama {sapaan_donatur} {nama} untuk nominal Rp{nominal} berhasil dicatat! Semoga berkah."
+                balasan = f"MasyaAllah, pencatatan atas nama {_sapaan_dengan_nama(sapaan_donatur, nama)} untuk nominal Rp{nominal} berhasil dicatat! Semoga berkah."
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "one_shot_ner_infak"}
@@ -1085,7 +1096,3 @@ async def waha_webhook(request: Request):
     except Exception as e:
         print(f"[Error Webhook] {e}")
         return {"status": "error", "detail": str(e)}
-
-@router.post("/webhook")
-async def webhook_waha(request: Request):
-    return await waha_webhook(request)

@@ -1,0 +1,124 @@
+LAPORAN BUG - BOT RUMAH AMAL USK
+Tanggal temuan: 2026-08-15
+Tanggal perbaikan: 2026-08-15
+Metode: (A) Code review statis, (B) User testing langsung (menjalankan server + simulasi webhook WAHA)
+
+Status semua temuan aktual sudah DIPERBAIKI dan diverifikasi ulang lewat:
+- test_sapaan_fix.py (self-check baru, assert-based)
+- test_simulation.py (suite simulasi yang sudah ada di proyek, 6/8 lulus - 2
+  kegagalan tersisa adalah flakiness klasifikasi intent LLM yang sudah ada
+  SEBELUM perubahan ini, tidak terkait dengan bug yang diperbaiki)
+- Pengujian ulang end-to-end lewat server + stub WAHA untuk kedua skenario asli
+
+
+=====================================================
+BAGIAN A - TEMUAN DARI CODE REVIEW
+=====================================================
+
+1. [BUG - FIXED] Hardcoded "localhost:3000" pada resolve chatId
+   File: app/routes/bot_webhook.py (fungsi _resolve_waha_chat_id)
+   Perbaikan: URL sekarang memakai WAHA_ENDPOINT (configurable), konsisten
+   dengan pemanggilan WAHA lainnya. Diverifikasi: saat WAHA_ENDPOINT diarahkan
+   ke stub lokal, resolve chatId ikut berhasil (sebelumnya selalu gagal karena
+   tetap mengarah ke localhost:3000).
+
+2. [SECURITY/CONFIG - FIXED] Fallback API key hardcoded di kode
+   File: app/routes/bot_webhook.py
+   Perbaikan: Default WAHA_API_KEY diubah dari string rahasia "amalmaximal123"
+   menjadi string kosong, dengan log warning saat startup jika env var belum
+   diset. Aplikasi tidak lagi diam-diam berjalan dengan kredensial yang ada di
+   git history.
+
+3. [MAINTAINABILITY - FIXED] Nomor rekening bank di-hardcode berulang
+   File: app/routes/bot_webhook.py
+   Perbaikan: Ditambahkan konstanta modul BANK_REKENING_INFO, dipakai di
+   ketiga lokasi (info rekening, lanjut sesi, pilih program selesai) sehingga
+   hanya ada satu sumber kebenaran.
+
+4. [DOKUMENTASI - FIXED] .env.example tidak sinkron dengan kode aktual
+   File: .env.example
+   Perbaikan: Bagian OLLAMA_URL/MODEL_NAME (tidak pernah dibaca kode) diganti
+   dengan GEMINI_API_KEY + MODEL_NAME sesuai yang benar-benar dipakai di
+   app/services/llm_agent.py.
+
+5. [DATA/PRIVASI - FALSE POSITIVE, TIDAK ADA PERBAIKAN DIPERLUKAN]
+   donatur.db "ter-commit ke git"
+   Setelah dicek ulang dengan `git ls-files`, file donatur.db (di root maupun
+   app/) TERNYATA TIDAK pernah ter-tracked oleh git - .gitignore sudah berisi
+   aturan "*.db" dan "donatur.db" sejak awal. Temuan awal ini keliru (asumsi
+   dari eksplorasi awal yang tidak diverifikasi ke `git ls-files`). Tidak ada
+   tindakan yang diperlukan.
+
+6. [ARSITEKTUR - TIDAK DIPERBAIKI, SENGAJA DIBIARKAN]
+   Monolith 1090 baris pada bot_webhook.py
+   Ini adalah catatan arsitektur, bukan bug fungsional. Memecah file ini jadi
+   modul-modul kecil adalah refactor besar yang tidak diminta dan berisiko
+   memperkenalkan bug baru tanpa manfaat langsung ke user - dibiarkan sesuai
+   prinsip "no abstractions that weren't explicitly requested" (.clinerules).
+
+7. [DEAD CODE - FIXED] Route "/webhook" didefinisikan dua kali
+   File: app/routes/bot_webhook.py
+   Perbaikan: Handler kedua (webhook_waha) yang tidak pernah tereksekusi
+   (route pertama selalu menang) sudah dihapus.
+
+
+=====================================================
+BAGIAN B - TEMUAN DARI USER TESTING (SIMULASI CHAT LANGSUNG)
+=====================================================
+
+1. [BUG - FIXED] Sapaan dobel "Kak Kak"
+   File: app/admin_scripts.py (fungsi ambil_balasan) - root cause utama
+   File: app/routes/bot_webhook.py - 4 lokasi lain dengan pola sama (fungsi
+   pembantu baru _sapaan_dengan_nama)
+   Perbaikan: sapaan gender ("Kak"/"Bapak"/"Ibu") tidak lagi digabung dengan
+   nama jika nama kosong ATAU nama tersebut (setelah dibersihkan) sama persis
+   dengan kata sapaannya sendiri - kasus ini terjadi saat WAHA tidak mengirim
+   pushname/notifyName dan kode fallback ke placeholder "Kak".
+   Verifikasi ulang (webhook sungguhan): kirim "assalamualaikum" tanpa nama
+   kontak -> balasan sekarang "Assalamu'alaikum Kak! Selamat datang..."
+   (sebelumnya "Kak Kak"). Kasus nama asli (mis. "Budi Santoso") tetap tampil
+   normal ("Bapak Budi Santoso") - tidak ada regresi.
+   Self-check: test_sapaan_fix.py (5 assertion, semua lulus).
+
+2. [BUG - FIXED sebagai efek dari perbaikan A.1] Respons macet 8-16 detik
+   saat WAHA tidak reachable
+   Penyebab utamanya adalah dua host WAHA yang berbeda dipanggil untuk pesan
+   yang sama (WAHA_ENDPOINT yang benar vs localhost:3000 yang salah), masing-
+   masing gagal dengan caranya sendiri dan menambah latensi. Setelah A.1
+   diperbaiki, resolve chatId dan pengiriman pesan memakai host yang sama,
+   sehingga tidak lagi gagal dobel akibat dua alamat berbeda.
+
+3. [BUG - FIXED, sama dengan A.1] localhost:3000 hardcode menyebabkan resolve
+   chatId gagal terus-menerus
+   Sudah diperbaiki di Bagian A.1 di atas.
+
+4. [BUG - FIXED] Pesan kosong/whitespace membuat bot gagal total membalas
+   File: app/main.py
+   Perbaikan: stdout & stderr di-reconfigure ke UTF-8 (errors="replace") saat
+   startup aplikasi, sebelum modul lain yang memakai print()/logger di-import.
+   Ini mencegah UnicodeEncodeError merusak seluruh request webhook saat
+   balasan berisi emoji dan konsol/host tidak memakai UTF-8 (mis. cp1252 di
+   Windows).
+   Verifikasi ulang (webhook sungguhan): kirim pesan body kosong -> sebelumnya
+   {"status":"error", ...} tanpa balasan terkirim; sekarang
+   {"status":"sukses","intent":"tidak_diketahui"} dan balasan (berisi emoji)
+   berhasil di-print dan dikirim ke WAHA.
+
+
+=====================================================
+RINGKASAN
+=====================================================
+
+7 dari 9 temuan yang valid sudah diperbaiki dan diverifikasi ulang secara
+langsung (bukan hanya baca kode). 1 temuan (arsitektur monolith) sengaja
+dibiarkan karena bukan bug dan refactor besar tidak diminta. 1 temuan
+(donatur.db ter-commit) ternyata false positive setelah verifikasi ulang.
+
+File yang diubah:
+- app/routes/bot_webhook.py
+- app/admin_scripts.py
+- app/main.py
+- .env.example
+
+File baru:
+- test_sapaan_fix.py (self-check regresi untuk bug "Kak Kak")

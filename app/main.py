@@ -1,3 +1,12 @@
+import sys
+
+# Cegah UnicodeEncodeError saat print()/logging menulis emoji ke konsol non-UTF-8
+# (mis. cp1252 di Windows) - tanpa ini, satu balasan berisi emoji bisa membuat
+# seluruh request webhook gagal (500) meski isi balasannya sendiri valid.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure") and (_stream.encoding or "").lower() != "utf-8":
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 import uvicorn
 from fastapi import FastAPI
 from routes import bot_webhook
