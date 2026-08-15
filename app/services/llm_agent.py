@@ -109,52 +109,6 @@ KEMBALIKAN HANYA FORMAT JSON MURNI {"nama": null, "pekerjaan": null, "nominal": 
         return {"nama": None, "pekerjaan": None, "nominal": None}
 
 
-def panggil_llm_teks(pesan_user: str, fakta_script: str, nama_pengirim: str = "Kak") -> str:
-    """
-    LLM Paraphraser via Gemini 2.5 Flash Cloud API.
-    """
-    system_prompt = f"""Kamu adalah 'Mimin', asisten virtual resmi Rumah Amal Masjid Jamik USK.
-Gaya bahasamu: Ramah, empatik, sopan, islami, dan luwes seperti manusia. Sapa pengirim dengan nama '{nama_pengirim}'.
-Tugasmu: Menyusun fakta lembaga menjadi balasan WhatsApp yang natural.
-
-ATURAN MUTLAK:
-1. DILARANG mengubah, mengarang, atau menghilangkan NOMOR REKENING, ANGKA, NOMOR TELEPON, atau NAMA PROGRAM dari fakta.
-2. Jangan menambahkan syarat atau aturan yang tidak tertulis.
-3. Langsung berikan jawaban, jangan gunakan format JSON."""
-
-    prompt = f"{system_prompt}\n\n[PESAN PENGGUNA]: '{pesan_user}'\n[FAKTA LEMBAGA]: '{fakta_script}'\n\nJAWABAN MIMIN:"
-    return _panggil_gemini_api(prompt)
-
-
-def verifikasi_halusinasi(intent: str, jawaban_llm: str, fakta_script: str = "") -> bool:
-    """
-    Post-Validator Guardrail: Memastikan tidak ada angka/URL yang hilang atau dikarang LLM.
-    """
-    if not jawaban_llm or len(jawaban_llm.strip()) < 10:
-        return False
-
-    jawaban_low = jawaban_llm.lower()
-    fakta_low = (fakta_script or "").lower()
-
-    # Pengecekan Angka Krusial
-    angka_fakta = re.findall(r'\b\d[\d\.\-]{2,}\d\b', fakta_low)
-    for angka in angka_fakta:
-        angka_bersih = angka.replace("-", "")
-        if angka not in jawaban_low and angka_bersih not in jawaban_low.replace("-", ""):
-            print(f"[Guardrail Fail] Angka krusial '{angka}' dihilangkan oleh LLM!")
-            return False
-
-    # Pengecekan Angka Palsu
-    angka_llm = re.findall(r'\b\d[\d\.\-]{4,}\d\b', jawaban_low)
-    for angka in angka_llm:
-        angka_bersih = angka.replace("-", "")
-        if angka not in fakta_low and angka_bersih not in fakta_low.replace("-", ""):
-            print(f"[Guardrail Fail] LLM mengarang angka/rekening palsu: '{angka}'!")
-            return False
-
-    return True
-
-
 def get_intent(pesan: str) -> str:
     """Menggunakan Gemini 2.5 Flash untuk mengklasifikasikan intent dari pesan pengguna ke salah satu dari 47 intent resmi."""
     system_prompt = """Anda adalah mesin pengklasifikasi niat untuk customer service Rumah Amal Masjid Jamik USK.

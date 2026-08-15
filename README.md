@@ -36,9 +36,9 @@ flowchart TD
     end
 
     subgraph AI_Layer ["🧠 Google Gemini Cloud AI Layer (Zero VPS Load)"]
-        GeminiAPI["☁️ Google Gemini 2.5 Flash API (NLU, Q&A & NER)"]
+        GeminiAPI["☁️ Google Gemini 2.5 Flash API (Klasifikasi Intent Fallback & NER)"]
+        StaticQA["📄 Jawaban Q&A dari QA_SCRIPT Statis (Tanpa Parafrase LLM)"]
         DoaGen["🤲 Random Doa Syar'i Generator (4 Variasi Doa Arab & Terjemahan)"]
-        Guardrail["🛡️ Anti-Hallucination Guardrail Verifier"]
         VisionOCR["👁️ Multimodal Vision OCR (Resi BSI Mobile & BYOND Reader)"]
     end
 
@@ -63,8 +63,9 @@ flowchart TD
     AutoSync -.-> SupabaseDB
 
     FastPath -->|"Foto Resi (Media)"| VisionOCR
-    FastPath -->|"Pertanyaan Bebas (Q&A)"| GeminiAPI
-    GeminiAPI --> Guardrail
+    FastPath -->|"Pertanyaan Tidak Kena Keyword Lokal"| GeminiAPI
+    GeminiAPI -->|"Hasil Klasifikasi Intent"| StaticQA
+    FastPath -->|"Pertanyaan Kena Keyword Lokal (Gratis, 0 Panggilan API)"| StaticQA
     FastPath --> DoaGen
 
     HealthCheck -.->|"Ping Alert (WAHA Down)"| AdminWA
@@ -185,7 +186,7 @@ flowchart TD
     ResRek --> FinishFast
     ResRiwayat --> FinishFast
 
-    FastCheck -- "Pertanyaan Kompleks / Bebas" --> LLMRoute["☁️ Teruskan ke Google Gemini 2.5 Flash Cloud API"]
+    FastCheck -- "Pertanyaan Kompleks / Bebas (Tidak Kena Keyword)" --> LLMRoute["☁️ Gemini Hanya Klasifikasi Intent (Bukan Menyusun Jawaban) -> Balas dari QA_SCRIPT Statis"]
     FastCheck -- "Pertanyaan OOT / Iseng" --> ResOOT["😊 Balas Jawaban Penolakan OOT Ramah + Navigasi Cepat"]
 ```
 
@@ -209,6 +210,9 @@ flowchart TD
 5. **HD Media Downloader (>30KB Threshold):**
    - Memaksa WAHA mengunduh foto resi asli beresolusi tinggi (HD > 30KB) dari HP pengirim.
 
+6. **Hemat Kuota Cloud AI (Q&A Tanpa Parafrase LLM):**
+   - Jawaban Q&A dikirim langsung dari template statis (`QA_SCRIPT`) tanpa disusun ulang oleh Gemini - LLM hanya dipakai untuk hal yang benar-benar butuh pemahaman bebas: klasifikasi intent fallback, ekstraksi NER, dan OCR resi. Memangkas jumlah panggilan Gemini per pertanyaan secara signifikan tanpa mengubah kualitas jawaban.
+
 ---
 
 ## ⚙️ Pengaturan Environment (`.env`)
@@ -218,7 +222,7 @@ SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_KEY=your-supabase-anon-key
 
 WAHA_ENDPOINT=http://waha-gateway:3000
-WAHA_API_KEY=amalmaximal123
+WAHA_API_KEY=your-waha-api-key
 
 GEMINI_API_KEY=your-gemini-api-key
 MODEL_NAME=gemini-2.5-flash

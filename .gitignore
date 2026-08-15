@@ -20,6 +20,7 @@ logs/
 Bueprint.txt
 test_hybrid.py
 scratch/
+folder pribadi/
 
 # 5. Virtual Environment & Python Cache
 __pycache__/

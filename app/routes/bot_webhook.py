@@ -5,12 +5,9 @@ import re
 
 from admin_scripts import ambil_balasan, susun_balasan
 from services.llm_agent import (
-    panggil_llm_teks,
-    verifikasi_halusinasi,
     ekstrak_data_ner,
     ekstrak_konfirmasi_donasi,
     ekstrak_resi_vision,
-    get_intent,
 )
 from services import state_manager
 from services.form_parser import ekstrak_formulir
@@ -1089,29 +1086,18 @@ async def waha_webhook(request: Request):
         session_data["last_program_key"] = hasil.get("last_program_key")
         session_data["last_intents"] = hasil.get("intents", [])
 
-        # Filter Bypass LLM (Termasuk sapaan & menu agar tidak dihalusinasi LLM)
-        should_bypass_llm = (
-            hasil.get("should_wait_admin") or
-            any(i in {"handoff_admin", "handoff_admin_prompt", "doa_zakat_mal", "doa_infak", "sapaan", "info_program"} for i in hasil.get("intents", [])) or
-            "sapaan" in intent
-        )
-
         if hasil.get("should_wait_admin"):
             session_data["state"] = "MENUNGGU_ADMIN"
         else:
             session_data["state"] = "IDLE"
 
-        if should_bypass_llm:
-            balasan = fakta_script
-        else:
-            jawaban_llm = panggil_llm_teks(pesan, fakta_script, nama_pengirim=nama_pengirim)
-
-            if jawaban_llm and verifikasi_halusinasi(intent, jawaban_llm, fakta_script):
-                print("[Guardrail Pass] Jawaban LLM luwes dan terverifikasi 100% akurat!")
-                balasan = jawaban_llm
-            else:
-                print("[Guardrail Fallback] LLM berhalusinasi/offline. Menggunakan fakta_script statis.")
-                balasan = fakta_script
+        # fakta_script sudah ditulis natural (lihat QA_SCRIPT di admin_scripts.py),
+        # jadi dikirim langsung tanpa diparafrase ulang oleh LLM - Gemini di alur
+        # ini hanya dipakai untuk deteksi intent (get_intent, di klasifikasi_pesan),
+        # bukan untuk menyusun kalimat balasan. Ini memangkas separuh lebih
+        # panggilan Gemini per pertanyaan (dari 2x jadi maks. 1x) tanpa mengubah
+        # kualitas jawaban, karena teks statisnya memang sudah natural.
+        balasan = fakta_script
 
         user_sessions[nomor_wa] = session_data
 
