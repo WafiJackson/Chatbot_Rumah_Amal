@@ -46,19 +46,28 @@ def _panggil_gemini_api(prompt: str, image_bytes: bytes | None = None, is_json: 
         payload["generationConfig"] = {"response_mime_type": "application/json"}
 
     timeout_val = 35 if image_bytes else 15
-    try:
-        res = requests.post(url, headers=headers, json=payload, timeout=timeout_val)
-        if res.status_code == 200:
-            data = res.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts_out = candidates[0].get("content", {}).get("parts", [])
-                if parts_out:
-                    return parts_out[0].get("text", "").strip()
-        else:
+    percobaan_maks = 2  # percobaan awal + 1x retry khusus timeout (hiccup jaringan sesaat cukup sering pada OCR resi)
+    for percobaan in range(percobaan_maks):
+        try:
+            res = requests.post(url, headers=headers, json=payload, timeout=timeout_val)
+            if res.status_code == 200:
+                data = res.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts_out = candidates[0].get("content", {}).get("parts", [])
+                    if parts_out:
+                        return parts_out[0].get("text", "").strip()
+                return ""
             print(f"[Warning Gemini API Status {res.status_code}] {res.text[:200]}")
-    except Exception as e:
-        print(f"[Error Gemini API] {e}")
+            return ""
+        except requests.exceptions.Timeout as e:
+            is_percobaan_terakhir = percobaan + 1 >= percobaan_maks
+            print(f"[Error Gemini API Timeout, percobaan {percobaan + 1}/{percobaan_maks}] {e}")
+            if is_percobaan_terakhir:
+                return ""
+        except Exception as e:
+            print(f"[Error Gemini API] {e}")
+            return ""
     return ""
 
 

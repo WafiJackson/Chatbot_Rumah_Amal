@@ -29,6 +29,40 @@ user_sessions = {}
 # Nomor rekening resmi Rumah Amal USK (satu sumber kebenaran, jangan hardcode ulang)
 BANK_REKENING_INFO = "🏦 *Bank BSI:* 7099400409\n👤 *a.n.* Rumah Amal Mesjid Unsyiah"
 
+# Pemetaan kode program -> nama layar. Modul-level (bukan lokal di dalam
+# waha_webhook) karena _dapatkan_doa_spesifik() di bawah ini juga memakainya.
+PETA_NAMA = {
+    "ZKT-MAL": "Zakat Mal",
+    "ZKT-PENGHASILAN": "Zakat Penghasilan",
+    "INF-RUTIN": "Infak Rutin",
+    "DONASI": "Donasi (Bantuan Kemanusiaan)",
+    "PINTAS": "PINTAS (Pinjaman Tanpa Syarat)",
+    "BPRA-UKT": "BPRA-UKT",
+    "DON-PALESTINA": "OTA Palestina",
+    "GREEN-QURBAN": "GREEN QURBAN",
+    "NASI-BUNGKUS": "Bantuan Nasi Bungkus",
+    "ECRA": "ECRA",
+    "P2EMD": "P2EMD",
+    "BEASISWA-OTA": "Beasiswa Orang Tua Asuh (OTA)",
+    "BEASISWA-MUALLAF": "Beasiswa Muallaf",
+    "BPMI": "BPMI"
+}
+
+
+def _nominal_valid(raw) -> str | None:
+    """Validasi nominal sebelum disimpan sebagai transaksi.
+    Nominal dari ekstraksi LLM (teks/vision) bisa berupa hasil halusinasi atau
+    salah-parse pesan ambigu (mis. angka menu '2'/'3' yang nyasar ke jalur NER
+    saat FSM belum ter-reset) - tanpa validasi ini, nilai sekecil '5' bisa lolos
+    tersimpan ke database atas nama pengirim. Syarat sama dengan yang sudah
+    dipakai di ekstrak_resi_vision(): angka murni dan >= Rp 1.000."""
+    if not raw:
+        return None
+    digits = re.sub(r"[^\d]", "", str(raw))
+    if digits and int(digits) >= 1000:
+        return digits
+    return None
+
 
 def _sapaan_dengan_nama(sapaan: str, nama: str) -> str:
     """Gabungkan sapaan gender + nama, hindari duplikasi kata seperti 'Kak Kak'
@@ -233,7 +267,11 @@ def _dapatkan_doa_spesifik(program_code: str, nama_donatur: str = "Bapak/Ibu", n
         return gen_doa(prog_name, nama_donatur, nominal_fmt)
     except Exception as e:
         print(f"[Warning Doa Gen] {e}")
-        return ambil_balasan("doa_infak")
+        nom_teks = f" sebesar *Rp {nominal_fmt}*" if nominal_fmt else ""
+        return (
+            f"Alhamdulillah, terima kasih {nama_donatur}! 🙏\n"
+            f"Donasi/Penyaluran{nom_teks} sudah kami terima dan InsyaAllah akan segera disalurkan kepada penerima yang berhak."
+        )
 
 
 PROCESSED_MSG_IDS = set()
@@ -385,24 +423,8 @@ async def waha_webhook(request: Request):
         status_fsm = state_manager.get_status(nomor_wa)
         pesan_clean = (pesan or "").lower().strip()
 
-        # Pemetaan nama program layar & detail penjelasan
-        PETA_NAMA = {
-            "ZKT-MAL": "Zakat Mal",
-            "ZKT-PENGHASILAN": "Zakat Penghasilan",
-            "INF-RUTIN": "Infak Rutin",
-            "DONASI": "Donasi (Bantuan Kemanusiaan)",
-            "PINTAS": "PINTAS (Pinjaman Tanpa Syarat)",
-            "BPRA-UKT": "BPRA-UKT",
-            "DON-PALESTINA": "OTA Palestina",
-            "GREEN-QURBAN": "GREEN QURBAN",
-            "NASI-BUNGKUS": "Bantuan Nasi Bungkus",
-            "ECRA": "ECRA",
-            "P2EMD": "P2EMD",
-            "BEASISWA-OTA": "Beasiswa Orang Tua Asuh (OTA)",
-            "BEASISWA-MUALLAF": "Beasiswa Muallaf",
-            "BPMI": "BPMI"
-        }
-
+        # Detail penjelasan tiap program (PETA_NAMA sekarang didefinisikan di
+        # level modul, lihat dekat BANK_REKENING_INFO di atas)
         DETAIL_PROGRAM = {
             "1": "*PINTAS (Pinjaman Tanpa Syarat)*\nProgram pinjaman tanpa riba dan tanpa agunan dari Rumah Amal USK untuk membantu civitas akademika dan masyarakat yang membutuhkan dana darurat.",
             "pintas": "*PINTAS (Pinjaman Tanpa Syarat)*\nProgram pinjaman tanpa riba dan tanpa agunan dari Rumah Amal USK untuk membantu civitas akademika dan masyarakat yang membutuhkan dana darurat.",
@@ -723,9 +745,14 @@ async def waha_webhook(request: Request):
             return {"status": "sukses", "intent": "pilih_program_prompt"}
 
         # Fast-Path Unlocking: Jika user sedang di status FSM aktif tetapi mengajukan pertanyaan baru spesifik / sapaan baru, reset status ke IDLE
-        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "batal", "cancel", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "hi", "p", "assalamualaikum", "0", "menu utama"]
+        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "batal", "cancel", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "hi", "assalamualaikum", "menu utama"]
+        # Token pendek/generik ("0", "p") HARUS dicocokkan persis sebagai kata utuh,
+        # bukan substring - kalau tidak, nominal donasi seperti "90000" ikut
+        # dianggap perintah "0" (kembali ke menu) dan sesi donasi ter-reset diam-diam.
+        KATA_KUNCI_OVERRIDE_EXACT = {"p", "0", "0."}
         if status_fsm in {"PILIH_PROGRAM", "NUNGGU_BUKTI_TRANSFER", "NUNGGU_DATA_KONFIRMASI", "NUNGGU_DATA_INFAK", "TANYA_PROGRAM"} and not has_media:
-            if any(k in pesan_clean for k in KATA_KUNCI_OVERRIDE):
+            pesan_tokens = set(pesan_clean.split())
+            if any(k in pesan_clean for k in KATA_KUNCI_OVERRIDE) or (pesan_tokens & KATA_KUNCI_OVERRIDE_EXACT):
                 state_manager.reset_status(nomor_wa)
                 status_fsm = "IDLE"
 
@@ -940,7 +967,7 @@ async def waha_webhook(request: Request):
                 data_diekstrak = ekstrak_konfirmasi_donasi(pesan)
 
             nama = data_diekstrak.get("nama") or nama_local or nama_pengirim
-            nominal = data_diekstrak.get("nominal") or nominal_local
+            nominal = _nominal_valid(data_diekstrak.get("nominal")) or nominal_local
             program_kode = data_diekstrak.get("program")
             if not program_kode or program_kode == "UMUM":
                 program_kode = target_prog_session
@@ -980,7 +1007,7 @@ async def waha_webhook(request: Request):
                 data_diekstrak = ekstrak_data_ner(pesan)
 
             nama = data_diekstrak.get("nama")
-            nominal = data_diekstrak.get("nominal")
+            nominal = _nominal_valid(data_diekstrak.get("nominal"))
 
             if nama and nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)

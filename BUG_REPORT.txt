@@ -106,19 +106,104 @@ BAGIAN B - TEMUAN DARI USER TESTING (SIMULASI CHAT LANGSUNG)
 
 
 =====================================================
+BAGIAN C - TEMUAN DARI LOG PRODUKSI (RONDE 2, dilaporkan user langsung)
+=====================================================
+Sumber: log terminal produksi (Docker), skenario nyata membayar Zakat Mal:
+resi pertama gagal terbaca, retry manual "Yafi 90000" ikut gagal, resi kedua
+berhasil tapi doa balasannya menyapa "Kak" padahal gender sudah terdeteksi
+"Bapak" sejak sapaan pertama.
+
+1. [BUG - FIXED, PALING KRITIS] Konfirmasi teks berangka "0" mereset sesi
+   donasi secara diam-diam
+   File: app/routes/bot_webhook.py (blok "Fast-Path Unlocking", baris ~747)
+   Root cause: KATA_KUNCI_OVERRIDE (daftar kata kunci yang mereset sesi user
+   ke IDLE jika ia "kabur" ke topik lain) berisi token pendek "0" dan "p",
+   tetapi dicocokkan dengan substring (`k in pesan_clean`) bukan kata utuh.
+   Akibatnya SETIAP pesan yang mengandung angka nol di mana pun - termasuk
+   nominal donasi biasa seperti "90000", "100000", "50000" - otomatis
+   dianggap perintah "0 = kembali ke menu utama", sehingga status FSM
+   NUNGGU_BUKTI_TRANSFER ter-reset ke IDLE SEBELUM sempat diproses sebagai
+   konfirmasi. Ini persis skenario di log Anda: setelah OCR resi pertama
+   time-out, bot minta ketik manual, user ketik "Yafi 90000", tapi karena
+   mengandung "0" sesi langsung direset dan pesan itu malah dijawab dengan
+   fallback umum "Mimin kurang paham" alih-alih diproses sebagai konfirmasi.
+   Perbaikan: token pendek/generik ("0", "0.", "p") sekarang dicocokkan
+   sebagai kata utuh (lewat tokenisasi pesan), bukan substring. Kata kunci
+   yang memang panjang/spesifik (rekening, beasiswa, dst) tetap substring
+   match seperti semula karena aman.
+   Verifikasi ulang (webhook sungguhan, Gemini di-mock 429 persis kondisi
+   Anda): urutan halo -> 2 -> 1 -> "Yafi 90000" sekarang berakhir dengan
+   intent "konfirmasi_sukses" dan data tersimpan bersih di database
+   (nama_donatur="Yafi Hidayatullah", nominal=90000, kode_program="ZKT-MAL")
+   - sebelumnya berakhir "tidak_diketahui" dan sesi ter-reset tanpa data
+   tersimpan.
+   Self-check baru: test_fsm_unlock_fix.py.
+
+2. [BUG - FIXED] Doa balasan menyapa "Kak" walau gender sudah terdeteksi
+   benar di awal percakapan
+   File: app/routes/bot_webhook.py (fungsi module-level _dapatkan_doa_spesifik)
+   Root cause: `PETA_NAMA` (peta kode program -> nama layar) didefinisikan
+   sebagai variabel LOKAL di dalam fungsi handler webhook (waha_webhook), tapi
+   dipakai juga oleh fungsi terpisah `_dapatkan_doa_spesifik` yang letaknya di
+   luar scope tersebut -> setiap kali dipanggil, terjadi NameError
+   ("name 'PETA_NAMA' is not defined"), persis seperti yang tercetak di log
+   Anda: "[Warning Doa Gen] name 'PETA_NAMA' is not defined". Exception ini
+   ditangkap diam-diam lalu jatuh ke fallback `ambil_balasan("doa_infak")`
+   TANPA mengoper nama/gender donatur sama sekali, sehingga sapaan yang sudah
+   benar terdeteksi ("Bapak Yafi Hidayatullah") hilang dan diganti default
+   generik "Kak".
+   Perbaikan: PETA_NAMA dipindah jadi konstanta level-modul (didefinisikan
+   sekali, dipakai di semua tempat termasuk _dapatkan_doa_spesifik). Fallback
+   except-nya juga diperbaiki agar tetap menyertakan nama/nominal donatur
+   seandainya suatu saat gagal karena sebab lain.
+   Verifikasi ulang: doa akhir sekarang berisi "Bapak Yafi Hidayatullah",
+   bukan "Kak". Self-check: test_donasi_fix.py.
+
+3. [BUG - FIXED] Nominal hasil ekstraksi LLM (teks) tidak divalidasi sebelum
+   disimpan ke database
+   File: app/routes/bot_webhook.py (2 titik penyimpanan transaksi)
+   Root cause: nominal dari OCR resi (`ekstrak_resi_vision`) sudah diwajibkan
+   >= Rp 1.000, tapi nominal dari NER teks (`ekstrak_konfirmasi_donasi` /
+   `ekstrak_data_ner`) sama sekali tidak divalidasi - string apa pun yang
+   non-kosong (termasuk hasil halusinasi LLM seperti "5" dari pesan ambigu)
+   dianggap valid dan langsung disimpan sebagai transaksi atas nama pengirim.
+   Ini kemungkinan besar sumber transaksi aneh/kecil yang disebut user
+   tersimpan di database walau dari sisi user terasa "gagal".
+   Perbaikan: helper `_nominal_valid()` (angka murni, >= Rp 1.000) sekarang
+   dipakai di SEMUA titik sebelum nominal dianggap valid untuk disimpan -
+   satu titik validasi bersama untuk semua sumber ekstraksi (vision, teks
+   LLM, regex lokal).
+   Self-check: test_donasi_fix.py (nominal "5"/"0"/kosong/non-angka ditolak).
+
+4. [BUG - FIXED] Resi/OCR gagal permanen hanya karena satu kali timeout
+   File: app/services/llm_agent.py (_panggil_gemini_api)
+   Root cause: panggilan ke Gemini Vision (timeout 35 detik) maupun NER teks
+   (15 detik) tidak punya retry sama sekali - begitu timeout sekali (hiccup
+   jaringan sesaat, sesuai log: "Read timed out. (read timeout=35)"), user
+   harus mengulang dari awal (foto ulang / ketik ulang).
+   Perbaikan: 1x retry otomatis khusus untuk kasus timeout (bukan retry tanpa
+   batas, dan tidak retry untuk error lain seperti quota/429 yang memang
+   tidak akan berhasil kalau diulang seketika). Trade-off: worst-case latensi
+   naik (maks ~70 detik untuk vision, ~30 detik untuk teks) - dianggap wajar
+   mengingat single-attempt saja sudah butuh puluhan detik di log Anda.
+
+
+=====================================================
 RINGKASAN
 =====================================================
 
-7 dari 9 temuan yang valid sudah diperbaiki dan diverifikasi ulang secara
-langsung (bukan hanya baca kode). 1 temuan (arsitektur monolith) sengaja
-dibiarkan karena bukan bug dan refactor besar tidak diminta. 1 temuan
-(donatur.db ter-commit) ternyata false positive setelah verifikasi ulang.
+11 dari 13 temuan yang valid sudah diperbaiki dan diverifikasi ulang secara
+langsung (bukan hanya baca kode), termasuk 1 bug kritis (Bagian C.1) yang
+menyebabkan hampir semua konfirmasi donasi via teks gagal diproses. 1 temuan
+(arsitektur monolith) sengaja dibiarkan karena bukan bug dan refactor besar
+tidak diminta. 1 temuan (donatur.db ter-commit) ternyata false positive
+setelah verifikasi ulang.
 
-File yang diubah:
-- app/routes/bot_webhook.py
-- app/admin_scripts.py
-- app/main.py
-- .env.example
+Ronde 1 (sudah di-commit user: 5011fa0 "perbaikan beberapa bug"):
+- app/routes/bot_webhook.py, app/admin_scripts.py, app/main.py, .env.example
+- File baru: test_sapaan_fix.py
 
-File baru:
-- test_sapaan_fix.py (self-check regresi untuk bug "Kak Kak")
+Ronde 2 (belum di-commit, ditemukan dari log produksi):
+- app/routes/bot_webhook.py (KATA_KUNCI_OVERRIDE, PETA_NAMA, _nominal_valid)
+- app/services/llm_agent.py (retry timeout Gemini)
+- File baru: test_donasi_fix.py, test_fsm_unlock_fix.py
