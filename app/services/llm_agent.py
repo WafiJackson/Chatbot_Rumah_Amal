@@ -34,8 +34,8 @@ def _panggil_gemini_api(prompt: str, image_bytes: bytes | None = None, is_json: 
         mime_type = _detect_mime_type(image_bytes)
         b64_img = base64.b64encode(image_bytes).decode("utf-8")
         parts.append({
-            "inline_data": {
-                "mime_type": mime_type,
+            "inlineData": {
+                "mimeType": mime_type,
                 "data": b64_img
             }
         })

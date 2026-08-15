@@ -229,12 +229,6 @@ PROCESSED_MSG_IDS = set()
 @router.post("/api/webhook")
 async def waha_webhook(request: Request):
     try:
-        # Trigger Background Sync offline SQLite -> Supabase Cloud
-        try:
-            state_manager.sync_offline_sqlite_to_supabase()
-        except Exception as e_sync:
-            print(f"[Warning Auto Sync Background] {e_sync}")
-
         data = await request.json()
         if not isinstance(data, dict):
             data = {}
@@ -455,11 +449,11 @@ async def waha_webhook(request: Request):
             return {"status": "sukses", "intent": "minta_bantuan_pintas"}
 
         # =====================================================================
-        # FAST-PATH 0A: SAPAAN AWAL PADA STATE IDLE ("halo", "p", "assalamualaikum")
+        # FAST-PATH 0A: SAPAAN AWAL / MENU UTAMA PADA STATE IDLE ("halo", "0", "menu")
         # =====================================================================
         from admin_scripts import _is_sapaan
         if status_fsm == "IDLE" and not has_media:
-            if _is_sapaan(pesan_clean) or pesan_clean in {"p", "ping", "p!", "ping!", "halo", "hai", "hi", "assalamualaikum"}:
+            if _is_sapaan(pesan_clean) or pesan_clean in {"p", "ping", "p!", "ping!", "halo", "hai", "hi", "assalamualaikum", "0", "0.", "menu", "menu utama", "kembali", "kembali ke menu utama"}:
                 balasan = ambil_balasan("sapaan", nama_pengirim=nama_pengirim)
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
@@ -695,9 +689,9 @@ async def waha_webhook(request: Request):
         # FAST-PATH 1B: DETEKSI NIAT DONASI / ZAKAT (MENU UTAMA DONASI 1-4)
         # =====================================================================
         is_niat_donasi = bool(re.search(
-            r"(donasi|berdonasi|sedekah|zakat|penyalurkan|penyaluran|berdonas|inginberdonasi|mauberdonasi|mauzakat|inginzakat|bayar zakat|ingin donasi)",
+            r"(donasi|berdonasi|sedekah|zakat|penyalurkan|penyaluran|berdonas|inginberdonasi|mauberdonasi|mauzakat|inginzakat|bayar zakat|ingin donasi|panduan berdonasi|cara berdonasi|panduan donasi)",
             pesan_clean
-        )) or (pesan_clean in ["2", "2.", "ingin berdonasi", "ingin berdonasi?"])
+        )) or (pesan_clean in ["2", "2.", "ingin berdonasi", "ingin berdonasi?", "panduan berdonasi", "cara donasi", "panduan donasi"])
 
         if is_niat_donasi and status_fsm == "IDLE":
             state_manager.update_status(nomor_wa, "PILIH_PROGRAM")
