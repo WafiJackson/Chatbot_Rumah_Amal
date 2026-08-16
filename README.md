@@ -135,7 +135,26 @@ stateDiagram-v2
 
 ---
 
-## 🤲 3. Random Doa Syar'i Generator Engine (`admin_scripts.py`)
+## 💸 3. Alur Konfirmasi Pembayaran (Foto Resi -> Baca Otomatis -> Simpan)
+
+Diagram berikut menjelaskan apa yang terjadi saat donatur mengirim foto bukti transfer, dari foto diterima sampai tercatat di sistem - termasuk pengaman yang memastikan data yang tersimpan benar-benar valid, tidak asal simpan meski hasil bacaan AI kurang jelas:
+
+```mermaid
+flowchart TD
+    Start["👤 Donatur Kirim Foto Bukti Transfer"] --> Download["📥 Bot Mengunduh Foto Resolusi Penuh"]
+    Download --> Baca["🔍 Bot Membaca Nama & Nominal dari Foto Pakai AI"]
+    Baca --> Cek{"✅ Apakah Nominal Terbaca Jelas & Masuk Akal?"}
+
+    Cek -- "Ya, Terbaca Jelas" --> Simpan["💾 Catat Transaksi ke Database"]
+    Simpan --> Doa["🤲 Kirim Balasan Doa & Konfirmasi ke Donatur"]
+
+    Cek -- "Tidak / Foto Buram / Meragukan" --> Retry["✍️ Bot Minta Donatur Ketik Ulang Nama & Nominal Secara Manual"]
+    Retry --> Baca
+```
+
+---
+
+## 🤲 4. Random Doa Syar'i Generator Engine (`admin_scripts.py`)
 
 Diagram alur berikut menjelaskan bagaimana sistem menghasilkan **Variasi Doa Syar'i Acak** berbahasa Arab + terjemahan yang berganti-ganti secara alami saat donatur berdonasi:
 
@@ -160,7 +179,7 @@ flowchart TD
 
 ---
 
-## ⚡ 4. Fast-Path Router Bahasa Santai, Typo-Tolerant & Priority Engine (0.001s)
+## ⚡ 5. Fast-Path Router Bahasa Santai, Typo-Tolerant & Priority Engine (0.001s)
 
 Diagram alur keputusan Fast-Path instan untuk menangkap sapaan gaul, typo, dan prioritas PINTAS di atas BPRA-UKT:
 
@@ -188,6 +207,32 @@ flowchart TD
 
     FastCheck -- "Pertanyaan Kompleks / Bebas (Tidak Kena Keyword)" --> LLMRoute["☁️ Gemini Hanya Klasifikasi Intent (Bukan Menyusun Jawaban) -> Balas dari QA_SCRIPT Statis"]
     FastCheck -- "Pertanyaan OOT / Iseng" --> ResOOT["😊 Balas Jawaban Penolakan OOT Ramah + Navigasi Cepat"]
+```
+
+---
+
+## 🧭 6. Evolusi Arsitektur AI (Ollama Lokal -> Cloud -> Optimasi Kuota)
+
+Pemilihan mesin AI pada proyek ini melewati 3 fase, masing-masing dipicu oleh temuan nyata di lapangan - bukan keputusan sekali jalan yang tidak pernah dievaluasi ulang:
+
+```mermaid
+flowchart LR
+    subgraph Fase1 ["📍 Fase 1: Model Lokal (11 Agustus)"]
+        Ollama["🖥️ Ollama Self-Hosted qwen2.5:7b (host.docker.internal:11434)"]
+    end
+
+    subgraph Fase2 ["📍 Fase 2: Migrasi Cloud (12-14 Agustus)"]
+        Gemini1["☁️ Gemini 2.5 Flash - dipakai untuk SEMUA tugas: Klasifikasi, NER, Parafrase Q&A, Vision OCR"]
+    end
+
+    subgraph Fase3 ["📍 Fase 3: Optimasi Kuota (15 Agustus)"]
+        Gemini2["☁️ Gemini 2.5 Flash - dipakai HANYA untuk Klasifikasi Intent Fallback, NER & Vision OCR"]
+        Static["📄 QA_SCRIPT Statis (Jawaban Q&A Langsung, Tanpa Parafrase LLM)"]
+    end
+
+    Ollama -->|"cloud api migration"| Gemini1
+    Gemini1 -->|"Ditemukan: kuota free-tier cuma 20 request/hari/model - parafrase Q&A memakai kuota untuk hal yang tidak butuh kecerdasan"| Gemini2
+    Gemini2 --> Static
 ```
 
 ---
