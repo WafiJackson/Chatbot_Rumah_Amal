@@ -4,7 +4,11 @@ import sqlite3
 from datetime import datetime, timezone, timedelta
 
 WIB = timezone(timedelta(hours=7))
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "donatur.db")
+# DB_PATH bisa di-override lewat env var (dipakai docker-compose.yml untuk
+# mengarahkan ke volume persisten /code/app_db/donatur.db) - tanpa ini,
+# data SQLite ditulis ke path yang tidak ter-mount ke volume dan hilang
+# saat container di-rebuild.
+DB_PATH = os.getenv("DB_PATH") or os.path.join(os.path.dirname(__file__), "..", "donatur.db")
 
 
 def get_db_connection():

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masuk &middot; Pusat Kendali Rumah Amal USK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-9 shadow-sm">
+        <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg mb-5">RA</div>
+        <h1 class="text-[19px] font-bold mb-1">Pusat Kendali Rumah Amal</h1>
+        <p class="text-[13px] text-slate-500 mb-7">Masuk untuk mengelola donasi, zakat, dan infak Rumah Amal Masjid Jamik USK.</p>
+
+        {% if error == "salah" %}
+        <div class="mb-4 px-3 py-2.5 rounded-lg bg-rose-50 text-rose-600 text-[13px] font-medium">
+            Nama pengguna atau kata sandi salah. Silakan coba lagi.
+        </div>
+        {% elif error == "belum_dikonfigurasi" %}
+        <div class="mb-4 px-3 py-2.5 rounded-lg bg-amber-50 text-amber-700 text-[13px] font-medium">
+            Kata sandi admin belum diatur di server (ADMIN_DASHBOARD_PASSWORD). Hubungi pengelola sistem.
+        </div>
+        {% endif %}
+
+        <form method="post" action="/admin/login">
+            <div class="mb-4">
+                <label for="username" class="block text-[12px] font-semibold text-slate-500 mb-1.5">Nama pengguna</label>
+                <input id="username" name="username" type="text" required autofocus
+                       class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[14px] focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+            </div>
+            <div class="mb-5">
+                <label for="password" class="block text-[12px] font-semibold text-slate-500 mb-1.5">Kata sandi</label>
+                <input id="password" name="password" type="password" required
+                       class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[14px] focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+            </div>
+            <button type="submit"
+                    class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[14px] font-semibold transition-colors">
+                Masuk
+            </button>
+        </form>
+    </div>
+</body>
+</html>

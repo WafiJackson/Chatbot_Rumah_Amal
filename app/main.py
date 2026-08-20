@@ -9,7 +9,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 import uvicorn
 from fastapi import FastAPI
-from routes import bot_webhook
+from fastapi.staticfiles import StaticFiles
+from routes import bot_webhook, admin_web, public_web
 from services import state_manager
 
 from services.logger import logger
@@ -24,12 +25,20 @@ app = FastAPI(
     version="3.0.0"
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Menyambungkan rute webhook dari folder routes (/api/webhook dan /webhook)
 app.include_router(bot_webhook.router)
 
+# Menyambungkan Admin Dashboard (/admin/...)
+app.include_router(admin_web.router)
 
-@app.get("/")
-def root():
+# Menyambungkan Web Chatbot publik (/ dan /api/web-chat)
+app.include_router(public_web.router)
+
+
+@app.get("/health")
+def health():
     logger.info("Health check endpoint dipanggil.")
     return {"status": "online", "message": "Bot Rumah Amal Modular Aktif."}
 

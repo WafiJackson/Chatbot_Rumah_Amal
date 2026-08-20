@@ -1,6 +1,6 @@
-# 🤖 Bot WhatsApp Rumah Amal USK (Hybrid & Cloud AI Engine)
+# 🤖 Sistem Rumah Amal USK (Bot WhatsApp + Admin Dashboard + Web Chatbot)
 
-Sistem Bot WhatsApp cerdas, ter-modularisasi, dan berkemampuan hibrida (*Fast-Path Regex + State Machine + Google Gemini 2.5 Flash Cloud AI + AI Vision OCR + Supabase Cloud*) yang dibangun khusus untuk melayani informasi program, penyaluran donasi/zakat, permohonan bantuan (PINTAS/BPRA-UKT), cek riwayat transaksi, deteksi sapaan gender dinamis, generator doa syar'i acak, dan notifikasi *alert* otomatis ke Admin Rumah Amal Masjid Jamik USK.
+Sistem donasi digital Rumah Amal Masjid Jamik USK dengan 3 titik akses: **Bot WhatsApp** (hibrida Fast-Path Regex + State Machine + Google Gemini 2.5 Flash Cloud AI + Vision OCR + Supabase Cloud), **Admin Dashboard** (`/admin`, panel kendali internal staf), dan **Web Chatbot Publik** (`/`, widget chat untuk website). Melayani informasi program, penyaluran donasi/zakat, permohonan bantuan (PINTAS/BPRA-UKT), cek riwayat transaksi (dengan verifikasi OTP di kanal web), deteksi sapaan gender dinamis, generator doa syar'i acak, dan notifikasi *alert* otomatis ke Admin.
 
 ---
 
@@ -246,8 +246,8 @@ flowchart LR
 2. **Random Doa Syar'i Generator:**
    - 4 Variasi Doa Syar'i (Lafadz Arab + Terjemahan + Doa Keberkahan) yang berganti-ganti secara acak saat donatur berdonasi.
 
-3. **Background Auto-Sync SQLite $\rightarrow$ Supabase Cloud:**
-   - Mengunggah ulang transaksi offline SQLite ke Supabase Cloud saat jaringan pulih.
+3. **Dual-write SQLite + Supabase Cloud saat transaksi terjadi:**
+   - Tiap transaksi ditulis ke SQLite lokal dan Supabase Cloud secara bersamaan (kalau Supabase dikonfigurasi). Catatan: fungsi *catch-up sync* untuk transaksi yang sempat gagal ke Supabase (`sync_offline_sqlite_to_supabase`) sudah ada di kode tapi belum dijadwalkan berjalan otomatis - lihat catatan internal.
 
 4. **WAHA Session Health Monitor & Rate Limiter:**
    - Peringatan otomatis ke Admin WA jika WhatsApp bot terputus + Proteksi anti-spam (Max 20 req/min per WA).
@@ -257,6 +257,19 @@ flowchart LR
 
 6. **Hemat Kuota Cloud AI (Q&A Tanpa Parafrase LLM):**
    - Jawaban Q&A dikirim langsung dari template statis (`QA_SCRIPT`) tanpa disusun ulang oleh Gemini - LLM hanya dipakai untuk hal yang benar-benar butuh pemahaman bebas: klasifikasi intent fallback, ekstraksi NER, dan OCR resi. Memangkas jumlah panggilan Gemini per pertanyaan secara signifikan tanpa mengubah kualitas jawaban.
+
+---
+
+## 🗂️ 7. Tiga Titik Akses Sistem
+
+| Titik Akses | Route | Untuk Siapa | Status |
+|---|---|---|---|
+| Bot WhatsApp | Webhook `/webhook` (dipanggil WAHA) | Donatur, lewat WhatsApp | Teruji lewat pemakaian nyata |
+| Admin Dashboard | `/admin/login`, `/admin/dashboard`, `/admin/transactions` | Staf Rumah Amal (internal) | Baru dibangun - data masih contoh, lihat catatan internal |
+| Web Chatbot Publik | `/` (halaman chat), `/api/web-chat`, `/api/web-otp/*`, `/api/web-chat/upload-resi` | Pengunjung website (publik) | Baru dibangun - tersambung ke mesin jawaban bot asli, belum ada pembatas anti-spam |
+| Health Check | `/health` | Pemantauan server | - |
+
+Web Chatbot Publik memakai mesin jawaban (`susun_balasan`) yang **sama persis** dengan Bot WhatsApp, jadi jawaban untuk pertanyaan yang sama akan konsisten di kedua kanal. Fitur "Cek Riwayat Transaksi" di kanal web mewajibkan verifikasi kode OTP yang dikirim ke WhatsApp asli pengguna terlebih dulu, demi menjaga data donasi tidak bisa diintip sembarang orang.
 
 ---
 
@@ -273,6 +286,10 @@ GEMINI_API_KEY=your-gemini-api-key
 MODEL_NAME=gemini-2.5-flash
 
 ADMIN_WA_NUMBER=6281269666776@c.us
+
+# Login Admin Dashboard (/admin) - wajib diisi ADMIN_DASHBOARD_PASSWORD sebelum deploy
+ADMIN_DASHBOARD_USERNAME=admin
+ADMIN_DASHBOARD_PASSWORD=your-strong-password-here
 ```
 
 ---

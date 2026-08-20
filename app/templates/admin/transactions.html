@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Data Transaksi{% endblock %}
+{% block page_title %}Data Transaksi{% endblock %}
+{% block page_desc %}Seluruh riwayat penyaluran donasi yang tercatat{% endblock %}
+
+{% block content %}
+<div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <h3 class="text-[14.5px] font-bold">Riwayat Transaksi</h3>
+        <span class="text-[12.5px] text-slate-500">{{ transaksi | length }} transaksi terbaru</span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full border-collapse min-w-[760px]">
+            <thead>
+                <tr>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">ID Transaksi</th>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Nomor WA</th>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Kategori</th>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Nominal</th>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Tanggal</th>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Status</th>
+                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transaksi %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-5 py-3.5 border-b border-slate-100 text-[12px] text-slate-400">{{ t.id }}</td>
+                    <td class="px-5 py-3.5 border-b border-slate-100 text-[13.5px] text-slate-500">{{ t.no_wa }}</td>
+                    <td class="px-5 py-3.5 border-b border-slate-100">
+                        <span class="inline-flex px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">{{ t.kode_program }}</span>
+                    </td>
+                    <td class="px-5 py-3.5 border-b border-slate-100 text-[13.5px] font-bold tabular-nums">{{ t.nominal | rupiah }}</td>
+                    <td class="px-5 py-3.5 border-b border-slate-100 text-[13.5px]">{{ t.waktu_transaksi }}</td>
+                    <td class="px-5 py-3.5 border-b border-slate-100">
+                        {% if t.status == "berhasil" %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-teal-50 text-teal-600">
+                            <span class="w-1.5 h-1.5 rounded-full bg-teal-600"></span> Berhasil
+                        </span>
+                        {% elif t.status == "menunggu" %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-600">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Menunggu
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-rose-50 text-rose-600">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Gagal
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3.5 border-b border-slate-100">
+                        <button type="button" onclick="bukaResi('{{ t.id }}', '{{ t.nama_donatur }}')"
+                                class="px-3 py-1.5 rounded-md border border-slate-200 text-[12px] font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-600">
+                            Lihat Resi
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL RESI -->
+<div id="resiModal" class="fixed inset-0 bg-slate-900/55 items-center justify-center p-6 z-50 hidden">
+    <div class="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-5.5">
+        <div class="flex items-start justify-between mb-3.5">
+            <div>
+                <h4 class="text-[15px] font-bold">Bukti Transfer</h4>
+                <p id="resiSub" class="text-[12px] text-slate-500 m-0"></p>
+            </div>
+            <button type="button" onclick="tutupResi()" class="w-6.5 h-6.5 rounded-md bg-slate-100 text-slate-500 hover:text-slate-700 text-sm leading-none">&#10005;</button>
+        </div>
+        <div class="border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-400 bg-slate-50">
+            <div class="text-2xl mb-2">&#128247;</div>
+            <div class="text-[12.5px] font-semibold text-slate-500">Gambar resi belum tersambung</div>
+            <div class="text-[11.5px] mt-1">Data contoh - nanti diambil dari lampiran WhatsApp donatur</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function bukaResi(id, nama) {
+        document.getElementById("resiSub").textContent = id + " · " + nama;
+        const modal = document.getElementById("resiModal");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+    }
+    function tutupResi() {
+        const modal = document.getElementById("resiModal");
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+    document.getElementById("resiModal").addEventListener("click", function (e) {
+        if (e.target === this) tutupResi();
+    });
+</script>
+{% endblock %}

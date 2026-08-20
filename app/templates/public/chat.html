@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Rumah Amal USK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { emerald: { 600: '#059669', 700: '#047857' } } } }
+        }
+    </script>
+</head>
+<body class="bg-white text-slate-900 antialiased">
+    <div class="grid md:grid-cols-[360px_1fr] h-screen">
+
+        <!-- LEFT: EDUCATION PANEL -->
+        <aside class="bg-emerald-50 border-b md:border-b-0 md:border-r border-emerald-100 p-7 overflow-y-auto">
+            <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg mb-5">RA</div>
+            <h1 class="text-xl font-bold mb-2">Assalamu'alaikum!</h1>
+            <p class="text-[13.5px] text-slate-500 mb-7 max-w-[30ch]">Tanya apa saja seputar zakat, infak, dan program Rumah Amal Masjid Jamik USK langsung di sini.</p>
+
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">Mulai dari sini</p>
+            <div class="flex flex-col gap-2 mb-8">
+                <button type="button" onclick="quickPrompt('Bagaimana cara berdonasi zakat?')"
+                        class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                    <span>🕌</span> Cara Berdonasi Zakat
+                </button>
+                <button type="button" onclick="quickPrompt('Tolong hitungkan nisab zakat saya')"
+                        class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                    <span>🧮</span> Hitung Nisab
+                </button>
+                <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
+                        class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                    <span>📋</span> Cek Riwayat Transaksi
+                </button>
+            </div>
+
+            <hr class="border-emerald-100 mb-6" />
+
+            <div class="flex flex-col gap-3.5">
+                <div class="flex gap-2.5 items-start">
+                    <span class="text-[15px] mt-0.5">🏛️</span>
+                    <span class="text-[12.5px] text-slate-500"><b class="text-slate-900 font-bold">Rumah Amal Masjid Jamik USK</b> &mdash; Lembaga Amil Zakat resmi Universitas Syiah Kuala.</span>
+                </div>
+                <div class="flex gap-2.5 items-start">
+                    <span class="text-[15px] mt-0.5">🔒</span>
+                    <span class="text-[12.5px] text-slate-500">Cek riwayat transaksi butuh <b class="text-slate-900 font-bold">verifikasi nomor WA</b> lewat kode OTP demi keamanan data donatur.</span>
+                </div>
+                <div class="flex gap-2.5 items-start">
+                    <span class="text-[15px] mt-0.5">📷</span>
+                    <span class="text-[12.5px] text-slate-500">Sudah transfer? Klik ikon 📎 di kolom chat untuk <b class="text-slate-900 font-bold">unggah bukti transfer</b> langsung.</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- RIGHT: CHAT -->
+        <section class="flex flex-col min-w-0">
+            <header class="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 shrink-0">
+                <div class="relative w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                    M
+                    <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white"></span>
+                </div>
+                <div>
+                    <div class="text-[14px] font-bold">Mimin &middot; Rumah Amal USK</div>
+                    <div class="text-[11.5px] text-slate-400">Online &middot; biasanya membalas seketika</div>
+                </div>
+            </header>
+
+            <div id="messages" class="flex-1 overflow-y-auto p-6 flex flex-col gap-3.5">
+                <div class="flex gap-2 max-w-[78%]">
+                    <div class="w-6.5 h-6.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">M</div>
+                    <div>
+                        <div class="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-slate-100 text-slate-900 text-[13.5px] leading-relaxed whitespace-pre-wrap">Assalamu'alaikum Warahmatullahi Wabarakatuh! 🙏
+Selamat datang di layanan Rumah Amal Masjid Jamik USK. Ada yang bisa Mimin bantu hari ini? Kakak bisa pilih salah satu pintasan di sebelah kiri, atau ketik langsung di sini.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-200 px-5 py-3.5 shrink-0">
+                <div id="resi-chip" class="hidden items-center gap-2 bg-emerald-50 text-emerald-700 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold mb-2 w-fit">
+                    <span>📷</span>
+                    <span id="resi-name"></span>
+                    <button type="button" onclick="clearResi()" class="opacity-70 hover:opacity-100" aria-label="Batalkan lampiran">✕</button>
+                </div>
+                <div class="flex items-end gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-1.5 focus-within:border-emerald-600">
+                    <button type="button" onclick="triggerUpload()" title="Unggah bukti transfer" aria-label="Unggah bukti transfer"
+                            class="w-8.5 h-8.5 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-700 shrink-0">📎</button>
+                    <input type="file" id="file-input" accept="image/*" class="hidden" onchange="onFileChosen(event)" />
+                    <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke Mimin..."
+                              class="flex-1 bg-transparent border-none resize-none text-[13.5px] py-2 outline-none max-h-[120px]"
+                              onkeydown="handleKeydown(event)" oninput="autoExpand(this)"></textarea>
+                    <button type="button" onclick="sendMessage()" title="Kirim pesan" aria-label="Kirim pesan"
+                            class="w-8.5 h-8.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shrink-0">➤</button>
+                </div>
+                <div class="text-center text-[10.5px] text-slate-400 mt-2">Mimin membalas otomatis &middot; untuk hal mendesak hubungi admin lewat WhatsApp</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- OTP MODAL -->
+    <div id="otp-modal" class="hidden fixed inset-0 bg-slate-900/55 items-center justify-center p-6 z-50">
+        <div class="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-6">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg mb-3.5">🔒</div>
+            <h4 class="text-[15.5px] font-bold mb-1">Verifikasi Nomor WhatsApp</h4>
+            <p id="otp-step-desc" class="text-[12.5px] text-slate-500 mb-5">Masukkan nomor WhatsApp Kakak, Mimin akan kirimkan kode verifikasi lewat WhatsApp.</p>
+
+            <div id="otp-step-number">
+                <div class="mb-4">
+                    <label for="wa-number" class="block text-[11.5px] font-semibold text-slate-500 mb-1.5">Nomor WhatsApp</label>
+                    <input id="wa-number" type="text" placeholder="0812xxxxxxxx"
+                           class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+                </div>
+                <div id="otp-error" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeOtp()" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-500 text-[13px] font-semibold">Batal</button>
+                    <button type="button" onclick="submitWaNumber()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold">Kirim Kode</button>
+                </div>
+            </div>
+
+            <div id="otp-step-code" class="hidden">
+                <div class="mb-4">
+                    <label for="otp-code" class="block text-[11.5px] font-semibold text-slate-500 mb-1.5">Kode OTP</label>
+                    <input id="otp-code" type="text" placeholder="6 digit kode dari WhatsApp"
+                           class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+                </div>
+                <div id="otp-error-2" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeOtp()" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-500 text-[13px] font-semibold">Batal</button>
+                    <button type="button" onclick="submitOtpCode()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold">Verifikasi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/public/chat.js"></script>
+</body>
+</html>

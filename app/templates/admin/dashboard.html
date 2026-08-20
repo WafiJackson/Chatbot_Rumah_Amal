@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_desc %}Ringkasan donasi, zakat, dan infak hari ini{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5 px-3.5 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-[12.5px] font-semibold inline-block">
+    Sumber data: {{ sumber_data }} &middot; angka di bawah masih data contoh
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+        <div class="flex items-start justify-between mb-3.5">
+            <span class="text-[12.5px] font-semibold text-slate-500">Total Donasi</span>
+            <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm">&#128176;</span>
+        </div>
+        <div class="text-2xl font-bold tabular-nums">{{ kpi.total_donasi | rupiah }}</div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+        <div class="flex items-start justify-between mb-3.5">
+            <span class="text-[12.5px] font-semibold text-slate-500">Total Zakat</span>
+            <span class="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-sm">&#127974;</span>
+        </div>
+        <div class="text-2xl font-bold tabular-nums">{{ kpi.total_zakat | rupiah }}</div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+        <div class="flex items-start justify-between mb-3.5">
+            <span class="text-[12.5px] font-semibold text-slate-500">Total Infak</span>
+            <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm">&#129330;</span>
+        </div>
+        <div class="text-2xl font-bold tabular-nums">{{ kpi.total_infak | rupiah }}</div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+        <div class="flex items-start justify-between mb-3.5">
+            <span class="text-[12.5px] font-semibold text-slate-500">Pengguna Aktif</span>
+            <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm">&#128101;</span>
+        </div>
+        <div class="text-2xl font-bold tabular-nums">{{ kpi.pengguna_aktif }}</div>
+    </div>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-2xl p-6">
+    <h3 class="text-[14.5px] font-bold mb-4">Tren Donasi 7 Hari Terakhir</h3>
+    <div style="height: 260px;">
+        <canvas id="trenChart"></canvas>
+    </div>
+</div>
+
+<script>
+    const labels = {{ tren | map(attribute="hari") | list | tojson }};
+    const values = {{ tren | map(attribute="nominal") | list | tojson }};
+
+    new Chart(document.getElementById("trenChart"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Donasi (Rp)",
+                data: values,
+                backgroundColor: "rgba(5, 150, 105, 0.15)",
+                borderColor: "#059669",
+                borderWidth: 1.5,
+                borderRadius: 5,
+                maxBarThickness: 48,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "#F1F5F9" },
+                    ticks: {
+                        callback: function (value) {
+                            return "Rp " + (value / 1000000).toFixed(1) + "jt";
+                        }
+                    }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+</script>
+{% endblock %}

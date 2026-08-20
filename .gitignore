@@ -2,7 +2,7 @@
 # GITIGNORE - RUMAH AMAL BOT
 # ==========================================
 
-# 1. Environment & Rahasia API Key (SANGAT KRITIS)
+# 1. Environment & Rahasia API Key 
 .env
 .env.local
 .env.*.local
@@ -16,7 +16,7 @@ donatur.db
 logs/
 *.log
 
-# 4. Berkas Privasi & 'Bumbu Dapur' Internal Proyek
+# 4. Berkas Privasi & Internal Proyek
 Bueprint.txt
 test_hybrid.py
 scratch/
