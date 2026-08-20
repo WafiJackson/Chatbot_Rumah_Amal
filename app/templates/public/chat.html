@@ -26,14 +26,32 @@
                         class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
                     <span>🕌</span> Cara Berdonasi Zakat
                 </button>
-                <button type="button" onclick="quickPrompt('Tolong hitungkan nisab zakat saya')"
-                        class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                    <span>🧮</span> Hitung Nisab
-                </button>
                 <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
                         class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
                     <span>📋</span> Cek Riwayat Transaksi
                 </button>
+
+                <div class="mt-1">
+                    <div class="flex items-center gap-2 px-1 mb-1.5">
+                        <span class="text-[13px]">📖</span>
+                        <span class="text-[12px] font-bold text-slate-600">Konsultasi Zakat</span>
+                    </div>
+                    <div class="flex flex-col gap-1.5 pl-3 border-l-2 border-emerald-100">
+                        <button type="button" onclick="quickPrompt('Apakah ada kalkulator zakat yang bisa saya pakai?')"
+                                class="text-left bg-white border border-emerald-100 rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                            Kalkulator Zakat
+                        </button>
+                        <button type="button" onclick="quickPrompt('Zakat apa saja yang wajib saya tunaikan dari harta saya?')"
+                                class="text-left bg-white border border-emerald-100 rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                            Harta yang Wajib Dizakati
+                        </button>
+                        <button type="button" onclick="openGoogleSearch('syarat wajib zakat dalam islam')"
+                                class="flex items-center justify-between text-left bg-white border border-emerald-100 rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                            <span>Syarat Wajib Zakat</span>
+                            <span class="text-[10px] text-slate-400">↗ Google</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <hr class="border-emerald-100 mb-6" />

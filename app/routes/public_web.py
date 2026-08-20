@@ -106,6 +106,17 @@ def _is_cek_riwayat(pesan_clean: str) -> bool:
     ) or bool(re.search(r"(cek|lihat|tampilkan|minta|riwayat|histori|history)\s*(riwayat|histori|history|transaksi|donasi)", pesan_clean))
 
 
+# Fallback "tidak_diketahui" milik QA_SCRIPT dirancang untuk WhatsApp - isinya
+# minta user "Ketik 1/2/0" yang tidak berlaku sama sekali di web (tidak ada
+# FSM/navigasi angka di kanal ini). Web pakai fallback sendiri yang mengarah
+# ke pintasan panel kiri, bukan instruksi ketik angka yang menyesatkan.
+_WEB_FALLBACK_REPLY = (
+    "Wah, Mimin kurang paham nih kalau mengenai hal itu 🙏\n\n"
+    "Mimin fokus membantu seputar *Zakat, Infak, Sedekah,* serta *Program Beasiswa USK* ya Kak. "
+    "Coba klik salah satu pintasan di panel kiri, atau tanyakan dengan kalimat lain ya 😊"
+)
+
+
 def _format_riwayat(no_wa: str, sapaan: str) -> str:
     riwayat_items = state_manager.ambil_riwayat_donasi(no_wa)
     if not riwayat_items:
@@ -168,7 +179,8 @@ async def web_chat(request: Request, payload: dict):
     )
     session["last_program_key"] = hasil.get("last_program_key")
 
-    return _json_with_session(request, {"reply": hasil["reply"], "requires_otp": False})
+    reply = _WEB_FALLBACK_REPLY if "tidak_diketahui" in hasil.get("intents", []) else hasil["reply"]
+    return _json_with_session(request, {"reply": reply, "requires_otp": False})
 
 
 @router.post("/api/web-otp/request")

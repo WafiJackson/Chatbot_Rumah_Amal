@@ -131,6 +131,11 @@
         sendMessage();
     }
 
+    function openGoogleSearch(query) {
+        addMessage("bot", "Membuka pencarian \"" + query + "\" di tab baru ↗️");
+        window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank", "noopener");
+    }
+
     function handleKeydown(e) {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -262,6 +267,7 @@
     // expose handlers used by inline onclick/onkeydown attributes in chat.html
     window.sendMessage = sendMessage;
     window.quickPrompt = quickPrompt;
+    window.openGoogleSearch = openGoogleSearch;
     window.handleKeydown = handleKeydown;
     window.autoExpand = autoExpand;
     window.triggerUpload = triggerUpload;
