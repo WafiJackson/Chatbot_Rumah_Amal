@@ -39,7 +39,24 @@ services:
     networks:
       - bot_network
 
-# 3. Jembatan Komunikasi Internal & Persistence Volume
+  # 3. Container untuk Reverse Proxy (Caddy) -- BARU DITAMBAHKAN
+  caddy:
+    image: caddy:2-alpine
+    container_name: rumah_amal_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-bot
+    networks:
+      - bot_network
+
+# 4. Jembatan Komunikasi Internal & Persistence Volume
 networks:
   bot_network:
     driver: bridge
@@ -49,3 +66,6 @@ volumes:
     driver: local
   sqlite_data:
     driver: local
+  # BARU DITAMBAHKAN UNTUK CADDY
+  caddy_data:
+  caddy_config:
