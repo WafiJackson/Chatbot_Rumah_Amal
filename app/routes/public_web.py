@@ -116,6 +116,21 @@ _WEB_FALLBACK_REPLY = (
     "Coba klik salah satu pintasan di panel kiri, atau tanyakan dengan kalimat lain ya 😊"
 )
 
+# get_program_list()/format_program_response() (program_manager.py) diakhiri
+# footer "Ketik angka 1 s.d. N" / "Ketik 0" - instruksi navigasi FSM khusus
+# WhatsApp yang tidak berlaku di web (susun_balasan() hanya mengenali follow-up
+# berbasis kalimat seperti "syarat"/"detail", bukan angka). Potong footer itu
+# lalu ganti dengan ajakan yang benar-benar berfungsi di kanal ini.
+_NAV_FOOTER_PATTERN = re.compile(r"\n-{5,}\n📌 \*Pilihan Navigasi:\*.*", re.DOTALL)
+_WEB_PROGRAM_HINT = "\n\n💬 Tanya bebas soal syarat, proses, atau detail programnya ya, Kak!"
+
+
+def _bersihkan_navigasi_wa(reply: str) -> str:
+    hasil, jumlah_potong = _NAV_FOOTER_PATTERN.subn("", reply)
+    if jumlah_potong:
+        hasil = hasil.rstrip() + _WEB_PROGRAM_HINT
+    return hasil
+
 
 def _format_riwayat(no_wa: str, sapaan: str) -> str:
     riwayat_items = state_manager.ambil_riwayat_donasi(no_wa)
@@ -179,7 +194,10 @@ async def web_chat(request: Request, payload: dict):
     )
     session["last_program_key"] = hasil.get("last_program_key")
 
-    reply = _WEB_FALLBACK_REPLY if "tidak_diketahui" in hasil.get("intents", []) else hasil["reply"]
+    if "tidak_diketahui" in hasil.get("intents", []):
+        reply = _WEB_FALLBACK_REPLY
+    else:
+        reply = _bersihkan_navigasi_wa(hasil["reply"])
     return _json_with_session(request, {"reply": reply, "requires_otp": False})
 
 
@@ -266,8 +284,21 @@ async def upload_resi(
 
     data = ekstrak_resi_vision(image_bytes, caption=caption)
     nama_terbaca = data.get("nama") or "(nama tidak terbaca)"
-    nominal_terbaca = data.get("nominal")
+    nominal_terbaca = data.get("nominal")  # sudah divalidasi >= Rp 1.000 di ekstrak_resi_vision
     program_terbaca = data.get("program") or "UMUM"
+
+    if nominal_terbaca:
+        # Tersimpan sebagai 'pending' - identitas pengunjung web belum terverifikasi
+        # OTP saat upload, jadi admin yang memvalidasi manual lewat dashboard
+        # sebelum dianggap donasi sah (beda dari WhatsApp yang auto-'validated'
+        # karena identitasnya sudah pasti dari sesi WA).
+        state_manager.simpan_transaksi_final(
+            no_wa, nama_terbaca, nominal_terbaca, kode_program=program_terbaca,
+            status_verifikasi="pending", sumber="web",
+        )
+        status_teks = "menunggu validasi admin di dashboard"
+    else:
+        status_teks = "nominal tidak terbaca otomatis, mohon dicek manual"
 
     pesan_admin = (
         f"🌐 [RESI DARI WEB CHAT] Ada bukti transfer diunggah lewat website:\n"
@@ -275,7 +306,7 @@ async def upload_resi(
         f"📞 *No. WA:* {no_wa}\n"
         f"💰 *Nominal (hasil baca AI):* {('Rp ' + format(int(nominal_terbaca), ',')) if nominal_terbaca else 'Tidak terbaca'}\n"
         f"📌 *Program:* {PETA_NAMA.get(program_terbaca, program_terbaca)}\n"
-        f"Mohon diverifikasi & dicatat manual ya - unggahan dari web belum otomatis tersimpan ke database."
+        f"Status: {status_teks}. Cek & validasi di Admin Dashboard > Data Transaksi."
     )
     try:
         notify_admin(pesan_admin)
@@ -283,7 +314,7 @@ async def upload_resi(
         print(f"[Warning Web Resi Notify Admin] {e}")
 
     reply = (
-        "Alhamdulillah! 🙏 Bukti transfer Kakak sudah Mimin terima dan teruskan ke admin untuk diverifikasi manual. "
-        "Admin akan segera mencatat donasinya. Jazakallahu Khairan atas kepercayaannya kepada Rumah Amal USK! ✨"
+        "Alhamdulillah! 🙏 Bukti transfer Kakak sudah Mimin terima dan tercatat untuk diverifikasi admin. "
+        "Setelah divalidasi, donasinya akan resmi tercatat. Jazakallahu Khairan atas kepercayaannya kepada Rumah Amal USK! ✨"
     )
     return _json_with_session(request, {"status": "sukses", "reply": reply})

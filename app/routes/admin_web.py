@@ -3,11 +3,12 @@ import secrets
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Request, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from services import state_manager
 from services.supabase_client import is_supabase_configured
+from routes.bot_webhook import PETA_NAMA
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="templates/admin")
@@ -46,50 +47,78 @@ def _require_login(request: Request):
 
 
 # =====================================================================
-# DATA DASHBOARD & TRANSAKSI
-#
-# Catatan: masih data contoh (mock), TAPI bentuk/nama variabelnya sengaja
-# disamakan dengan skema tabel asli (transaksi_donasi & master_program di
-# state_manager.py / supabase_client.py) supaya nanti tinggal ganti isi
-# fungsi ini dengan query Supabase asli tanpa mengubah template sama sekali.
+# DATA DASHBOARD & TRANSAKSI - dari database asli (SQLite/Supabase lewat
+# state_manager), bukan lagi contoh statis.
 # =====================================================================
 
-def _ambil_data_kpi() -> dict:
-    # TODO ganti dengan query Supabase asli, misal:
-    # supabase_client.table("transaksi_donasi").select("kode_program, nominal").execute()
-    return {
-        "total_donasi": 45230000,
-        "total_zakat": 28150000,
-        "total_infak": 9480000,
-        "pengguna_aktif": 312,
+_STATUS_LABEL = {"validated": "Tervalidasi", "pending": "Menunggu", "rejected": "Ditolak"}
+
+
+def _tanggal_saja(waktu_raw: str) -> str:
+    return (waktu_raw or "").split(" ")[0].split("T")[0]
+
+
+def _hitung_kpi_dan_tren(transaksi: list[dict]) -> tuple[dict, list[dict]]:
+    """Agregasi KPI & tren 7 hari dari daftar transaksi asli. Hanya transaksi
+    'validated' yang dihitung - resi web yang masih 'pending' belum dianggap
+    donasi sah sampai admin memvalidasi."""
+    total_donasi = 0
+    total_zakat = 0
+    total_infak = 0
+    pengguna = set()
+    per_hari: dict[str, int] = {}
+
+    for t in transaksi:
+        if t.get("status_verifikasi", "validated") != "validated":
+            continue
+        nominal = int(t.get("nominal") or 0)
+        kode = (t.get("kode_program") or "").upper()
+        total_donasi += nominal
+        if kode.startswith("ZKT"):
+            total_zakat += nominal
+        elif kode == "INF-RUTIN":
+            total_infak += nominal
+        if t.get("no_wa"):
+            pengguna.add(t["no_wa"])
+
+        tgl = _tanggal_saja(t.get("waktu_transaksi"))
+        if tgl:
+            per_hari[tgl] = per_hari.get(tgl, 0) + nominal
+
+    kpi = {
+        "total_donasi": total_donasi,
+        "total_zakat": total_zakat,
+        "total_infak": total_infak,
+        "pengguna_aktif": len(pengguna),
     }
 
+    hari_label = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
+    tren = []
+    hari_ini = datetime.now(WIB).date()
+    for i in range(6, -1, -1):
+        tgl = hari_ini - timedelta(days=i)
+        tren.append({"hari": hari_label[tgl.weekday()], "nominal": per_hari.get(tgl.isoformat(), 0)})
 
-def _ambil_tren_7_hari() -> list[dict]:
-    # TODO ganti dengan agregasi harian dari Supabase (GROUP BY tanggal)
-    return [
-        {"hari": "Sen", "nominal": 4200000},
-        {"hari": "Sel", "nominal": 6800000},
-        {"hari": "Rab", "nominal": 5100000},
-        {"hari": "Kam", "nominal": 9600000},
-        {"hari": "Jum", "nominal": 12400000},
-        {"hari": "Sab", "nominal": 4300000},
-        {"hari": "Min", "nominal": 2830000},
-    ]
+    return kpi, tren
 
 
-def _ambil_daftar_transaksi() -> list[dict]:
-    # TODO ganti dengan:
-    # supabase_client.table("transaksi_donasi").select("*").order("waktu_transaksi", desc=True).execute()
-    return [
-        {"id": "TRX-0231", "no_wa": "0812-xxxx-8891", "nama_donatur": "Siti Aisyah", "kode_program": "Zakat Mal", "nominal": 2500000, "waktu_transaksi": "15 Ags 2026", "status": "berhasil"},
-        {"id": "TRX-0230", "no_wa": "0813-xxxx-2210", "nama_donatur": "Budi Santoso", "kode_program": "Infak Rutin", "nominal": 150000, "waktu_transaksi": "15 Ags 2026", "status": "berhasil"},
-        {"id": "TRX-0229", "no_wa": "0821-xxxx-7745", "nama_donatur": "Rina Wulandari", "kode_program": "Zakat Penghasilan", "nominal": 900000, "waktu_transaksi": "14 Ags 2026", "status": "menunggu"},
-        {"id": "TRX-0228", "no_wa": "0852-xxxx-1180", "nama_donatur": "Ahmad Fauzi", "kode_program": "BPRA-UKT", "nominal": 3000000, "waktu_transaksi": "14 Ags 2026", "status": "berhasil"},
-        {"id": "TRX-0227", "no_wa": "0878-xxxx-3392", "nama_donatur": "Dewi Lestari", "kode_program": "Green Qurban", "nominal": 2200000, "waktu_transaksi": "13 Ags 2026", "status": "gagal"},
-        {"id": "TRX-0226", "no_wa": "0819-xxxx-6604", "nama_donatur": "Yafi Hidayatullah", "kode_program": "Infak Rutin", "nominal": 100000, "waktu_transaksi": "13 Ags 2026", "status": "berhasil"},
-        {"id": "TRX-0225", "no_wa": "0817-xxxx-4423", "nama_donatur": "Cut Dara", "kode_program": "OTA Palestina", "nominal": 500000, "waktu_transaksi": "12 Ags 2026", "status": "menunggu"},
-    ]
+def _format_transaksi_tampilan(rows: list[dict]) -> list[dict]:
+    hasil = []
+    for r in rows:
+        waktu_raw = r.get("waktu_transaksi") or ""
+        hasil.append({
+            "id": r.get("id"),
+            "id_tampil": f"TRX-{int(r['id']):04d}" if r.get("id") is not None else "TRX-????",
+            "no_wa": r.get("no_wa") or "-",
+            "nama_donatur": r.get("nama_donatur") or "-",
+            "kode_program": PETA_NAMA.get(r.get("kode_program"), r.get("kode_program") or "Donasi"),
+            "nominal": r.get("nominal") or 0,
+            "waktu_transaksi": waktu_raw,
+            "status": r.get("status_verifikasi") or "validated",
+            "status_label": _STATUS_LABEL.get(r.get("status_verifikasi") or "validated", "Tervalidasi"),
+            "sumber": r.get("sumber") or "whatsapp",
+        })
+    return hasil
 
 
 # =====================================================================
@@ -139,10 +168,16 @@ def dashboard_page(request: Request):
     if redirect:
         return redirect
 
+    transaksi_mentah = state_manager.ambil_semua_transaksi(limit=200)
+    kpi, tren = _hitung_kpi_dan_tren(transaksi_mentah)
+    aktivitas_terbaru = _format_transaksi_tampilan(transaksi_mentah[:4])
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "active_page": "dashboard",
-        "kpi": _ambil_data_kpi(),
-        "tren": _ambil_tren_7_hari(),
+        "admin_username": ADMIN_USERNAME,
+        "kpi": kpi,
+        "tren": tren,
+        "aktivitas": aktivitas_terbaru,
         "sumber_data": "Supabase" if is_supabase_configured() else "SQLite Lokal (Supabase belum dikonfigurasi)",
     })
 
@@ -153,7 +188,21 @@ def transactions_page(request: Request):
     if redirect:
         return redirect
 
+    transaksi_mentah = state_manager.ambil_semua_transaksi(limit=200)
     return templates.TemplateResponse(request, "transactions.html", {
         "active_page": "transaksi",
-        "transaksi": _ambil_daftar_transaksi(),
+        "admin_username": ADMIN_USERNAME,
+        "transaksi": _format_transaksi_tampilan(transaksi_mentah),
     })
+
+
+@router.post("/transactions/{transaksi_id}/status")
+def update_transaksi_status(transaksi_id: int, request: Request, status: str = Form(...)):
+    if not _is_authenticated(request):
+        return JSONResponse({"status": "gagal", "pesan": "Sesi login sudah berakhir."}, status_code=401)
+
+    ok = state_manager.update_status_verifikasi(transaksi_id, status)
+    if not ok:
+        return JSONResponse({"status": "gagal", "pesan": "Transaksi tidak ditemukan atau status tidak valid."}, status_code=400)
+
+    return JSONResponse({"status": "sukses"})

@@ -1,56 +1,89 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
-{% block page_desc %}Ringkasan donasi, zakat, dan infak hari ini{% endblock %}
+{% block page_title %}Overview Sistem{% endblock %}
+{% block page_desc %}Pemantauan arus donasi secara real-time{% endblock %}
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 {% endblock %}
 
 {% block content %}
-<div class="mb-5 px-3.5 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-[12.5px] font-semibold inline-block">
-    Sumber data: {{ sumber_data }} &middot; angka di bawah masih data contoh
+<div class="mb-5 px-4 py-2 rounded-xl bg-amal-50 border border-amal-100 text-amal-700 text-[12.5px] font-bold inline-block">
+    Sumber data: {{ sumber_data }}
 </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <div class="flex items-start justify-between mb-3.5">
-            <span class="text-[12.5px] font-semibold text-slate-500">Total Donasi</span>
-            <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm">&#128176;</span>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-6 md:mb-8">
+    <div class="bg-white border border-amal-100 rounded-3xl p-6 shadow-lg shadow-amal-900/5 hover:border-gold-300 transition-all">
+        <div class="flex items-start justify-between mb-4">
+            <span class="text-[12.5px] font-bold text-slate-500 uppercase tracking-wider">Total Donasi</span>
+            <span class="w-10 h-10 rounded-2xl bg-gold-50 text-gold-600 flex items-center justify-center ring-1 ring-gold-200 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-4-8.5c0-1.38 1.79-2.5 4-2.5s4 1.12 4 2.5-1.79 2.5-4 2.5-4 1.12-4 2.5 1.79 2.5 4 2.5 4-1.12 4-2.5"></path></svg>
+            </span>
         </div>
-        <div class="text-2xl font-bold tabular-nums">{{ kpi.total_donasi | rupiah }}</div>
+        <div class="text-3xl font-extrabold text-amal-900 tabular-nums">{{ kpi.total_donasi | rupiah }}</div>
     </div>
 
-    <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <div class="flex items-start justify-between mb-3.5">
-            <span class="text-[12.5px] font-semibold text-slate-500">Total Zakat</span>
-            <span class="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-sm">&#127974;</span>
+    <div class="bg-white border border-amal-100 rounded-3xl p-6 shadow-lg shadow-amal-900/5 hover:border-amal-300 transition-all">
+        <div class="flex items-start justify-between mb-4">
+            <span class="text-[12.5px] font-bold text-slate-500 uppercase tracking-wider">Total Zakat</span>
+            <span class="w-10 h-10 rounded-2xl bg-amal-50 text-amal-600 flex items-center justify-center ring-1 ring-amal-200 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V9.5L12 4l7 5.5V21M9 21v-6h6v6"></path></svg>
+            </span>
         </div>
-        <div class="text-2xl font-bold tabular-nums">{{ kpi.total_zakat | rupiah }}</div>
+        <div class="text-3xl font-extrabold text-amal-900 tabular-nums">{{ kpi.total_zakat | rupiah }}</div>
     </div>
 
-    <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <div class="flex items-start justify-between mb-3.5">
-            <span class="text-[12.5px] font-semibold text-slate-500">Total Infak</span>
-            <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm">&#129330;</span>
+    <div class="bg-white border border-amal-100 rounded-3xl p-6 shadow-lg shadow-amal-900/5 hover:border-emerald-300 transition-all">
+        <div class="flex items-start justify-between mb-4">
+            <span class="text-[12.5px] font-bold text-slate-500 uppercase tracking-wider">Total Infak</span>
+            <span class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center ring-1 ring-emerald-200 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21c-4.5-2-8-5.4-8-10V6l8-3 8 3v5c0 4.6-3.5 8-8 10Z"></path></svg>
+            </span>
         </div>
-        <div class="text-2xl font-bold tabular-nums">{{ kpi.total_infak | rupiah }}</div>
+        <div class="text-3xl font-extrabold text-amal-900 tabular-nums">{{ kpi.total_infak | rupiah }}</div>
     </div>
 
-    <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <div class="flex items-start justify-between mb-3.5">
-            <span class="text-[12.5px] font-semibold text-slate-500">Pengguna Aktif</span>
-            <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm">&#128101;</span>
+    <div class="bg-white border border-amal-100 rounded-3xl p-6 shadow-lg shadow-amal-900/5 hover:border-blue-300 transition-all">
+        <div class="flex items-start justify-between mb-4">
+            <span class="text-[12.5px] font-bold text-slate-500 uppercase tracking-wider">Donatur Aktif</span>
+            <span class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center ring-1 ring-blue-200 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m5-5.13a4 4 0 100-8 4 4 0 000 8zm6 3a4 4 0 10-8 0"></path></svg>
+            </span>
         </div>
-        <div class="text-2xl font-bold tabular-nums">{{ kpi.pengguna_aktif }}</div>
+        <div class="text-3xl font-extrabold text-amal-900 tabular-nums">{{ kpi.pengguna_aktif }}</div>
     </div>
 </div>
 
-<div class="bg-white border border-slate-200 rounded-2xl p-6">
-    <h3 class="text-[14.5px] font-bold mb-4">Tren Donasi 7 Hari Terakhir</h3>
-    <div style="height: 260px;">
-        <canvas id="trenChart"></canvas>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-6">
+    <div class="lg:col-span-2 bg-white border border-amal-100 rounded-3xl p-5 md:p-7 shadow-lg shadow-amal-900/5">
+        <h3 class="text-[16px] font-extrabold text-amal-900 mb-6">Tren Aliran Donasi (7 Hari Terakhir)</h3>
+        <div style="height: 300px; width: 100%;">
+            <canvas id="trenChart"></canvas>
+        </div>
+    </div>
+
+    <div class="bg-white border border-amal-100 rounded-3xl p-5 md:p-7 shadow-lg shadow-amal-900/5 flex flex-col">
+        <h3 class="text-[16px] font-extrabold text-amal-900 mb-5">Aktivitas Terbaru</h3>
+        {% if aktivitas %}
+        <div class="flex flex-col gap-4">
+            {% for a in aktivitas %}
+            <div class="flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full shrink-0 {% if a.status == 'validated' %}bg-green-500{% elif a.status == 'pending' %}bg-gold-500 animate-pulse{% else %}bg-rose-500{% endif %}"></span>
+                <div class="min-w-0 flex-1">
+                    <div class="text-[13px] font-bold text-amal-900 truncate">{{ a.kode_program }} &middot; {{ a.no_wa }}</div>
+                    <div class="text-[11.5px] text-slate-400">{{ a.waktu_transaksi }}</div>
+                </div>
+                <span class="text-[12.5px] font-extrabold text-gold-600 tabular-nums shrink-0">{{ a.nominal | rupiah }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-[13px] text-slate-400">Belum ada transaksi tercatat.</p>
+        {% endif %}
+        <a href="/admin/transactions" class="mt-5 w-full py-2.5 rounded-xl border border-amal-200 text-amal-700 text-[12.5px] font-bold hover:bg-amal-50 transition-colors text-center block">
+            Lihat Semua Transaksi
+        </a>
     </div>
 </div>
 
@@ -58,18 +91,27 @@
     const labels = {{ tren | map(attribute="hari") | list | tojson }};
     const values = {{ tren | map(attribute="nominal") | list | tojson }};
 
+    let gradient = document.getElementById("trenChart").getContext("2d").createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, "rgba(47, 140, 82, 0.2)");
+    gradient.addColorStop(1, "rgba(47, 140, 82, 0)");
+
     new Chart(document.getElementById("trenChart"), {
-        type: "bar",
+        type: "line",
         data: {
             labels: labels,
             datasets: [{
-                label: "Donasi (Rp)",
+                label: "Donasi Masuk",
                 data: values,
-                backgroundColor: "rgba(5, 150, 105, 0.15)",
-                borderColor: "#059669",
-                borderWidth: 1.5,
-                borderRadius: 5,
-                maxBarThickness: 48,
+                borderColor: "#2F8C52",
+                backgroundColor: gradient,
+                borderWidth: 3,
+                pointBackgroundColor: "#ffffff",
+                pointBorderColor: "#2F8C52",
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                fill: true,
+                tension: 0.4
             }]
         },
         options: {
@@ -79,14 +121,17 @@
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: "#F1F5F9" },
+                    grid: { color: "#f1f5f9" },
                     ticks: {
-                        callback: function (value) {
-                            return "Rp " + (value / 1000000).toFixed(1) + "jt";
-                        }
+                        color: "#64748b",
+                        font: { family: "'Plus Jakarta Sans', sans-serif", weight: "600" },
+                        callback: function (value) { return "Rp " + (value / 1000000).toFixed(1) + "jt"; }
                     }
                 },
-                x: { grid: { display: false } }
+                x: {
+                    grid: { display: false },
+                    ticks: { color: "#64748b", font: { family: "'Plus Jakarta Sans', sans-serif", weight: "600" } }
+                }
             }
         }
     });

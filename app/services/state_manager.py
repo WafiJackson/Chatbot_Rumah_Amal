@@ -69,6 +69,17 @@ def init_db():
         if "target_program" not in columns:
             conn.execute("ALTER TABLE sesi_percakapan ADD COLUMN target_program TEXT")
 
+        # Migration check: status_verifikasi & sumber untuk alur validasi resi
+        # dari web (identitas belum terverifikasi saat upload, admin yang
+        # memvalidasi manual lewat dashboard). Transaksi lama/dari WhatsApp
+        # otomatis 'validated' (WA sudah terverifikasi lewat sesi HP-nya).
+        cursor = conn.execute("PRAGMA table_info(transaksi_donasi)")
+        tx_columns = [row["name"] for row in cursor.fetchall()]
+        if "status_verifikasi" not in tx_columns:
+            conn.execute("ALTER TABLE transaksi_donasi ADD COLUMN status_verifikasi TEXT DEFAULT 'validated'")
+        if "sumber" not in tx_columns:
+            conn.execute("ALTER TABLE transaksi_donasi ADD COLUMN sumber TEXT DEFAULT 'whatsapp'")
+
         conn.commit()
 
 
@@ -167,10 +178,22 @@ def get_session(no_wa: str) -> dict:
         return {"no_wa": no_wa, "status": "IDLE", "target_program": None}
 
 
-def simpan_transaksi_final(no_wa: str, nama: str, nominal: str | int, kode_program: str | None = None, pekerjaan: str | None = None):
+def simpan_transaksi_final(
+    no_wa: str,
+    nama: str,
+    nominal: str | int,
+    kode_program: str | None = None,
+    pekerjaan: str | None = None,
+    status_verifikasi: str = "validated",
+    sumber: str = "whatsapp",
+):
     """
     Menyimpan pendaftaran/transaksi ke tabel `transaksi_donasi`
     berdasarkan `kode_program` eksplisit atau `target_program` dari `sesi_percakapan`, lalu mereset status ke IDLE.
+
+    status_verifikasi='pending' dipakai untuk resi yang diunggah lewat web
+    (identitas pengunjung belum terverifikasi saat unggah) - baru dianggap
+    sah setelah admin menekan "Tandai Tervalidasi" di dashboard.
     """
     if not no_wa:
         return
@@ -205,23 +228,49 @@ def simpan_transaksi_final(no_wa: str, nama: str, nominal: str | int, kode_progr
         cols = [r["name"] for r in cursor.fetchall()]
         if "pekerjaan" in cols:
             conn.execute(
-                "INSERT INTO transaksi_donasi (no_wa, nama_donatur, pekerjaan, kode_program, nominal, waktu_transaksi) VALUES (?, ?, ?, ?, ?, ?)",
-                (no_wa_clean, nama, "-", kode_program, nominal_clean, waktu_sekarang)
+                "INSERT INTO transaksi_donasi (no_wa, nama_donatur, pekerjaan, kode_program, nominal, waktu_transaksi, status_verifikasi, sumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (no_wa_clean, nama, "-", kode_program, nominal_clean, waktu_sekarang, status_verifikasi, sumber)
             )
         else:
             conn.execute(
-                "INSERT INTO transaksi_donasi (no_wa, nama_donatur, kode_program, nominal, waktu_transaksi) VALUES (?, ?, ?, ?, ?)",
-                (no_wa_clean, nama, kode_program, nominal_clean, waktu_sekarang)
+                "INSERT INTO transaksi_donasi (no_wa, nama_donatur, kode_program, nominal, waktu_transaksi, status_verifikasi, sumber) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (no_wa_clean, nama, kode_program, nominal_clean, waktu_sekarang, status_verifikasi, sumber)
             )
         conn.commit()
 
-    # Reset status sesi ke IDLE
+    # Reset status sesi ke IDLE - hanya relevan untuk alur FSM WhatsApp, resi
+    # web tidak punya sesi FSM jadi ini no-op aman untuknya juga.
     reset_status(no_wa)
 
 
 def simpan_pendaftaran_one_shot(no_wa: str, nama: str, nominal: str, kode_program: str = "INF-RUTIN"):
     """Alias kompatibilitas untuk menyimpan transaksi final."""
     simpan_transaksi_final(no_wa, nama, nominal, kode_program=kode_program)
+
+
+def ambil_semua_transaksi(limit: int = 50) -> list[dict]:
+    """Mengambil transaksi terbaru lintas donatur untuk Admin Dashboard
+    (beda dari ambil_riwayat_donasi yang scoped ke 1 no_wa)."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "SELECT * FROM transaksi_donasi ORDER BY waktu_transaksi DESC LIMIT ?",
+            (limit,),
+        )
+        return [dict(r) for r in cursor.fetchall()]
+
+
+def update_status_verifikasi(transaksi_id: int, status_baru: str) -> bool:
+    """Admin menandai transaksi (biasanya resi dari web) sebagai 'validated'
+    atau 'rejected'. Mengembalikan True kalau baris ditemukan & diupdate."""
+    if status_baru not in {"validated", "rejected", "pending"}:
+        return False
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "UPDATE transaksi_donasi SET status_verifikasi = ? WHERE id = ?",
+            (status_baru, transaksi_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
 
 
 def ambil_riwayat_donasi(no_wa: str) -> list[dict]:

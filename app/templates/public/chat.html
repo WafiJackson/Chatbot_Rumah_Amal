@@ -3,150 +3,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Rumah Amal USK</title>
+    <title>Mimin AI &middot; Rumah Amal Masjid Jamik USK</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            theme: { extend: { colors: { emerald: { 600: '#059669', 700: '#047857' } } } }
+            theme: {
+                extend: {
+                    colors: {
+                        amal: { 50: '#F0F9F3', 100: '#DCEFE1', 200: '#B9DFC4', 300: '#8CC79E', 400: '#59AB74', 500: '#2F8C52', 600: '#1F7A46', 700: '#155C36', 800: '#0F452A', 900: '#0A301D', 950: '#051B10' },
+                        gold: { 50: '#FFFBEB', 100: '#FEF3C7', 200: '#FDE7A0', 300: '#FBD86B', 400: '#F6C445', 500: '#E8AC1F', 600: '#C98F13', 700: '#A5720E' }
+                    }
+                }
+            }
         }
     </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
+        @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-enter { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #B9DFC4; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8CC79E; }
+        .otp-digit::-webkit-outer-spin-button, .otp-digit::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
 </head>
-<body class="bg-white text-slate-900 antialiased">
-    <div class="grid md:grid-cols-[360px_1fr] h-screen">
+<body class="bg-gradient-to-br from-amal-50 via-white to-gold-50/60 text-slate-800 antialiased h-screen overflow-hidden flex items-center justify-center p-0 md:p-6">
 
-        <!-- LEFT: EDUCATION PANEL -->
-        <aside class="bg-emerald-50 border-b md:border-b-0 md:border-r border-emerald-100 p-7 overflow-y-auto">
-            <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg mb-5">RA</div>
-            <h1 class="text-xl font-bold mb-2">Assalamu'alaikum!</h1>
-            <p class="text-[13.5px] text-slate-500 mb-7 max-w-[30ch]">Tanya apa saja seputar zakat, infak, dan program Rumah Amal Masjid Jamik USK langsung di sini.</p>
+    <div class="w-full max-w-6xl h-full md:h-[90vh] bg-white md:border border-amal-100 md:shadow-2xl md:shadow-amal-900/10 md:rounded-3xl flex flex-col md:flex-row overflow-hidden">
 
-            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">Mulai dari sini</p>
-            <div class="flex flex-col gap-2 mb-8">
-                <button type="button" onclick="quickPrompt('Bagaimana cara berdonasi zakat?')"
-                        class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                    <span>🕌</span> Cara Berdonasi Zakat
-                </button>
-                <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
-                        class="flex items-center gap-2.5 text-left bg-white border border-emerald-100 rounded-xl px-3.5 py-3 text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                    <span>📋</span> Cek Riwayat Transaksi
+        <!-- LEFT: BRAND / EDUCATION PANEL -->
+        <aside id="sidebar" class="fixed md:static inset-0 z-40 w-full md:w-[380px] bg-white border-b md:border-b-0 md:border-r border-amal-100 overflow-y-auto shrink-0 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
+
+            <div class="relative p-8 pb-9 bg-gradient-to-br from-amal-800 via-amal-700 to-amal-600 overflow-hidden shrink-0">
+                <div class="absolute -top-12 -right-10 w-40 h-40 rounded-full bg-white/5"></div>
+                <div class="absolute top-10 -left-8 w-24 h-24 rounded-full bg-white/5"></div>
+                <div class="absolute bottom-0 left-0 w-full h-1.5 bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500"></div>
+
+                <button type="button" onclick="closeSidebar()" class="md:hidden absolute top-5 right-5 z-20 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors" aria-label="Tutup menu">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
 
-                <div class="mt-1">
-                    <div class="flex items-center gap-2 px-1 mb-1.5">
-                        <span class="text-[13px]">📖</span>
-                        <span class="text-[12px] font-bold text-slate-600">Konsultasi Zakat</span>
+                <div class="relative z-10">
+                    <div class="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-lg ring-4 ring-white/15 mb-5">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8 text-gold-500"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                     </div>
-                    <div class="flex flex-col gap-1.5 pl-3 border-l-2 border-emerald-100">
-                        <button type="button" onclick="quickPrompt('Apakah ada kalkulator zakat yang bisa saya pakai?')"
-                                class="text-left bg-white border border-emerald-100 rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                            Kalkulator Zakat
-                        </button>
-                        <button type="button" onclick="quickPrompt('Zakat apa saja yang wajib saya tunaikan dari harta saya?')"
-                                class="text-left bg-white border border-emerald-100 rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                            Harta yang Wajib Dizakati
-                        </button>
-                        <button type="button" onclick="openGoogleSearch('syarat wajib zakat dalam islam')"
-                                class="flex items-center justify-between text-left bg-white border border-emerald-100 rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:border-emerald-600 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                            <span>Syarat Wajib Zakat</span>
-                            <span class="text-[10px] text-slate-400">↗ Google</span>
-                        </button>
-                    </div>
+                    <h1 class="text-xl font-extrabold text-white mb-1.5">Assalamu'alaikum!</h1>
+                    <p class="text-[13px] text-amal-50/80 leading-relaxed">Tanya seputar zakat, infak, dan program Rumah Amal Masjid Jamik USK langsung di sini.</p>
                 </div>
             </div>
 
-            <hr class="border-emerald-100 mb-6" />
+            <div class="p-6 flex flex-col flex-1">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-amal-600 mb-3 ml-1">Pintasan Cepat</p>
+                <div class="flex flex-col gap-2.5 mb-5">
+                    <button type="button" onclick="quickPrompt('Bagaimana cara berdonasi zakat?')"
+                            class="group flex items-center gap-3.5 text-left bg-gradient-to-r from-amal-700 to-amal-600 hover:from-amal-800 hover:to-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] shadow-md shadow-amal-700/25 transition-all duration-300 transform hover:-translate-y-0.5">
+                        <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-4-8.5c0-1.38 1.79-2.5 4-2.5s4 1.12 4 2.5-1.79 2.5-4 2.5-4 1.12-4 2.5 1.79 2.5 4 2.5 4-1.12 4-2.5"></path></svg>
+                        </span>
+                        <span class="text-white font-bold">Cara Berdonasi Zakat</span>
+                    </button>
+                    <button type="button" onclick="quickPrompt('Program apa saja yang tersedia di Rumah Amal?')"
+                            class="group flex items-center gap-3.5 text-left bg-white border border-amal-100 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 transition-all duration-300 transform hover:-translate-y-0.5">
+                        <span class="w-8 h-8 rounded-full bg-amal-50 flex items-center justify-center text-amal-700 group-hover:bg-amal-600 group-hover:text-white transition-colors shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        </span>
+                        <span class="text-slate-700 group-hover:text-amal-700">Lihat Program Donasi</span>
+                    </button>
+                    <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
+                            class="group flex items-center gap-3.5 text-left bg-white border border-amal-100 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 transition-all duration-300 transform hover:-translate-y-0.5">
+                        <span class="w-8 h-8 rounded-full bg-gold-50 flex items-center justify-center text-gold-600 group-hover:bg-gold-400 group-hover:text-amal-900 transition-colors shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
+                        </span>
+                        <span class="text-slate-700 group-hover:text-amal-700">Cek Riwayat Transaksi</span>
+                    </button>
+                </div>
 
-            <div class="flex flex-col gap-3.5">
-                <div class="flex gap-2.5 items-start">
-                    <span class="text-[15px] mt-0.5">🏛️</span>
-                    <span class="text-[12.5px] text-slate-500"><b class="text-slate-900 font-bold">Rumah Amal Masjid Jamik USK</b> &mdash; Lembaga Amil Zakat resmi Universitas Syiah Kuala.</span>
+                <div class="mb-6">
+                    <div class="flex items-center gap-2 px-1 mb-2">
+                        <svg class="w-3.5 h-3.5 text-amal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        <span class="text-[11px] font-bold uppercase tracking-widest text-amal-600">Konsultasi Zakat</span>
+                    </div>
+                    <div class="flex flex-col gap-2 pl-2 border-l-2 border-amal-100">
+                        <button type="button" onclick="quickPrompt('Apakah ada kalkulator zakat yang bisa saya pakai?')"
+                                class="text-left bg-white border border-amal-100 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-amal-300 hover:text-amal-700 transition-all">
+                            Kalkulator Zakat
+                        </button>
+                        <button type="button" onclick="quickPrompt('Zakat apa saja yang wajib saya tunaikan dari harta saya?')"
+                                class="text-left bg-white border border-amal-100 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-amal-300 hover:text-amal-700 transition-all">
+                            Harta yang Wajib Dizakati
+                        </button>
+                        <button type="button" onclick="openGoogleSearch('syarat wajib zakat dalam islam')"
+                                class="flex items-center justify-between text-left bg-white border border-amal-100 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-amal-300 hover:text-amal-700 transition-all">
+                            <span>Syarat Wajib Zakat</span>
+                            <span class="text-[10px] text-slate-400 font-bold">&#8599; Google</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex gap-2.5 items-start">
-                    <span class="text-[15px] mt-0.5">🔒</span>
-                    <span class="text-[12.5px] text-slate-500">Cek riwayat transaksi butuh <b class="text-slate-900 font-bold">verifikasi nomor WA</b> lewat kode OTP demi keamanan data donatur.</span>
-                </div>
-                <div class="flex gap-2.5 items-start">
-                    <span class="text-[15px] mt-0.5">📷</span>
-                    <span class="text-[12.5px] text-slate-500">Sudah transfer? Klik ikon 📎 di kolom chat untuk <b class="text-slate-900 font-bold">unggah bukti transfer</b> langsung.</span>
+
+                <div class="mt-auto pt-6 border-t border-amal-100">
+                    <div class="flex gap-3 items-start p-4 bg-amal-50 rounded-2xl border border-amal-100">
+                        <svg class="w-[18px] h-[18px] text-amal-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"></path></svg>
+                        <span class="text-[12px] text-amal-900/70 leading-relaxed">Sistem dilengkapi verifikasi OTP untuk mengamankan data riwayat donasi Anda.</span>
+                    </div>
                 </div>
             </div>
         </aside>
 
-        <!-- RIGHT: CHAT -->
-        <section class="flex flex-col min-w-0">
-            <header class="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 shrink-0">
-                <div class="relative w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                    M
-                    <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white"></span>
+        <!-- RIGHT: CHAT AREA -->
+        <section class="flex flex-col flex-1 min-w-0 bg-white">
+            <header class="flex items-center justify-between gap-3 px-7 py-5 bg-white border-b border-amal-100 shrink-0 shadow-sm z-10">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <div class="relative w-11 h-11 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 flex items-center justify-center shadow-md ring-2 ring-gold-300/40 shrink-0">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gold-400"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white shadow-sm"></span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-[15px] font-extrabold text-amal-900 truncate">Mimin AI &middot; Rumah Amal</div>
+                        <div class="text-[12px] font-medium text-amal-600 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Online & Siap Membantu
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div class="text-[14px] font-bold">Mimin &middot; Rumah Amal USK</div>
-                    <div class="text-[11.5px] text-slate-400">Online &middot; biasanya membalas seketika</div>
+                <div class="hidden md:flex items-center gap-1.5 bg-gold-50 border border-gold-200 text-gold-700 text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
+                    &#11088; Lembaga Amil Zakat Terverifikasi
                 </div>
+                <button type="button" onclick="openSidebar()" class="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 hover:bg-amal-50 transition-colors shrink-0" aria-label="Buka menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
             </header>
 
-            <div id="messages" class="flex-1 overflow-y-auto p-6 flex flex-col gap-3.5">
-                <div class="flex gap-2 max-w-[78%]">
-                    <div class="w-6.5 h-6.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">M</div>
+            <div id="messages" class="flex-1 overflow-y-auto p-7 flex flex-col gap-5 scroll-smooth bg-gradient-to-b from-white to-amal-50/40">
+                <div class="flex gap-3 max-w-[85%] msg-enter">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 text-white flex items-center justify-center text-[13px] shrink-0 mt-1 shadow-sm font-bold">M</div>
                     <div>
-                        <div class="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-slate-100 text-slate-900 text-[13.5px] leading-relaxed whitespace-pre-wrap">Assalamu'alaikum Warahmatullahi Wabarakatuh! 🙏
-Selamat datang di layanan Rumah Amal Masjid Jamik USK. Ada yang bisa Mimin bantu hari ini? Kakak bisa pilih salah satu pintasan di sebelah kiri, atau ketik langsung di sini.</div>
+                        <div class="px-4 py-3 rounded-2xl rounded-tl-sm bg-white border border-amal-100 shadow-sm text-slate-700 text-[14px] leading-relaxed whitespace-pre-wrap">Assalamu'alaikum Warahmatullahi Wabarakatuh! 🙏
+Selamat datang di layanan cerdas Rumah Amal Masjid Jamik USK. Ada yang bisa Mimin bantu hari ini?</div>
+                        <div class="text-[11px] text-slate-400 mt-1.5 ml-1">Sekarang</div>
                     </div>
                 </div>
             </div>
 
-            <div class="border-t border-slate-200 px-5 py-3.5 shrink-0">
-                <div id="resi-chip" class="hidden items-center gap-2 bg-emerald-50 text-emerald-700 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold mb-2 w-fit">
-                    <span>📷</span>
+            <div class="p-5 bg-white border-t border-amal-100 shrink-0">
+                <div id="resi-chip" class="hidden items-center gap-2 bg-gold-50 border border-gold-200 text-gold-700 rounded-xl px-3 py-2 text-[12px] font-semibold mb-3 w-fit shadow-sm msg-enter">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"></path></svg>
                     <span id="resi-name"></span>
-                    <button type="button" onclick="clearResi()" class="opacity-70 hover:opacity-100" aria-label="Batalkan lampiran">✕</button>
+                    <button type="button" onclick="clearResi()" class="ml-2 w-5 h-5 rounded-full bg-gold-200/50 hover:bg-gold-200 flex items-center justify-center transition-colors" aria-label="Batalkan">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                 </div>
-                <div class="flex items-end gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-1.5 focus-within:border-emerald-600">
-                    <button type="button" onclick="triggerUpload()" title="Unggah bukti transfer" aria-label="Unggah bukti transfer"
-                            class="w-8.5 h-8.5 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-700 shrink-0">📎</button>
+
+                <div class="flex items-end gap-2 bg-white rounded-3xl p-1.5 shadow-[0_2px_15px_-3px_rgba(15,69,42,0.08),0_10px_20px_-2px_rgba(15,69,42,0.05)] border border-amal-100 focus-within:ring-2 focus-within:ring-gold-400/50 focus-within:border-gold-300 transition-all">
+                    <button type="button" onclick="triggerUpload()" title="Unggah bukti transfer" class="w-11 h-11 rounded-2xl flex items-center justify-center text-amal-400 hover:bg-amal-50 hover:text-amal-700 transition-colors shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                    </button>
                     <input type="file" id="file-input" accept="image/*" class="hidden" onchange="onFileChosen(event)" />
-                    <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke Mimin..."
-                              class="flex-1 bg-transparent border-none resize-none text-[13.5px] py-2 outline-none max-h-[120px]"
+                    <textarea id="chat-input" rows="1" placeholder="Ketik pesan Anda di sini..."
+                              class="flex-1 bg-transparent border-none resize-none text-[14px] py-3 px-2 text-slate-700 outline-none max-h-[120px] placeholder:text-slate-400"
                               onkeydown="handleKeydown(event)" oninput="autoExpand(this)"></textarea>
-                    <button type="button" onclick="sendMessage()" title="Kirim pesan" aria-label="Kirim pesan"
-                            class="w-8.5 h-8.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shrink-0">➤</button>
+                    <button type="button" onclick="sendMessage()" title="Kirim pesan" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-amal-900 flex items-center justify-center shrink-0 shadow-md shadow-gold-500/30 transition-transform transform active:scale-95">
+                        <svg class="w-5 h-5 ml-0.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z"></path></svg>
+                    </button>
                 </div>
-                <div class="text-center text-[10.5px] text-slate-400 mt-2">Mimin membalas otomatis &middot; untuk hal mendesak hubungi admin lewat WhatsApp</div>
             </div>
         </section>
     </div>
 
     <!-- OTP MODAL -->
-    <div id="otp-modal" class="hidden fixed inset-0 bg-slate-900/55 items-center justify-center p-6 z-50">
-        <div class="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-6">
-            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg mb-3.5">🔒</div>
-            <h4 class="text-[15.5px] font-bold mb-1">Verifikasi Nomor WhatsApp</h4>
-            <p id="otp-step-desc" class="text-[12.5px] text-slate-500 mb-5">Masukkan nomor WhatsApp Kakak, Mimin akan kirimkan kode verifikasi lewat WhatsApp.</p>
+    <div id="otp-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm items-center justify-center p-6 z-50 opacity-0 transition-opacity duration-300">
+        <div class="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl transform scale-95 transition-transform duration-300 relative" id="otp-card">
+            <button type="button" onclick="closeOtpModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" aria-label="Tutup">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
 
-            <div id="otp-step-number">
-                <div class="mb-4">
-                    <label for="wa-number" class="block text-[11.5px] font-semibold text-slate-500 mb-1.5">Nomor WhatsApp</label>
-                    <input id="wa-number" type="text" placeholder="0812xxxxxxxx"
-                           class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+            <div id="otp-step-phone">
+                <div class="w-12 h-12 rounded-2xl bg-amal-50 text-amal-700 flex items-center justify-center mb-5 ring-4 ring-amal-50/50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"></path></svg>
                 </div>
-                <div id="otp-error" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
-                <div class="flex gap-2">
-                    <button type="button" onclick="closeOtp()" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-500 text-[13px] font-semibold">Batal</button>
-                    <button type="button" onclick="submitWaNumber()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold">Kirim Kode</button>
+                <h4 class="text-[18px] font-extrabold text-amal-900 mb-2">Verifikasi Keamanan</h4>
+                <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">Masukkan nomor WhatsApp Anda. Kami akan mengirimkan kode OTP untuk memvalidasi akses riwayat donasi.</p>
+
+                <label class="text-[12px] font-bold text-slate-600 mb-1.5 block">Nomor WhatsApp</label>
+                <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 mb-2 focus-within:ring-2 focus-within:ring-amal-500/30 focus-within:border-amal-300 transition-all">
+                    <span class="text-[14px] font-bold text-slate-500">+62</span>
+                    <input id="otp-phone" type="tel" inputmode="numeric" placeholder="812xxxxxxx" class="flex-1 bg-transparent border-none outline-none text-[14px] text-slate-800 placeholder:text-slate-400" />
                 </div>
+                <div id="otp-error-phone" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
+                <button type="button" onclick="submitPhone()" id="btn-submit-phone" class="w-full py-3.5 rounded-2xl bg-gradient-to-tr from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-amal-900 font-extrabold text-[14px] shadow-md shadow-gold-500/30 transition-all active:scale-[0.98] mt-3 disabled:opacity-50">Kirim Kode OTP</button>
             </div>
 
             <div id="otp-step-code" class="hidden">
-                <div class="mb-4">
-                    <label for="otp-code" class="block text-[11.5px] font-semibold text-slate-500 mb-1.5">Kode OTP</label>
-                    <input id="otp-code" type="text" placeholder="6 digit kode dari WhatsApp"
-                           class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+                <div class="w-12 h-12 rounded-2xl bg-amal-50 text-amal-700 flex items-center justify-center mb-5 ring-4 ring-amal-50/50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"></path></svg>
                 </div>
-                <div id="otp-error-2" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
-                <div class="flex gap-2">
-                    <button type="button" onclick="closeOtp()" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-500 text-[13px] font-semibold">Batal</button>
-                    <button type="button" onclick="submitOtpCode()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold">Verifikasi</button>
+                <h4 class="text-[18px] font-extrabold text-amal-900 mb-2">Masukkan Kode OTP</h4>
+                <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">Kode 6 digit telah dikirim ke <span id="otp-phone-display" class="font-semibold text-amal-700"></span> via WhatsApp.</p>
+
+                <div class="flex justify-between gap-2 mb-3">
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
                 </div>
+                <div id="otp-error-code" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
+
+                <button type="button" onclick="submitOtp()" id="btn-submit-otp" class="w-full py-3.5 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[14px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98] mb-3 disabled:opacity-50">Verifikasi Kode</button>
+                <p class="text-center text-[12px] text-slate-500">Tidak menerima kode? <button type="button" onclick="resendOtp()" id="otp-resend" class="font-bold text-amal-700 hover:underline disabled:text-slate-400 disabled:no-underline">Kirim ulang (<span id="otp-timer">60</span>s)</button></p>
+            </div>
+
+            <div id="otp-step-success" class="hidden text-center">
+                <div class="w-16 h-16 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-5 mx-auto ring-8 ring-green-50/50">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"></path></svg>
+                </div>
+                <h4 class="text-[18px] font-extrabold text-amal-900 mb-2">Verifikasi Berhasil!</h4>
+                <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">Identitas Anda telah terverifikasi. Sekarang Mimin bisa menampilkan riwayat donasi Anda.</p>
+                <button type="button" onclick="finishOtp()" class="w-full py-3.5 rounded-2xl bg-gradient-to-tr from-amal-700 to-amal-600 hover:from-amal-800 hover:to-amal-700 text-white font-extrabold text-[14px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Lihat Riwayat Transaksi</button>
             </div>
         </div>
     </div>

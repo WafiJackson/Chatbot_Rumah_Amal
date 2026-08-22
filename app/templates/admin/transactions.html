@@ -1,99 +1,232 @@
 {% extends "base.html" %}
 
 {% block title %}Data Transaksi{% endblock %}
-{% block page_title %}Data Transaksi{% endblock %}
-{% block page_desc %}Seluruh riwayat penyaluran donasi yang tercatat{% endblock %}
+{% block page_title %}Log Transaksi Pusat{% endblock %}
+{% block page_desc %}Arsip menyeluruh aktivitas donatur dan validasi sistem{% endblock %}
 
 {% block content %}
-<div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-        <h3 class="text-[14.5px] font-bold">Riwayat Transaksi</h3>
-        <span class="text-[12.5px] text-slate-500">{{ transaksi | length }} transaksi terbaru</span>
+<div class="bg-white border border-amal-100 rounded-3xl shadow-lg shadow-amal-900/5 overflow-hidden">
+    <div class="flex items-center justify-between px-5 md:px-7 py-5 border-b border-amal-100 bg-amal-50/50">
+        <h3 class="text-[16px] font-extrabold text-amal-900">Registrasi Transaksi</h3>
+        <span id="entries-badge" class="px-3 py-1.5 bg-white text-amal-700 rounded-xl text-[12px] font-bold border border-amal-200 shadow-sm whitespace-nowrap"></span>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-3 px-5 md:px-7 py-4 border-b border-amal-100 bg-white">
+        <div class="relative flex-1">
+            <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z"></path></svg>
+            <input id="search-input" oninput="onFilterChange()" type="text" placeholder="Cari nama, nomor WA, atau ID transaksi..." class="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-amal-200 bg-white text-[13px] text-slate-700 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 placeholder:text-slate-400 transition-all" />
+        </div>
+        <div class="relative shrink-0">
+            <select id="filter-kategori" onchange="onFilterChange()" class="appearance-none pl-4 pr-9 py-2.5 rounded-2xl border border-amal-200 bg-white text-[13px] font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 cursor-pointer w-full sm:w-auto">
+                <option value="">Semua Kategori</option>
+            </select>
+            <svg class="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+        <div class="relative shrink-0">
+            <select id="filter-status" onchange="onFilterChange()" class="appearance-none pl-4 pr-9 py-2.5 rounded-2xl border border-amal-200 bg-white text-[13px] font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 cursor-pointer w-full sm:w-auto">
+                <option value="">Semua Status</option>
+                <option value="validated">Tervalidasi</option>
+                <option value="pending">Menunggu</option>
+                <option value="rejected">Ditolak</option>
+            </select>
+            <svg class="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
     </div>
 
     <div class="overflow-x-auto">
-        <table class="w-full border-collapse min-w-[760px]">
+        <table class="w-full border-collapse min-w-[800px]">
             <thead>
-                <tr>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">ID Transaksi</th>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Nomor WA</th>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Kategori</th>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Nominal</th>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Tanggal</th>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Status</th>
-                    <th class="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 px-5 py-2.5 border-b border-slate-200">Aksi</th>
+                <tr class="bg-white">
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">ID Transaksi</th>
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">Nomor WA</th>
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">Kategori</th>
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">Nominal</th>
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">Waktu</th>
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">Status</th>
+                    <th class="text-left text-[11.5px] font-extrabold uppercase tracking-wider text-slate-400 px-7 py-4 border-b border-amal-100">Aksi</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for t in transaksi %}
-                <tr class="hover:bg-slate-50">
-                    <td class="px-5 py-3.5 border-b border-slate-100 text-[12px] text-slate-400">{{ t.id }}</td>
-                    <td class="px-5 py-3.5 border-b border-slate-100 text-[13.5px] text-slate-500">{{ t.no_wa }}</td>
-                    <td class="px-5 py-3.5 border-b border-slate-100">
-                        <span class="inline-flex px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">{{ t.kode_program }}</span>
-                    </td>
-                    <td class="px-5 py-3.5 border-b border-slate-100 text-[13.5px] font-bold tabular-nums">{{ t.nominal | rupiah }}</td>
-                    <td class="px-5 py-3.5 border-b border-slate-100 text-[13.5px]">{{ t.waktu_transaksi }}</td>
-                    <td class="px-5 py-3.5 border-b border-slate-100">
-                        {% if t.status == "berhasil" %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-teal-50 text-teal-600">
-                            <span class="w-1.5 h-1.5 rounded-full bg-teal-600"></span> Berhasil
-                        </span>
-                        {% elif t.status == "menunggu" %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-600">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Menunggu
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-rose-50 text-rose-600">
-                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Gagal
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-5 py-3.5 border-b border-slate-100">
-                        <button type="button" onclick="bukaResi('{{ t.id }}', '{{ t.nama_donatur }}')"
-                                class="px-3 py-1.5 rounded-md border border-slate-200 text-[12px] font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-600">
-                            Lihat Resi
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <tbody id="transaksi-tbody" class="divide-y divide-amal-50"></tbody>
         </table>
+    </div>
+
+    <div class="flex items-center justify-between px-5 md:px-7 py-4 border-t border-amal-100 bg-amal-50/30">
+        <span id="pagination-info" class="text-[12px] md:text-[12.5px] font-semibold text-slate-500"></span>
+        <div class="flex items-center gap-2">
+            <button id="btn-prev" onclick="changePage(-1)" type="button" class="px-3.5 py-2 rounded-xl border border-amal-200 bg-white text-[12.5px] font-bold text-amal-700 hover:bg-amal-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors">&#8249; Sebelumnya</button>
+            <button id="btn-next" onclick="changePage(1)" type="button" class="px-3.5 py-2 rounded-xl border border-amal-200 bg-white text-[12.5px] font-bold text-amal-700 hover:bg-amal-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors">Berikutnya &#8250;</button>
+        </div>
     </div>
 </div>
 
-<!-- MODAL RESI -->
-<div id="resiModal" class="fixed inset-0 bg-slate-900/55 items-center justify-center p-6 z-50 hidden">
-    <div class="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-5.5">
-        <div class="flex items-start justify-between mb-3.5">
-            <div>
-                <h4 class="text-[15px] font-bold">Bukti Transfer</h4>
-                <p id="resiSub" class="text-[12px] text-slate-500 m-0"></p>
+<!-- MODAL: CEK RESI -->
+<div id="resi-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm items-center justify-center p-6 z-50 opacity-0 transition-opacity duration-300">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl transform scale-95 transition-transform duration-300 relative" id="resi-card">
+        <button type="button" onclick="closeResiModal()" class="absolute top-5 right-5 z-10 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" aria-label="Tutup">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div class="p-7">
+            <div class="w-12 h-12 rounded-2xl bg-amal-50 text-amal-700 flex items-center justify-center mb-5 ring-4 ring-amal-50/50">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
             </div>
-            <button type="button" onclick="tutupResi()" class="w-6.5 h-6.5 rounded-md bg-slate-100 text-slate-500 hover:text-slate-700 text-sm leading-none">&#10005;</button>
-        </div>
-        <div class="border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-400 bg-slate-50">
-            <div class="text-2xl mb-2">&#128247;</div>
-            <div class="text-[12.5px] font-semibold text-slate-500">Gambar resi belum tersambung</div>
-            <div class="text-[11.5px] mt-1">Data contoh - nanti diambil dari lampiran WhatsApp donatur</div>
+            <h4 class="text-[18px] font-extrabold text-amal-900 mb-1">Detail Transaksi</h4>
+            <p id="resi-id" class="text-[13px] text-slate-500 mb-5">TRX-000</p>
+
+            <div class="rounded-2xl border-2 border-dashed border-amal-200 bg-amal-50/50 aspect-[4/3] flex flex-col items-center justify-center gap-2 mb-5 text-amal-400">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
+                <span class="text-[12px] font-semibold text-amal-500 text-center px-4">Sistem belum menyimpan gambar resi - baru mencatat hasil baca AI dari foto yang dikirim donatur</span>
+            </div>
+
+            <div class="flex flex-col gap-2.5 mb-6 text-[13px]">
+                <div class="flex items-center justify-between"><span class="text-slate-500">Nama Donatur</span><span id="resi-nama" class="font-bold text-amal-900"></span></div>
+                <div class="flex items-center justify-between"><span class="text-slate-500">Nomor WA</span><span id="resi-wa" class="font-bold text-amal-900"></span></div>
+                <div class="flex items-center justify-between"><span class="text-slate-500">Kategori</span><span id="resi-kategori" class="font-bold text-amal-900"></span></div>
+                <div class="flex items-center justify-between"><span class="text-slate-500">Nominal</span><span id="resi-nominal" class="font-extrabold text-gold-600"></span></div>
+                <div class="flex items-center justify-between"><span class="text-slate-500">Waktu</span><span id="resi-waktu" class="font-bold text-amal-900"></span></div>
+                <div class="flex items-center justify-between"><span class="text-slate-500">Sumber</span><span id="resi-sumber" class="font-bold text-amal-900"></span></div>
+            </div>
+
+            <div id="resi-actions" class="flex gap-2.5"></div>
         </div>
     </div>
 </div>
 
 <script>
-    function bukaResi(id, nama) {
-        document.getElementById("resiSub").textContent = id + " · " + nama;
-        const modal = document.getElementById("resiModal");
-        modal.classList.remove("hidden");
-        modal.classList.add("flex");
+    const TRANSAKSI = {{ transaksi | tojson }};
+    const KATEGORI_SET = Array.from(new Set(TRANSAKSI.map(t => t.kode_program))).sort();
+    const STATUS_LABEL = { validated: "Tervalidasi", pending: "Menunggu", rejected: "Ditolak" };
+    const STATUS_CLASS = {
+        validated: "bg-green-50 text-green-600 border-green-200",
+        pending: "bg-gold-50 text-gold-700 border-gold-200",
+        rejected: "bg-rose-50 text-rose-600 border-rose-200"
+    };
+    const STATUS_DOT = { validated: "bg-green-500", pending: "bg-gold-500 animate-pulse", rejected: "bg-rose-500" };
+    const SUMBER_LABEL = { whatsapp: "WhatsApp", web: "Web Chatbot" };
+
+    (function populateKategoriFilter() {
+        const sel = document.getElementById("filter-kategori");
+        KATEGORI_SET.forEach(function (k) {
+            const opt = document.createElement("option");
+            opt.value = k; opt.textContent = k;
+            sel.appendChild(opt);
+        });
+    })();
+
+    function formatRupiah(n) { return "Rp " + (n || 0).toLocaleString("id-ID"); }
+
+    function statusBadge(status) {
+        return '<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11.5px] font-bold border ' + STATUS_CLASS[status] + '">' +
+            '<span class="w-1.5 h-1.5 rounded-full ' + STATUS_DOT[status] + '"></span> ' + STATUS_LABEL[status] + '</span>';
     }
-    function tutupResi() {
-        const modal = document.getElementById("resiModal");
-        modal.classList.add("hidden");
-        modal.classList.remove("flex");
+
+    const PAGE_SIZE = 8;
+    let currentPage = 1;
+
+    function getFiltered() {
+        const q = document.getElementById("search-input").value.trim().toLowerCase();
+        const kategori = document.getElementById("filter-kategori").value;
+        const status = document.getElementById("filter-status").value;
+        return TRANSAKSI.filter(function (t) {
+            const matchQ = !q || t.id_tampil.toLowerCase().includes(q) || t.no_wa.toLowerCase().includes(q) || t.nama_donatur.toLowerCase().includes(q);
+            const matchKategori = !kategori || t.kode_program === kategori;
+            const matchStatus = !status || t.status === status;
+            return matchQ && matchKategori && matchStatus;
+        });
     }
-    document.getElementById("resiModal").addEventListener("click", function (e) {
-        if (e.target === this) tutupResi();
-    });
+
+    function onFilterChange() { currentPage = 1; renderTable(); }
+    function changePage(delta) { currentPage += delta; renderTable(); }
+
+    function renderTable() {
+        const filtered = getFiltered();
+        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+        document.getElementById("entries-badge").textContent = filtered.length + " Entri Ditemukan";
+
+        const tbody = document.getElementById("transaksi-tbody");
+        if (pageItems.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-7 py-12 text-center text-[13px] text-slate-400 font-medium">Tidak ada transaksi yang cocok dengan filter Anda.</td></tr>';
+        } else {
+            tbody.innerHTML = pageItems.map(function (t) {
+                return '<tr class="hover:bg-amal-50/50 transition-colors group">' +
+                    '<td class="px-7 py-4 text-[12.5px] font-mono font-bold text-slate-400">' + t.id_tampil + '</td>' +
+                    '<td class="px-7 py-4 text-[13.5px] font-bold text-amal-900">' + t.no_wa + '</td>' +
+                    '<td class="px-7 py-4"><span class="inline-flex px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-amal-100 text-amal-700">' + t.kode_program + '</span></td>' +
+                    '<td class="px-7 py-4 text-[14.5px] font-extrabold text-gold-600 tabular-nums">' + formatRupiah(t.nominal) + '</td>' +
+                    '<td class="px-7 py-4 text-[13px] font-medium text-slate-500">' + t.waktu_transaksi + '</td>' +
+                    '<td class="px-7 py-4">' + statusBadge(t.status) + '</td>' +
+                    '<td class="px-7 py-4"><button type="button" onclick="openResiModal(' + t.id + ')" class="px-4 py-2 rounded-xl bg-white border border-amal-200 text-[12px] font-bold text-amal-700 hover:bg-amal-600 hover:text-white transition-all shadow-sm">Lihat Detail</button></td>' +
+                    '</tr>';
+            }).join("");
+        }
+
+        document.getElementById("pagination-info").textContent =
+            filtered.length === 0 ? "Halaman 0 dari 0" : "Halaman " + currentPage + " dari " + totalPages + " (" + filtered.length + " total)";
+        document.getElementById("btn-prev").disabled = currentPage <= 1;
+        document.getElementById("btn-next").disabled = currentPage >= totalPages;
+    }
+
+    function openResiModal(id) {
+        const t = TRANSAKSI.find(function (x) { return x.id === id; });
+        if (!t) return;
+
+        document.getElementById("resi-id").textContent = t.id_tampil;
+        document.getElementById("resi-nama").textContent = t.nama_donatur;
+        document.getElementById("resi-wa").textContent = t.no_wa;
+        document.getElementById("resi-kategori").textContent = t.kode_program;
+        document.getElementById("resi-nominal").textContent = formatRupiah(t.nominal);
+        document.getElementById("resi-waktu").textContent = t.waktu_transaksi;
+        document.getElementById("resi-sumber").textContent = SUMBER_LABEL[t.sumber] || t.sumber;
+
+        const actions = document.getElementById("resi-actions");
+        if (t.status === "pending") {
+            actions.innerHTML =
+                '<button type="button" onclick="setStatus(' + t.id + ',\'rejected\')" class="flex-1 py-3 rounded-2xl border border-rose-200 text-rose-600 font-extrabold text-[13.5px] hover:bg-rose-50 transition-all">Tolak</button>' +
+                '<button type="button" onclick="setStatus(' + t.id + ',\'validated\')" class="flex-1 py-3 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[13.5px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Tandai Tervalidasi</button>';
+        } else {
+            actions.innerHTML = '<button type="button" onclick="closeResiModal()" class="flex-1 py-3 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[13.5px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Tutup</button>';
+        }
+
+        const modal = document.getElementById("resi-modal");
+        const card = document.getElementById("resi-card");
+        modal.classList.remove("hidden"); modal.classList.add("flex");
+        requestAnimationFrame(function () {
+            modal.classList.remove("opacity-0");
+            card.classList.remove("scale-95"); card.classList.add("scale-100");
+        });
+    }
+
+    function closeResiModal() {
+        const modal = document.getElementById("resi-modal");
+        const card = document.getElementById("resi-card");
+        modal.classList.add("opacity-0");
+        card.classList.remove("scale-100"); card.classList.add("scale-95");
+        setTimeout(function () { modal.classList.add("hidden"); modal.classList.remove("flex"); }, 300);
+    }
+
+    async function setStatus(id, status) {
+        try {
+            const form = new URLSearchParams();
+            form.set("status", status);
+            const res = await fetch("/admin/transactions/" + id + "/status", { method: "POST", body: form });
+            const data = await res.json();
+            if (data.status !== "sukses") {
+                showToast(data.pesan || "Gagal memperbarui status.", "&#10060;");
+                return;
+            }
+            const t = TRANSAKSI.find(function (x) { return x.id === id; });
+            if (t) t.status = status;
+            closeResiModal();
+            renderTable();
+            showToast(status === "validated" ? (t.id_tampil + " ditandai tervalidasi") : (t.id_tampil + " ditolak"), status === "validated" ? "&#9989;" : "&#128683;");
+        } catch (err) {
+            showToast("Gagal menghubungi server.", "&#10060;");
+        }
+    }
+
+    renderTable();
 </script>
 {% endblock %}
