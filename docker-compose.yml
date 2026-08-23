@@ -24,10 +24,13 @@ services:
   waha-gateway:
     image: devlikeapro/waha
     container_name: rumah_amal_waha
-    # TIDAK di-expose ke host/publik dengan sengaja - waha-gateway hanya perlu
-    # diakses api-bot lewat jaringan internal bot_network. Kalau perlu buka
-    # dashboard WAHA (mis. scan ulang QR), akses lewat SSH tunnel:
-    #   ssh -L 3000:localhost:3000 user@vps-anda
+    ports:
+      # Diikat KHUSUS ke loopback (127.0.0.1) - TIDAK ke 0.0.0.0 seperti
+      # "3000:3000" biasa, jadi tidak bisa diakses dari IP publik VPS sama
+      # sekali, tapi tetap bisa dijangkau dari VPS itu sendiri (termasuk
+      # lewat SSH tunnel: ssh -L 3000:localhost:3000 user@vps-anda, lalu
+      # buka http://localhost:3000 di browser lokal Anda).
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
     environment:
       - WAHA_PRINT_QR=True
