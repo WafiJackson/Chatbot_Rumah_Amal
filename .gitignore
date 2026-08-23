@@ -2,15 +2,21 @@
 # GITIGNORE - RUMAH AMAL BOT
 # ==========================================
 
-# 1. Environment & Rahasia API Key 
+# 1. Environment & Rahasia API Key
 .env
 .env.local
 .env.*.local
+
+# 1b. Config server dengan domain asli (pakai Caddyfile.example sebagai templat)
+Caddyfile
 
 # 2. Database Lokal (SQLite)
 *.db
 *.db-journal
 donatur.db
+
+# 2b. Foto resi donatur (data privat, disimpan lokal/volume Docker - jangan ikut commit)
+app/resi/
 
 # 3. Log System & Production Logs
 logs/

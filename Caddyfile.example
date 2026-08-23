@@ -1,0 +1,12 @@
+# Salin file ini menjadi "Caddyfile" (tanpa akhiran) lalu ganti domain di
+# bawah dengan domain/subdomain Anda sendiri. Caddy akan otomatis mengurus
+# sertifikat HTTPS untuk domain tersebut - tidak perlu setup manual.
+#
+#   cp Caddyfile.example Caddyfile
+#
+# Domain harus sudah diarahkan (DNS A record) ke IP VPS ini sebelum Caddy
+# bisa menerbitkan sertifikatnya.
+
+ganti-dengan-domain-anda.contoh.com {
+    reverse_proxy api-bot:8000
+}

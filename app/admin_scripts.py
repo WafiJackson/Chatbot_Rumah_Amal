@@ -124,7 +124,7 @@ QA_SCRIPT = {
         "(Kopelma) Darussalam, Kecamatan Syiah Kuala, Kota Banda Aceh."
     ),
     "info_jam_kerja": (
-        "Pelayanan dibuka setiap hari kerja, Senin sampai Jumat, mulai pukul 08.00 WIB hingga 17.00 WIB "
+        "Pelayanan dibuka setiap hari kerja, Senin sampai Jumat, mulai pukul 08.00 WIB hingga 16.30 WIB "
         "(Sabtu, Minggu, dan hari libur nasional tutup)."
     ),
     "visi_lembaga": (
@@ -348,6 +348,37 @@ QA_SCRIPT = {
         "• Ketik *0* - Kembali ke Menu Utama"
     ),
 }
+
+# KAMUS_PENDAFTARAN (di susun_balasan/klasifikasi_pesan) bisa menghasilkan
+# intent "daftar_zakat_mal" / "daftar_zakat_penghasilan" / "daftar_peduli_
+# palestina" saat pengguna menyebut niat mendaftar/membayar secara spesifik
+# (mis. "zakat maal", "daftar donasi palestina") - sebelumnya QA_SCRIPT tidak
+# punya balasan untuk ketiganya sehingga ambil_balasan() diam-diam jatuh ke
+# "tidak_diketahui" padahal niat penggunanya sudah dikenali dengan benar.
+# Dipetakan ke jalur setor yang sama seperti kasus "bayar zakat" umum.
+QA_SCRIPT["daftar_zakat_mal"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
+QA_SCRIPT["daftar_zakat_penghasilan"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
+QA_SCRIPT["daftar_peduli_palestina"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
+
+# klasifikasi_pesan() bisa mengembalikan "handoff_admin" lewat pencocokan kata
+# kunci (pinjam/pintas/hubungi admin/dst) - sebelumnya tidak ada balasannya
+# sendiri di QA_SCRIPT, jatuh ke "tidak_diketahui".
+QA_SCRIPT["handoff_admin"] = QA_SCRIPT["handoff_admin_prompt"]
+
+# get_intent() (fallback klasifikasi via Gemini) bisa mengembalikan 3 intent
+# ini untuk kalimat bebas yang tidak kena kata kunci cepat manapun -
+# sebelumnya juga tidak ada balasannya, diam-diam ke-guard jadi
+# "tidak_diketahui" di klasifikasi_pesan() walau niatnya sudah benar dikenali.
+QA_SCRIPT["ingin_donasi"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
+QA_SCRIPT["minta_bantuan_pintas"] = QA_SCRIPT["handoff_admin_prompt"]
+# "konfirmasi_donasi" sengaja TIDAK memakai template "sudah tercatat" seperti
+# doa_infak/doa_zakat_* - intent ini cuma hasil klasifikasi teks bebas tanpa
+# ekstraksi nama/nominal, jadi belum ada apa pun yang benar-benar tersimpan.
+# Mengaku "sudah tercatat" di sini akan menyesatkan donatur.
+QA_SCRIPT["konfirmasi_donasi"] = (
+    "Alhamdulillah, terima kasih atas kepercayaannya! 🙏 Supaya donasinya bisa Mimin catat dengan tepat, "
+    "boleh kirimkan foto bukti transfer, atau sebutkan Nama, Nominal, dan Program donasinya secara lengkap ya."
+)
 
 
 def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:

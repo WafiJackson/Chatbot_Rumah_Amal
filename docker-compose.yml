@@ -11,7 +11,7 @@ services:
       - .env
     environment:
       - WAHA_ENDPOINT=http://waha-gateway:3000
-      - WAHA_API_KEY=${WAHA_API_KEY:-amalmaximal123}
+      - WAHA_API_KEY=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
       - DB_PATH=/code/app_db/donatur.db
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -24,14 +24,16 @@ services:
   waha-gateway:
     image: devlikeapro/waha
     container_name: rumah_amal_waha
-    ports:
-      - "3000:3000"
+    # TIDAK di-expose ke host/publik dengan sengaja - waha-gateway hanya perlu
+    # diakses api-bot lewat jaringan internal bot_network. Kalau perlu buka
+    # dashboard WAHA (mis. scan ulang QR), akses lewat SSH tunnel:
+    #   ssh -L 3000:localhost:3000 user@vps-anda
     restart: unless-stopped
     environment:
       - WAHA_PRINT_QR=True
       - WAHA_ZIP_SESSIONS=True
-      - WAHA_API_KEY=${WAHA_API_KEY:-amalmaximal123}
-      - WAHA_API_KEY_SECRET=${WAHA_API_KEY:-amalmaximal123}
+      - WAHA_API_KEY=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
+      - WAHA_API_KEY_SECRET=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
       - WHATSAPP_HOOK_URL=http://api-bot:8000/webhook
       - WHATSAPP_HOOK_EVENTS=message
     volumes:

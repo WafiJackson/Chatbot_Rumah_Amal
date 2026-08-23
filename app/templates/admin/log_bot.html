@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Log Bot{% endblock %}
+{% block page_title %}Log Percakapan Bot{% endblock %}
+{% block page_desc %}Transkrip percakapan Mimin AI dari WhatsApp & Web{% endblock %}
+
+{% block content %}
+<div class="bg-white border border-amal-100 rounded-3xl shadow-lg shadow-amal-900/5 overflow-hidden flex flex-col md:flex-row" style="height: calc(100vh - 220px); min-height: 480px;">
+
+    <!-- DAFTAR PERCAKAPAN -->
+    <div id="list-pane" class="w-full md:w-[360px] shrink-0 border-b md:border-b-0 md:border-r border-amal-100 flex flex-col min-h-0">
+        <div class="p-4 border-b border-amal-100 flex flex-col gap-3 shrink-0">
+            <div class="relative">
+                <svg class="w-4.5 h-4.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z"></path></svg>
+                <input id="search-input" oninput="renderList()" type="text" placeholder="Cari nomor WA atau isi pesan..." class="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-amal-200 bg-white text-[13px] text-slate-700 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 placeholder:text-slate-400 transition-all" />
+            </div>
+            <div class="flex gap-1.5" id="source-filters">
+                <button type="button" data-src="" onclick="setSourceFilter('')" class="src-chip px-3 py-1.5 rounded-xl text-[11.5px] font-bold border transition-all"></button>
+                <button type="button" data-src="whatsapp" onclick="setSourceFilter('whatsapp')" class="src-chip px-3 py-1.5 rounded-xl text-[11.5px] font-bold border transition-all"></button>
+                <button type="button" data-src="web" onclick="setSourceFilter('web')" class="src-chip px-3 py-1.5 rounded-xl text-[11.5px] font-bold border transition-all"></button>
+            </div>
+        </div>
+        <div id="conv-list" class="flex-1 overflow-y-auto divide-y divide-amal-50"></div>
+    </div>
+
+    <!-- TRANSKRIP -->
+    <div id="detail-pane" class="flex-1 min-w-0 flex flex-col min-h-0">
+        <div id="detail-empty" class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
+            <div class="w-14 h-14 rounded-2xl bg-amal-50 text-amal-300 flex items-center justify-center">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"></path></svg>
+            </div>
+            <p id="detail-empty-text" class="text-[13.5px] font-semibold text-slate-400 max-w-[240px]"></p>
+        </div>
+
+        <div id="detail-content" class="hidden flex-col min-h-0 flex-1">
+            <div class="flex items-center gap-3 px-5 md:px-6 py-4 border-b border-amal-100 shrink-0">
+                <button type="button" onclick="closeDetailMobile()" class="md:hidden w-8 h-8 -ml-1 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 shrink-0" aria-label="Kembali ke daftar">
+                    <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path></svg>
+                </button>
+                <div id="detail-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-[13px] shrink-0"></div>
+                <div class="min-w-0 flex-1">
+                    <div id="detail-name" class="text-[14px] font-extrabold text-amal-900 truncate"></div>
+                    <div id="detail-meta" class="text-[12px] text-slate-500 font-medium truncate"></div>
+                </div>
+                <span id="detail-source-badge" class="shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-extrabold border whitespace-nowrap"></span>
+            </div>
+            <div id="transcript" class="flex-1 overflow-y-auto p-5 md:p-6 flex flex-col gap-4 bg-gradient-to-b from-white to-amal-50/30"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const PERCAKAPAN = {{ percakapan | tojson }};
+    const SOURCE_LABEL = { whatsapp: "WhatsApp", web: "Web Chat" };
+    const SOURCE_CLASS = {
+        whatsapp: "bg-green-50 text-green-700 border-green-200",
+        web: "bg-amal-50 text-amal-700 border-amal-200"
+    };
+
+    let activeSourceFilter = "";
+    let activeConvId = null;
+
+    function sourceChipClass(src) {
+        const active = activeSourceFilter === src;
+        return active
+            ? "src-chip px-3 py-1.5 rounded-xl text-[11.5px] font-bold border transition-all bg-amal-700 text-white border-amal-700 shadow-sm"
+            : "src-chip px-3 py-1.5 rounded-xl text-[11.5px] font-bold border transition-all bg-white text-slate-500 border-amal-200 hover:bg-amal-50";
+    }
+    function paintChips() {
+        const labels = { "": "Semua", whatsapp: "WhatsApp", web: "Web" };
+        document.querySelectorAll("#source-filters .src-chip").forEach(function (btn) {
+            btn.className = sourceChipClass(btn.dataset.src);
+            btn.textContent = labels[btn.dataset.src];
+        });
+    }
+    function setSourceFilter(src) { activeSourceFilter = src; paintChips(); renderList(); }
+
+    function initials(name) {
+        return (name || "?").replace("Pengunjung Web", "PW").replace("Donatur WhatsApp", "DW").split(" ").map(function (w) { return w[0]; }).slice(0, 2).join("").toUpperCase();
+    }
+
+    function jamSaja(waktu) {
+        const bagian = (waktu || "").split(" ");
+        return bagian.length > 1 ? bagian[1].slice(0, 5) : (waktu || "");
+    }
+
+    function getFiltered() {
+        const q = document.getElementById("search-input").value.trim().toLowerCase();
+        return PERCAKAPAN.filter(function (c) {
+            const matchSrc = !activeSourceFilter || c.sumber === activeSourceFilter;
+            const haystack = (c.nama + " " + c.kontak_tampil + " " + c.preview).toLowerCase();
+            const matchQ = !q || haystack.includes(q);
+            return matchSrc && matchQ;
+        });
+    }
+
+    function renderList() {
+        const items = getFiltered();
+        const listEl = document.getElementById("conv-list");
+        if (PERCAKAPAN.length === 0) {
+            listEl.innerHTML = '<div class="px-5 py-10 text-center text-[13px] text-slate-400 font-medium">Belum ada percakapan tercatat.<br/>Transkrip akan muncul begitu ada yang chat lewat WhatsApp atau Web.</div>';
+            return;
+        }
+        if (items.length === 0) {
+            listEl.innerHTML = '<div class="px-5 py-10 text-center text-[13px] text-slate-400 font-medium">Tidak ada percakapan yang cocok.</div>';
+            return;
+        }
+        listEl.innerHTML = items.map(function (c) {
+            const isActive = c.id === activeConvId;
+            const avatarBg = c.sumber === "whatsapp" ? "bg-green-600" : "bg-amal-600";
+            return '<button type="button" onclick="openConversation(\'' + c.id + '\')" class="w-full text-left px-4 py-3.5 flex items-start gap-3 transition-colors ' + (isActive ? "bg-amal-50" : "hover:bg-amal-50/60") + '">' +
+                '<div class="w-10 h-10 rounded-full ' + avatarBg + ' text-white flex items-center justify-center text-[12px] font-bold shrink-0">' + initials(c.nama) + '</div>' +
+                '<div class="min-w-0 flex-1">' +
+                    '<div class="flex items-center justify-between gap-2">' +
+                        '<span class="text-[13.5px] font-bold text-amal-900 truncate">' + c.nama + '</span>' +
+                        '<span class="text-[10.5px] text-slate-400 font-semibold shrink-0">' + jamSaja(c.waktu_terakhir) + '</span>' +
+                    '</div>' +
+                    '<div class="text-[12px] text-slate-400 font-medium mb-1">' + c.kontak_tampil + '</div>' +
+                    '<div class="text-[12.5px] text-slate-500 truncate">' + c.preview + '</div>' +
+                '</div>' +
+            '</button>';
+        }).join("");
+    }
+
+    function bubble(m) {
+        if (m.dari === "sistem") {
+            return '<div class="msg-enter self-center text-[11.5px] font-semibold text-slate-400 bg-white border border-amal-100 rounded-full px-4 py-1.5 shadow-sm">' + m.teks + '</div>';
+        }
+        const isUser = m.dari === "user";
+        const wrapperAlign = isUser ? "self-end flex-row-reverse" : "self-start";
+        const bubbleClass = isUser
+            ? "px-4 py-2.5 rounded-2xl rounded-tr-sm bg-gradient-to-tr from-amal-700 to-amal-600 text-white text-[13.5px] leading-relaxed whitespace-pre-wrap shadow-sm"
+            : "px-4 py-2.5 rounded-2xl rounded-tl-sm bg-white border border-amal-100 shadow-sm text-slate-700 text-[13.5px] leading-relaxed whitespace-pre-wrap";
+        const avatar = isUser
+            ? '<div class="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center text-[11px] font-bold shrink-0">K</div>'
+            : '<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 text-white flex items-center justify-center text-[11px] font-bold shrink-0">M</div>';
+        const teks = (m.teks || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
+        return '<div class="msg-enter flex gap-2.5 max-w-[80%] ' + wrapperAlign + '">' + avatar +
+            '<div><div class="' + bubbleClass + '">' + teks + '</div>' +
+            '<div class="text-[10.5px] text-slate-400 mt-1 ' + (isUser ? "text-right mr-1" : "ml-1") + '">' + jamSaja(m.waktu) + '</div></div></div>';
+    }
+
+    function openConversation(id) {
+        const c = PERCAKAPAN.find(function (x) { return x.id === id; });
+        if (!c) return;
+        activeConvId = id;
+        renderList();
+
+        document.getElementById("detail-empty").classList.add("hidden");
+        const content = document.getElementById("detail-content");
+        content.classList.remove("hidden");
+        content.classList.add("flex");
+
+        const avatarEl = document.getElementById("detail-avatar");
+        avatarEl.textContent = initials(c.nama);
+        avatarEl.className = "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-[13px] shrink-0 " + (c.sumber === "whatsapp" ? "bg-green-600" : "bg-amal-600");
+
+        document.getElementById("detail-name").textContent = c.nama;
+        document.getElementById("detail-meta").textContent = c.kontak_tampil + " · " + c.jumlah_pesan + " pesan";
+
+        const badge = document.getElementById("detail-source-badge");
+        badge.textContent = SOURCE_LABEL[c.sumber];
+        badge.className = "shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-extrabold border whitespace-nowrap " + SOURCE_CLASS[c.sumber];
+
+        document.getElementById("transcript").innerHTML = c.pesan.map(bubble).join("");
+
+        if (window.matchMedia("(max-width: 767px)").matches) {
+            document.getElementById("list-pane").classList.add("hidden");
+        }
+    }
+
+    function closeDetailMobile() {
+        document.getElementById("list-pane").classList.remove("hidden");
+        document.getElementById("detail-content").classList.add("hidden");
+        document.getElementById("detail-content").classList.remove("flex");
+        document.getElementById("detail-empty").classList.remove("hidden");
+        activeConvId = null;
+        renderList();
+    }
+
+    document.getElementById("detail-empty-text").textContent = PERCAKAPAN.length === 0
+        ? "Belum ada percakapan tercatat"
+        : "Pilih salah satu percakapan di kiri untuk melihat transkrip lengkapnya";
+
+    paintChips();
+    renderList();
+</script>
+{% endblock %}

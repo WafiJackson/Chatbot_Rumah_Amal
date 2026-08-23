@@ -10,6 +10,10 @@ WIB = timezone(timedelta(hours=7))
 # saat container di-rebuild.
 DB_PATH = os.getenv("DB_PATH") or os.path.join(os.path.dirname(__file__), "..", "donatur.db")
 
+# Foto resi disimpan sebagai file di sebelah donatur.db (bukan blob di DB) -
+# otomatis ikut volume persisten yang sama tanpa perlu env var/volume baru.
+RESI_DIR = os.path.join(os.path.dirname(DB_PATH), "resi")
+
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -79,6 +83,23 @@ def init_db():
             conn.execute("ALTER TABLE transaksi_donasi ADD COLUMN status_verifikasi TEXT DEFAULT 'validated'")
         if "sumber" not in tx_columns:
             conn.execute("ALTER TABLE transaksi_donasi ADD COLUMN sumber TEXT DEFAULT 'whatsapp'")
+        if "resi_path" not in tx_columns:
+            conn.execute("ALTER TABLE transaksi_donasi ADD COLUMN resi_path TEXT")
+
+        # 4. TABEL log_percakapan - satu baris per pesan (masuk/keluar/sistem),
+        # dipakai halaman admin "Log Bot" untuk menampilkan transkrip
+        # percakapan Mimin AI dari WhatsApp maupun Web Chat.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS log_percakapan (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sumber TEXT NOT NULL,
+                kontak TEXT NOT NULL,
+                dari TEXT NOT NULL,
+                teks TEXT,
+                waktu DATETIME NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_log_percakapan_kontak ON log_percakapan (sumber, kontak, waktu)")
 
         conn.commit()
 
@@ -178,6 +199,24 @@ def get_session(no_wa: str) -> dict:
         return {"no_wa": no_wa, "status": "IDLE", "target_program": None}
 
 
+def normalisasi_no_wa(no_wa: str) -> str:
+    """Ubah nomor WA berawalan 628 (format WAHA/chatId) jadi 08 (format
+    tampilan/penyimpanan seragam) - dipakai di transaksi maupun log_percakapan
+    supaya keduanya bisa dicocokkan dengan kontak yang sama."""
+    no_wa_clean = str(no_wa or "").strip()
+    if no_wa_clean.startswith("628"):
+        no_wa_clean = "0" + no_wa_clean[2:]
+    return no_wa_clean
+
+
+def _simpan_file_resi(transaksi_id: int, gambar_bytes: bytes) -> str:
+    os.makedirs(RESI_DIR, exist_ok=True)
+    nama_file = f"{transaksi_id}.jpg"
+    with open(os.path.join(RESI_DIR, nama_file), "wb") as f:
+        f.write(gambar_bytes)
+    return nama_file
+
+
 def simpan_transaksi_final(
     no_wa: str,
     nama: str,
@@ -186,7 +225,8 @@ def simpan_transaksi_final(
     pekerjaan: str | None = None,
     status_verifikasi: str = "validated",
     sumber: str = "whatsapp",
-):
+    resi_bytes: bytes | None = None,
+) -> int | None:
     """
     Menyimpan pendaftaran/transaksi ke tabel `transaksi_donasi`
     berdasarkan `kode_program` eksplisit atau `target_program` dari `sesi_percakapan`, lalu mereset status ke IDLE.
@@ -194,9 +234,14 @@ def simpan_transaksi_final(
     status_verifikasi='pending' dipakai untuk resi yang diunggah lewat web
     (identitas pengunjung belum terverifikasi saat unggah) - baru dianggap
     sah setelah admin menekan "Tandai Tervalidasi" di dashboard.
+
+    resi_bytes (opsional): foto bukti transfer yang sudah diproses OCR-nya -
+    disimpan sebagai file di RESI_DIR supaya admin bisa melihat gambar
+    aslinya di dashboard, bukan cuma hasil baca AI-nya. Mengembalikan id
+    transaksi yang baru dibuat (atau None kalau no_wa kosong).
     """
     if not no_wa:
-        return
+        return None
 
     if not kode_program or kode_program in {"UMUM", "Donasi"}:
         session = get_session(no_wa)
@@ -209,11 +254,7 @@ def simpan_transaksi_final(
         if digits:
             nominal_clean = int(digits)
 
-    # Format nomor wa jika berawalan 628 -> 08
-    no_wa_clean = str(no_wa).strip()
-    if no_wa_clean.startswith("628"):
-        no_wa_clean = "0" + no_wa_clean[2:]
-
+    no_wa_clean = normalisasi_no_wa(no_wa)
     waktu_sekarang = datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
 
     if is_supabase_configured():
@@ -222,25 +263,36 @@ def simpan_transaksi_final(
         except Exception as e:
             print(f"[Supabase Fallback to SQLite - simpan_transaksi] {e}")
 
+    transaksi_id = None
     with get_db_connection() as conn:
         # Check if table has 'pekerjaan' column for backward compatibility with existing SQLite DB
         cursor = conn.execute("PRAGMA table_info(transaksi_donasi)")
         cols = [r["name"] for r in cursor.fetchall()]
         if "pekerjaan" in cols:
-            conn.execute(
+            cursor = conn.execute(
                 "INSERT INTO transaksi_donasi (no_wa, nama_donatur, pekerjaan, kode_program, nominal, waktu_transaksi, status_verifikasi, sumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (no_wa_clean, nama, "-", kode_program, nominal_clean, waktu_sekarang, status_verifikasi, sumber)
             )
         else:
-            conn.execute(
+            cursor = conn.execute(
                 "INSERT INTO transaksi_donasi (no_wa, nama_donatur, kode_program, nominal, waktu_transaksi, status_verifikasi, sumber) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (no_wa_clean, nama, kode_program, nominal_clean, waktu_sekarang, status_verifikasi, sumber)
             )
+        transaksi_id = cursor.lastrowid
+
+        if resi_bytes and transaksi_id:
+            try:
+                nama_file = _simpan_file_resi(transaksi_id, resi_bytes)
+                conn.execute("UPDATE transaksi_donasi SET resi_path = ? WHERE id = ?", (nama_file, transaksi_id))
+            except OSError as e:
+                print(f"[Warning] Gagal menyimpan file resi transaksi #{transaksi_id}: {e}")
+
         conn.commit()
 
     # Reset status sesi ke IDLE - hanya relevan untuk alur FSM WhatsApp, resi
     # web tidak punya sesi FSM jadi ini no-op aman untuknya juga.
     reset_status(no_wa)
+    return transaksi_id
 
 
 def simpan_pendaftaran_one_shot(no_wa: str, nama: str, nominal: str, kode_program: str = "INF-RUTIN"):
@@ -298,6 +350,59 @@ def ambil_riwayat_donasi(no_wa: str) -> list[dict]:
         )
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
+
+
+def catat_pesan(sumber: str, kontak: str, dari: str, teks: str):
+    """Mencatat satu baris pesan (user/bot/sistem) ke log_percakapan untuk
+    halaman admin Log Bot. `kontak` = no_wa (WhatsApp) atau token sesi
+    browser (Web, sebelum/sesudah OTP - satu sesi tetap satu kontak supaya
+    transkripnya nyambung)."""
+    if not sumber or not kontak or not teks:
+        return
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO log_percakapan (sumber, kontak, dari, teks, waktu) VALUES (?, ?, ?, ?, ?)",
+            (sumber, kontak, dari, teks, datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.commit()
+
+
+def ambil_daftar_percakapan(limit: int = 100) -> list[dict]:
+    """Daftar percakapan (satu baris per kontak, bukan per pesan) untuk
+    panel kiri halaman Log Bot - diurutkan dari yang terbaru aktif."""
+    with get_db_connection() as conn:
+        grup = conn.execute("""
+            SELECT sumber, kontak, MAX(waktu) AS waktu_terakhir, COUNT(*) AS jumlah_pesan
+            FROM log_percakapan
+            GROUP BY sumber, kontak
+            ORDER BY waktu_terakhir DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+
+        hasil = []
+        for g in grup:
+            preview_row = conn.execute(
+                "SELECT teks FROM log_percakapan WHERE sumber = ? AND kontak = ? ORDER BY waktu DESC, id DESC LIMIT 1",
+                (g["sumber"], g["kontak"]),
+            ).fetchone()
+            hasil.append({
+                "sumber": g["sumber"],
+                "kontak": g["kontak"],
+                "waktu_terakhir": g["waktu_terakhir"],
+                "jumlah_pesan": g["jumlah_pesan"],
+                "preview": (preview_row["teks"] if preview_row else "") or "",
+            })
+        return hasil
+
+
+def ambil_pesan_kontak(sumber: str, kontak: str, limit: int = 500) -> list[dict]:
+    """Transkrip lengkap satu percakapan, urut kronologis."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "SELECT dari, teks, waktu FROM log_percakapan WHERE sumber = ? AND kontak = ? ORDER BY waktu ASC, id ASC LIMIT ?",
+            (sumber, kontak, limit),
+        )
+        return [dict(r) for r in cursor.fetchall()]
 
 
 def sync_offline_sqlite_to_supabase():

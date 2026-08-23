@@ -1,9 +1,11 @@
 import os
+import re
 import secrets
+import time
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Request, Form
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 
 from services import state_manager
@@ -22,6 +24,24 @@ SESSION_COOKIE = "admin_session"
 # Sesi login disimpan in-memory (pola yang sama dengan user_sessions di bot_webhook.py) -
 # cukup untuk single-instance deployment, sesuai kebutuhan "session sederhana" di blueprint.
 ADMIN_SESSIONS: set[str] = set()
+
+# Rate limiter percobaan login (pola sama dengan _check_rate_limit di
+# public_web.py) - tanpa ini, password admin bisa dicoba tanpa batas oleh
+# script otomatis karena endpoint ini sebelumnya tidak punya proteksi apa pun.
+_LOGIN_ATTEMPTS: dict[str, list] = {}
+LOGIN_MAKS_PERCOBAAN = 5
+LOGIN_JENDELA_DETIK = 300  # 5 menit
+
+
+def _login_rate_limited(ip: str) -> bool:
+    now = time.time()
+    timestamps = [t for t in _LOGIN_ATTEMPTS.get(ip, []) if now - t < LOGIN_JENDELA_DETIK]
+    if len(timestamps) >= LOGIN_MAKS_PERCOBAAN:
+        _LOGIN_ATTEMPTS[ip] = timestamps
+        return True
+    timestamps.append(now)
+    _LOGIN_ATTEMPTS[ip] = timestamps
+    return False
 
 
 def _format_rupiah(value) -> str:
@@ -117,6 +137,40 @@ def _format_transaksi_tampilan(rows: list[dict]) -> list[dict]:
             "status": r.get("status_verifikasi") or "validated",
             "status_label": _STATUS_LABEL.get(r.get("status_verifikasi") or "validated", "Tervalidasi"),
             "sumber": r.get("sumber") or "whatsapp",
+            "resi_path": r.get("resi_path"),
+        })
+    return hasil
+
+
+_SOURCE_LABEL = {"whatsapp": "WhatsApp", "web": "Web Chat"}
+
+
+def _format_percakapan_tampilan() -> list[dict]:
+    """Kelompokkan log_percakapan jadi daftar percakapan lengkap dengan
+    transkripnya, siap di-tojson ke log_bot.html (pola sama seperti
+    `const TRANSAKSI = {{ transaksi | tojson }}` di transactions.html)."""
+    grup = state_manager.ambil_daftar_percakapan(limit=200)
+    hasil = []
+    for g in grup:
+        sumber = g["sumber"]
+        kontak = g["kontak"]
+        pesan_mentah = state_manager.ambil_pesan_kontak(sumber, kontak)
+        if sumber == "whatsapp":
+            nama = f"Donatur WhatsApp ({kontak})"
+            kontak_tampil = kontak
+        else:
+            nama = "Pengunjung Web"
+            kontak_tampil = f"sesi #{kontak[:8]}"
+        hasil.append({
+            "id": f"{sumber}|{kontak}",
+            "sumber": sumber,
+            "sumber_label": _SOURCE_LABEL.get(sumber, sumber),
+            "nama": nama,
+            "kontak_tampil": kontak_tampil,
+            "waktu_terakhir": g["waktu_terakhir"],
+            "jumlah_pesan": g["jumlah_pesan"],
+            "preview": g["preview"],
+            "pesan": pesan_mentah,
         })
     return hasil
 
@@ -139,7 +193,11 @@ def login_page(request: Request, error: str | None = None):
 
 
 @router.post("/login")
-def login_submit(username: str = Form(...), password: str = Form(...)):
+def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
+    client_ip = request.client.host if request.client else "unknown"
+    if _login_rate_limited(client_ip):
+        return RedirectResponse(url="/admin/login?error=terlalu_banyak", status_code=303)
+
     if not ADMIN_PASSWORD:
         return RedirectResponse(url="/admin/login?error=belum_dikonfigurasi", status_code=303)
 
@@ -147,7 +205,7 @@ def login_submit(username: str = Form(...), password: str = Form(...)):
         token = secrets.token_urlsafe(32)
         ADMIN_SESSIONS.add(token)
         response = RedirectResponse(url="/admin/dashboard", status_code=303)
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax")
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https")
         return response
 
     return RedirectResponse(url="/admin/login?error=salah", status_code=303)
@@ -194,6 +252,40 @@ def transactions_page(request: Request):
         "admin_username": ADMIN_USERNAME,
         "transaksi": _format_transaksi_tampilan(transaksi_mentah),
     })
+
+
+@router.get("/log-bot")
+def log_bot_page(request: Request):
+    redirect = _require_login(request)
+    if redirect:
+        return redirect
+
+    return templates.TemplateResponse(request, "log_bot.html", {
+        "active_page": "log_bot",
+        "admin_username": ADMIN_USERNAME,
+        "percakapan": _format_percakapan_tampilan(),
+    })
+
+
+_NAMA_FILE_RESI_VALID = re.compile(r"^\d+\.jpg$")
+
+
+@router.get("/resi/{filename}")
+def lihat_resi(filename: str, request: Request):
+    redirect = _require_login(request)
+    if redirect:
+        return redirect
+
+    # Nama file yang kita buat sendiri selalu "<id_transaksi>.jpg" - tolak
+    # pola lain supaya tidak bisa dipakai untuk path traversal.
+    if not _NAMA_FILE_RESI_VALID.match(filename):
+        return JSONResponse({"status": "gagal", "pesan": "Nama berkas tidak valid."}, status_code=400)
+
+    path_lengkap = os.path.join(state_manager.RESI_DIR, filename)
+    if not os.path.isfile(path_lengkap):
+        return JSONResponse({"status": "gagal", "pesan": "Gambar resi tidak ditemukan."}, status_code=404)
+
+    return FileResponse(path_lengkap)
 
 
 @router.post("/transactions/{transaksi_id}/status")

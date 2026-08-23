@@ -72,9 +72,10 @@
             <h4 class="text-[18px] font-extrabold text-amal-900 mb-1">Detail Transaksi</h4>
             <p id="resi-id" class="text-[13px] text-slate-500 mb-5">TRX-000</p>
 
-            <div class="rounded-2xl border-2 border-dashed border-amal-200 bg-amal-50/50 aspect-[4/3] flex flex-col items-center justify-center gap-2 mb-5 text-amal-400">
+            <img id="resi-image" src="" alt="Foto bukti transfer" class="hidden rounded-2xl w-full aspect-[4/3] object-contain bg-amal-50/50 border border-amal-100 mb-5 cursor-zoom-in" onclick="window.open(this.src, '_blank')" title="Klik untuk lihat ukuran penuh" />
+            <div id="resi-placeholder" class="rounded-2xl border-2 border-dashed border-amal-200 bg-amal-50/50 aspect-[4/3] flex flex-col items-center justify-center gap-2 mb-5 text-amal-400">
                 <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
-                <span class="text-[12px] font-semibold text-amal-500 text-center px-4">Sistem belum menyimpan gambar resi - baru mencatat hasil baca AI dari foto yang dikirim donatur</span>
+                <span class="text-[12px] font-semibold text-amal-500 text-center px-4">Resi ini belum ada gambar tersimpan - baru mencatat hasil baca AI dari foto yang dikirim donatur</span>
             </div>
 
             <div class="flex flex-col gap-2.5 mb-6 text-[13px]">
@@ -113,6 +114,12 @@
     })();
 
     function formatRupiah(n) { return "Rp " + (n || 0).toLocaleString("id-ID"); }
+
+    function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s == null ? "" : String(s);
+        return div.innerHTML;
+    }
 
     function statusBadge(status) {
         return '<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11.5px] font-bold border ' + STATUS_CLASS[status] + '">' +
@@ -154,7 +161,7 @@
                 return '<tr class="hover:bg-amal-50/50 transition-colors group">' +
                     '<td class="px-7 py-4 text-[12.5px] font-mono font-bold text-slate-400">' + t.id_tampil + '</td>' +
                     '<td class="px-7 py-4 text-[13.5px] font-bold text-amal-900">' + t.no_wa + '</td>' +
-                    '<td class="px-7 py-4"><span class="inline-flex px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-amal-100 text-amal-700">' + t.kode_program + '</span></td>' +
+                    '<td class="px-7 py-4"><span class="inline-flex px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-amal-100 text-amal-700">' + escapeHtml(t.kode_program) + '</span></td>' +
                     '<td class="px-7 py-4 text-[14.5px] font-extrabold text-gold-600 tabular-nums">' + formatRupiah(t.nominal) + '</td>' +
                     '<td class="px-7 py-4 text-[13px] font-medium text-slate-500">' + t.waktu_transaksi + '</td>' +
                     '<td class="px-7 py-4">' + statusBadge(t.status) + '</td>' +
@@ -174,6 +181,18 @@
         if (!t) return;
 
         document.getElementById("resi-id").textContent = t.id_tampil;
+
+        const img = document.getElementById("resi-image");
+        const placeholder = document.getElementById("resi-placeholder");
+        if (t.resi_path) {
+            img.src = "/admin/resi/" + t.resi_path;
+            img.classList.remove("hidden");
+            placeholder.classList.add("hidden");
+        } else {
+            img.classList.add("hidden");
+            placeholder.classList.remove("hidden");
+        }
+
         document.getElementById("resi-nama").textContent = t.nama_donatur;
         document.getElementById("resi-wa").textContent = t.no_wa;
         document.getElementById("resi-kategori").textContent = t.kode_program;

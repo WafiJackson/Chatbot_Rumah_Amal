@@ -73,21 +73,36 @@ def _sniff_gambar_valid(data: bytes) -> bool:
 
 
 def _get_session(request: Request) -> tuple[str, dict, bool]:
-    """Kembalikan (token, session_dict, perlu_set_cookie_baru)."""
+    """Kembalikan (token, session_dict, perlu_set_cookie_baru).
+
+    Di-cache di request.state supaya dipanggil berkali-kali dalam 1 request
+    (mis. sekali untuk logika balasan, sekali lagi di _json_with_session)
+    tetap mengembalikan token yang SAMA - request.cookies tidak berubah
+    walau response.set_cookie() sudah dipanggil, jadi tanpa cache ini token
+    baru bisa ke-generate dua kali dalam satu request yang sama dan diam-diam
+    menciptakan 2 sesi berbeda dari 1 kunjungan (last_program_key yang
+    di-set lewat token pertama jadi tidak pernah kepakai lagi)."""
+    cached = getattr(request.state, "web_session", None)
+    if cached:
+        return cached
+
     token = request.cookies.get(SESSION_COOKIE)
     if token and token in WEB_SESSIONS:
-        return token, WEB_SESSIONS[token], False
+        result = (token, WEB_SESSIONS[token], False)
+    else:
+        token = secrets.token_urlsafe(16)
+        WEB_SESSIONS[token] = {"last_program_key": None}
+        result = (token, WEB_SESSIONS[token], True)
 
-    token = secrets.token_urlsafe(16)
-    WEB_SESSIONS[token] = {"last_program_key": None}
-    return token, WEB_SESSIONS[token], True
+    request.state.web_session = result
+    return result
 
 
 def _json_with_session(request: Request, data: dict, status_code: int = 200) -> JSONResponse:
     token, _session, is_new = _get_session(request)
     response = JSONResponse(data, status_code=status_code)
     if is_new:
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax")
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https")
     return response
 
 
@@ -180,13 +195,16 @@ async def web_chat(request: Request, payload: dict):
     if not pesan:
         return _json_with_session(request, {"reply": "Boleh diketik dulu pesannya, Kak 🙏", "requires_otp": False})
 
+    token, session, _is_new = _get_session(request)
+    state_manager.catat_pesan("web", token, "user", pesan)
+
     pesan_clean = pesan.lower().strip()
 
     if _is_cek_riwayat(pesan_clean):
         reply = "Untuk melihat riwayat transaksi, Mimin perlu verifikasi nomor WhatsApp Kakak dulu ya - demi menjaga data donasi tetap aman 🙏"
+        state_manager.catat_pesan("web", token, "bot", reply)
         return _json_with_session(request, {"reply": reply, "requires_otp": True})
 
-    _token, session, _is_new = _get_session(request)
     hasil = susun_balasan(
         pesan,
         context={"last_program_key": session.get("last_program_key")},
@@ -198,6 +216,7 @@ async def web_chat(request: Request, payload: dict):
         reply = _WEB_FALLBACK_REPLY
     else:
         reply = _bersihkan_navigasi_wa(hasil["reply"])
+    state_manager.catat_pesan("web", token, "bot", reply)
     return _json_with_session(request, {"reply": reply, "requires_otp": False})
 
 
@@ -223,9 +242,12 @@ async def request_otp(request: Request, payload: dict):
     chat_id = f"{no_wa}@c.us"
     pesan_otp = f"Kode verifikasi Rumah Amal USK Anda: *{code}*\nBerlaku 5 menit. Jangan berikan kode ini kepada siapa pun."
     try:
-        send_message_to_waha(chat_id, pesan_otp)
+        send_message_to_waha(chat_id, pesan_otp, catat_log=False)
     except Exception as e:
         return JSONResponse({"status": "gagal", "pesan": f"Gagal mengirim kode OTP: {e}"}, status_code=502)
+
+    token, _session, _is_new = _get_session(request)
+    state_manager.catat_pesan("web", token, "sistem", f"Kode OTP dikirim ke {no_wa}")
 
     return JSONResponse({"status": "sukses", "pesan": "Kode OTP telah dikirim via WhatsApp."})
 
@@ -257,6 +279,10 @@ async def verify_otp(request: Request, payload: dict):
     sapaan = deteksi_sapaan_gender(None)
     reply = _format_riwayat(no_wa, sapaan)
 
+    token, _session, _is_new = _get_session(request)
+    state_manager.catat_pesan("web", token, "sistem", f"Verifikasi OTP berhasil untuk {no_wa}")
+    state_manager.catat_pesan("web", token, "bot", reply)
+
     return _json_with_session(request, {"status": "sukses", "reply": reply})
 
 
@@ -287,6 +313,9 @@ async def upload_resi(
     nominal_terbaca = data.get("nominal")  # sudah divalidasi >= Rp 1.000 di ekstrak_resi_vision
     program_terbaca = data.get("program") or "UMUM"
 
+    token, _session, _is_new = _get_session(request)
+    state_manager.catat_pesan("web", token, "user", (caption or "") + "\n📷 (kiriman bukti transfer)")
+
     if nominal_terbaca:
         # Tersimpan sebagai 'pending' - identitas pengunjung web belum terverifikasi
         # OTP saat upload, jadi admin yang memvalidasi manual lewat dashboard
@@ -294,7 +323,7 @@ async def upload_resi(
         # karena identitasnya sudah pasti dari sesi WA).
         state_manager.simpan_transaksi_final(
             no_wa, nama_terbaca, nominal_terbaca, kode_program=program_terbaca,
-            status_verifikasi="pending", sumber="web",
+            status_verifikasi="pending", sumber="web", resi_bytes=image_bytes,
         )
         status_teks = "menunggu validasi admin di dashboard"
     else:
@@ -317,4 +346,5 @@ async def upload_resi(
         "Alhamdulillah! 🙏 Bukti transfer Kakak sudah Mimin terima dan tercatat untuk diverifikasi admin. "
         "Setelah divalidasi, donasinya akan resmi tercatat. Jazakallahu Khairan atas kepercayaannya kepada Rumah Amal USK! ✨"
     )
+    state_manager.catat_pesan("web", token, "bot", reply)
     return _json_with_session(request, {"status": "sukses", "reply": reply})

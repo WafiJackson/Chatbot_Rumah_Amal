@@ -89,14 +89,21 @@ PROGRAMS = {
         ]
     },
     "bpmi": {
-        "nama": "BPMI",
-        "deskripsi": "Program Bantuan Pembinaan Masjid & Musholla serta kesejahteraan marbot/pengurus masjid di lingkungan USK.",
+        "nama": "BPMI (Beasiswa Pendidikan Mahasiswa Internasional)",
+        "deskripsi": "Program bantuan biaya pendidikan bagi mahasiswa internasional jenjang S1 di Universitas Syiah Kuala yang berasal dari keluarga kurang mampu dan mengalami kendala finansial. Bantuan diberikan sebesar Rp700.000/bulan selama satu tahun.",
         "syarat": [
-            "Pengurus / marbot masjid atau musholla di lingkungan kampus USK",
-            "Aktif menjalankan tugas kebersihan dan kemakmuran masjid"
+            "Mahasiswa internasional USK jenjang S1 dari keluarga kurang mampu",
+            "Tidak berpacaran dan tidak merokok",
+            "Tidak sedang menerima beasiswa lain",
+            "Memiliki surat rekomendasi dari OIA (Office of International Affairs) USK"
         ],
-        "proses": "Informasi berkas persyaratan dan pendaftaran dapat diakses melalui website resmi kami saat periode dibuka.",
-        "qna": []
+        "proses": "Pendaftaran dilakukan online melalui website resmi rumahamal.usk.ac.id saat periode dibuka - mengisi formulir dan mengunggah berkas administrasi (surat permohonan, rekomendasi OIA, surat pernyataan, scan KTM, scan paspor) dalam satu file PDF maksimal 1MB, beserta pasfoto berwarna 3x4 format JPG maksimal 1MB.",
+        "qna": [
+            {
+                "tanya": "Berapa nominal bantuan BPMI dan berapa lama diberikan?",
+                "jawab": "Bantuan diberikan sebesar Rp700.000 per bulan selama satu tahun."
+            }
+        ]
     },
     "ota_palestina": {
         "nama": "OTA PALESTINA (Orang Tua Asuh Mahasiswa Palestina)",
@@ -224,7 +231,7 @@ def get_program_list():
         " 2. 📚 BPRA-UKT (Bantuan Pembayaran UKT)\n"
         " 3. 👨‍👩‍👧 Beasiswa Orang Tua Asuh (OTA)\n"
         " 4. 🌙 Beasiswa Muallaf\n"
-        " 5. 💼 BPMI (Bantuan Operasional Mahasiswa)\n\n"
+        " 5. 💼 BPMI (Beasiswa Pendidikan Mahasiswa Internasional)\n\n"
         "💚 *Penyaluran & Pemberdayaan Sosial:*\n"
         " 6. 🇵🇸 OTA Palestina\n"
         " 7. 🥩 Green Qurban\n"

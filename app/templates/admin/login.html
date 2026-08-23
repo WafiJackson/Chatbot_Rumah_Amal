@@ -30,6 +30,8 @@
         <div class="mb-4 px-4 py-3 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[13px] font-semibold">Nama pengguna atau kata sandi salah. Silakan coba lagi.</div>
         {% elif error == "belum_dikonfigurasi" %}
         <div class="mb-4 px-4 py-3 rounded-2xl bg-gold-50 border border-gold-200 text-gold-700 text-[13px] font-semibold">Kata sandi admin belum diatur di server (ADMIN_DASHBOARD_PASSWORD). Hubungi pengelola sistem.</div>
+        {% elif error == "terlalu_banyak" %}
+        <div class="mb-4 px-4 py-3 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[13px] font-semibold">Terlalu banyak percobaan masuk. Coba lagi dalam beberapa menit.</div>
         {% endif %}
 
         <form method="post" action="/admin/login">

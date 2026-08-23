@@ -115,7 +115,7 @@ def _get_active_waha_session() -> str:
 
 
 def _resolve_waha_chat_id(chat_id: str, session_name: str) -> str:
-    """Menerjemahkan nomor HP / chatId (misal 6281269666776) ke chatId/LID resmi dari WhatsApp WAHA."""
+    """Menerjemahkan nomor HP / chatId (misal 6281234567890) ke chatId/LID resmi dari WhatsApp WAHA."""
     if not chat_id:
         return chat_id
     if "@lid" in chat_id:
@@ -180,7 +180,7 @@ def _dapatkan_nomor_hp_asli(chat_id_asli: str, payload_waha: dict = None, sessio
         print(f"[Warning Resolve LID Contact] {e}")
 
     # Fallback to ADMIN_WA_NUMBER if matching admin LID
-    admin_wa = os.getenv("ADMIN_WA_NUMBER", "6281269666776@c.us")
+    admin_wa = os.getenv("ADMIN_WA_NUMBER", "")
     admin_digits = re.sub(r"[^\d]", "", admin_wa)
     if clean_id in [admin_digits, "39303296057346"]:
         formatted_phone = f"0{admin_digits[2:]}" if admin_digits.startswith("62") else admin_digits
@@ -191,7 +191,23 @@ def _dapatkan_nomor_hp_asli(chat_id_asli: str, payload_waha: dict = None, sessio
 
 
 
-def send_message_to_waha(chat_id: str, text: str, session_name: str = "default"):
+def send_message_to_waha(chat_id: str, text: str, session_name: str = "default", catat_log: bool = True):
+    # Catat balasan bot ke log_percakapan (untuk halaman admin Log Bot) -
+    # kecuali kalau tujuannya nomor admin sendiri (notifikasi internal,
+    # bukan percakapan dengan donatur). catat_log=False dipakai pengirim OTP
+    # supaya kode verifikasi TIDAK PERNAH tersimpan apa adanya ke database -
+    # kredensial semacam itu tidak seharusnya pernah masuk log permanen,
+    # meski masa berlakunya cuma 5 menit.
+    digits_tujuan = re.sub(r"[^\d]", "", chat_id or "")
+    digits_admin = re.sub(r"[^\d]", "", ADMIN_WA_NUMBER)
+    if digits_tujuan and digits_tujuan != digits_admin:
+        try:
+            teks_log = text if catat_log else "Kode OTP dikirim"
+            dari_log = "bot" if catat_log else "sistem"
+            state_manager.catat_pesan("whatsapp", state_manager.normalisasi_no_wa(digits_tujuan), dari_log, teks_log)
+        except Exception as e:
+            print(f"[Warning Log Percakapan] {e}")
+
     # 1. Jika session_name bawaan 'default', cari sesi aktif di WAHA
     if not session_name or session_name == "default":
         session_name = _get_active_waha_session()
@@ -232,7 +248,9 @@ def send_whatsapp_reply(chat_id: str, text: str, session_name: str = "default"):
     send_message_to_waha(chat_id, text, session_name)
 
 
-ADMIN_WA_NUMBER = os.getenv("ADMIN_WA_NUMBER", "6281269666776@c.us")
+ADMIN_WA_NUMBER = os.getenv("ADMIN_WA_NUMBER", "")
+if not ADMIN_WA_NUMBER:
+    logger.warning("[Config] ADMIN_WA_NUMBER tidak diset di environment. Notifikasi & handoff ke admin tidak akan terkirim.")
 
 
 def notify_admin(pesan_peringatan: str, session_name: str = "default"):
@@ -349,6 +367,14 @@ async def waha_webhook(request: Request):
 
         print(f"[Teks Diterima] Dari: {nama_pengirim} ({nomor_wa}) | Media: {has_media} | Pesan: '{pesan}'")
 
+        try:
+            state_manager.catat_pesan(
+                "whatsapp", state_manager.normalisasi_no_wa(nomor_wa), "user",
+                pesan if pesan else "📷 (kiriman gambar)",
+            )
+        except Exception as e:
+            print(f"[Warning Log Percakapan] {e}")
+
         session_data = user_sessions.get(nomor_wa, {"state": "IDLE", "last_program_key": None, "last_intents": []})
         if not isinstance(session_data, dict):
             session_data = {"state": session_data or "IDLE", "last_program_key": None, "last_intents": []}
@@ -419,36 +445,6 @@ async def waha_webhook(request: Request):
 
         status_fsm = state_manager.get_status(nomor_wa)
         pesan_clean = (pesan or "").lower().strip()
-
-        # Detail penjelasan tiap program (PETA_NAMA sekarang didefinisikan di
-        # level modul, lihat dekat BANK_REKENING_INFO di atas)
-        DETAIL_PROGRAM = {
-            "1": "*PINTAS (Pinjaman Tanpa Syarat)*\nProgram pinjaman tanpa riba dan tanpa agunan dari Rumah Amal USK untuk membantu civitas akademika dan masyarakat yang membutuhkan dana darurat.",
-            "pintas": "*PINTAS (Pinjaman Tanpa Syarat)*\nProgram pinjaman tanpa riba dan tanpa agunan dari Rumah Amal USK untuk membantu civitas akademika dan masyarakat yang membutuhkan dana darurat.",
-            "2": "*BPRA-UKT*\nProgram Bantuan Penyelenggaraan Residensi & Akademik / Bantuan Pembayaran UKT bagi mahasiswa Universitas Syiah Kuala yang mengalami kesulitan finansial.",
-            "bpra": "*BPRA-UKT*\nProgram Bantuan Penyelenggaraan Residensi & Akademik / Bantuan Pembayaran UKT bagi mahasiswa Universitas Syiah Kuala yang mengalami kesulitan finansial.",
-            "bpra-ukt": "*BPRA-UKT*\nProgram Bantuan Penyelenggaraan Residensi & Akademik / Bantuan Pembayaran UKT bagi mahasiswa Universitas Syiah Kuala yang mengalami kesulitan finansial.",
-            "3": "*OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)*\nProgram bantuan beasiswa pendidikan dan biaya hidup bagi mahasiswa asal Palestina yang sedang menempuh studi di USK.",
-            "ota palestina": "*OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)*\nProgram bantuan beasiswa pendidikan dan biaya hidup bagi mahasiswa asal Palestina yang sedang menempuh studi di USK.",
-            "palestina": "*OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)*\nProgram bantuan beasiswa pendidikan dan biaya hidup bagi mahasiswa asal Palestina yang sedang menempuh studi di USK.",
-            "4": "*GREEN QURBAN*\nProgram ibadah qurban ramah lingkungan yang dikelola Rumah Amal USK dengan kemasan tanpa plastik dan pembagian daging qurban yang tepat sasaran.",
-            "green qurban": "*GREEN QURBAN*\nProgram ibadah qurban ramah lingkungan yang dikelola Rumah Amal USK dengan kemasan tanpa plastik dan pembagian daging qurban yang tepat sasaran.",
-            "qurban": "*GREEN QURBAN*\nProgram ibadah qurban ramah lingkungan yang dikelola Rumah Amal USK dengan kemasan tanpa plastik dan pembagian daging qurban yang tepat sasaran.",
-            "5": "*Bantuan Nasi Bungkus*\nProgram penyaluran bantuan makanan/nasi bungkus secara rutin bagi mahasiswa dhuafa dan warga yang membutuhkan di sekitar lingkungan kampus USK.",
-            "nasi bungkus": "*Bantuan Nasi Bungkus*\nProgram penyaluran bantuan makanan/nasi bungkus secara rutin bagi mahasiswa dhuafa dan warga yang membutuhkan di sekitar lingkungan kampus USK.",
-            "6": "*ECRA (Entrepreneurship Club Rumah Amal)*\nProgram pembinaan kewirausahaan, pendampingan usaha, dan penyaluran dana hibah modal usaha bagi mahasiswa USK.",
-            "ecra": "*ECRA (Entrepreneurship Club Rumah Amal)*\nProgram pembinaan kewirausahaan, pendampingan usaha, dan penyaluran dana hibah modal usaha bagi mahasiswa USK.",
-            "7": "*P2EMD*\nProgram Pemberdayaan Ekonomi Masyarakat Desa / Dhuafa berbasis potensi lokal berbasis usaha produktif dari Rumah Amal USK.",
-            "p2emd": "*P2EMD*\nProgram Pemberdayaan Ekonomi Masyarakat Desa / Dhuafa berbasis potensi lokal berbasis usaha produktif dari Rumah Amal USK.",
-            "8": "*Beasiswa Orang Tua Asuh (OTA)*\nProgram bantuan beasiswa rutin dari para donatur (Orang Tua Asuh) untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK.",
-            "ota": "*Beasiswa Orang Tua Asuh (OTA)*\nProgram bantuan beasiswa rutin dari para donatur (Orang Tua Asuh) untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK.",
-            "beasiswa ota": "*Beasiswa Orang Tua Asuh (OTA)*\nProgram bantuan beasiswa rutin dari para donatur (Orang Tua Asuh) untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK.",
-            "9": "*Beasiswa Muallaf*\nProgram beasiswa khusus dan pendampingan pembinaan keagamaan bagi mahasiswa atau pelajar muallaf di USK.",
-            "muallaf": "*Beasiswa Muallaf*\nProgram beasiswa khusus dan pendampingan pembinaan keagamaan bagi mahasiswa atau pelajar muallaf di USK.",
-            "beasiswa muallaf": "*Beasiswa Muallaf*\nProgram beasiswa khusus dan pendampingan pembinaan keagamaan bagi mahasiswa atau pelajar muallaf di USK.",
-            "10": "*BPMI*\nProgram Bantuan Pembinaan Masjid & Musholla serta kesejahteraan marbot/pengurus masjid di lingkungan Universitas Syiah Kuala.",
-            "bpmi": "*BPMI*\nProgram Bantuan Pembinaan Masjid & Musholla serta kesejahteraan marbot/pengurus masjid di lingkungan Universitas Syiah Kuala."
-        }
 
         sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
 
@@ -912,7 +908,7 @@ async def waha_webhook(request: Request):
                 "bantuan": ("DONASI", "Donasi (Bantuan Kemanusiaan)")
             }
 
-            kode_target, nama_target = "INF-RUTIN", "Infak Rutin"
+            kode_target, nama_target = None, None
             if pesan_clean in PETA_PILIHAN:
                 kode_target, nama_target = PETA_PILIHAN[pesan_clean]
             else:
@@ -920,6 +916,23 @@ async def waha_webhook(request: Request):
                     if k in pesan_clean:
                         kode_target, nama_target = kode, nama_p
                         break
+
+            # Input tidak cocok pilihan manapun - tanya ulang menu 1-4, JANGAN
+            # diam-diam anggap "Infak Rutin" (dulu jadi default bisu di sini,
+            # bikin user yang sebenarnya bertanya hal lain malah diminta
+            # transfer untuk program yang tidak pernah mereka pilih).
+            if not kode_target:
+                balasan = (
+                    f"Mohon maaf {sapaan_donatur}, Mimin belum menangkap pilihannya. Berikut lagi pilihan penyaluran yang tersedia:\n\n"
+                    f"1. Zakat Mal (Harta / Tabungan)\n"
+                    f"2. Zakat Penghasilan (Profesi)\n"
+                    f"3. Infak Rutin (Sedekah Bulanan)\n"
+                    f"4. Donasi (Bantuan Kemanusiaan)\n\n"
+                    f"{sapaan_donatur} ingin berdonasi/menyalurkan untuk pilihan nomor berapa (1-4)?"
+                )
+                user_sessions[nomor_wa] = session_data
+                send_message_to_waha(chat_id_asli, balasan, nama_sesi)
+                return {"status": "sukses", "intent": "pilih_program_reprompt"}
 
             state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=kode_target)
             balasan = (
@@ -973,7 +986,10 @@ async def waha_webhook(request: Request):
 
             if nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
-                state_manager.simpan_transaksi_final(nomor_hp_real, nama, nominal, kode_program=program_kode)
+                state_manager.simpan_transaksi_final(
+                    nomor_hp_real, nama, nominal, kode_program=program_kode,
+                    resi_bytes=image_bytes if (has_media or image_bytes is not None) else None,
+                )
                 state_manager.reset_status(nomor_wa)
 
                 sapaan_donatur = deteksi_sapaan_gender(nama)
