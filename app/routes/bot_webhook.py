@@ -274,18 +274,23 @@ def _check_rate_limit(nomor_wa: str) -> bool:
     return True
 
 
-def _dapatkan_doa_spesifik(program_code: str, nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:
-    """Mengambil variasi Doa Syar'i acak dari admin_scripts."""
+def _dapatkan_doa_spesifik(program_code: str, nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "", program_diketahui: bool = True) -> str:
+    """Mengambil variasi Doa Syar'i acak dari admin_scripts.
+
+    program_diketahui=False dipakai saat user cuma kirim resi/konfirmasi
+    mentah tanpa pernah menyebut program donasinya (mis. langsung diarahkan
+    dari web tanpa basa-basi) - balasan tidak akan mengarang nama program."""
     try:
         from admin_scripts import _dapatkan_doa_spesifik as gen_doa
         prog_name = PETA_NAMA.get(program_code, program_code or "Donasi")
-        return gen_doa(prog_name, nama_donatur, nominal_fmt)
+        return gen_doa(prog_name, nama_donatur, nominal_fmt, program_diketahui=program_diketahui)
     except Exception as e:
         print(f"[Warning Doa Gen] {e}")
         nom_teks = f" sebesar *Rp {nominal_fmt}*" if nominal_fmt else ""
+        label = "Donasi/Penyaluran" if program_diketahui else "Bukti pembayaran"
         return (
             f"Alhamdulillah, terima kasih {nama_donatur}! 🙏\n"
-            f"Donasi/Penyaluran{nom_teks} sudah kami terima dan InsyaAllah akan segera disalurkan kepada penerima yang berhak."
+            f"{label}{nom_teks} sudah kami terima dan InsyaAllah akan segera disalurkan kepada penerima yang berhak."
         )
 
 
@@ -358,11 +363,15 @@ async def waha_webhook(request: Request):
             return {"status": "rate_limit_exceeded"}
         has_media = payload_waha.get("hasMedia", False) or bool(payload_waha.get("media")) or bool(payload_waha.get("mediaUrl"))
 
+        # "" (bukan lagi "Kak") sebagai fallback saat WAHA tidak memberi nama sama
+        # sekali - dibiarkan kosong supaya deteksi_sapaan_gender()/
+        # _sapaan_dengan_nama() jatuh ke sapaan "Bapak/Ibu" polos, bukan
+        # menggabungkannya jadi "Bapak/Ibu Kak" yang janggal.
         nama_pengirim = (
             payload_waha.get("pushname") or
             payload_waha.get("notifyName") or
             payload_waha.get("_data", {}).get("notifyName") or
-            "Kak"
+            ""
         )
 
         print(f"[Teks Diterima] Dari: {nama_pengirim} ({nomor_wa}) | Media: {has_media} | Pesan: '{pesan}'")
@@ -558,12 +567,11 @@ async def waha_webhook(request: Request):
                 "2": "bpra_ukt",
                 "3": "ota_beasiswa",
                 "4": "muallaf",
-                "5": "bpmi",
-                "6": "ota_palestina",
-                "7": "green_qurban",
-                "8": "nasi_bungkus",
-                "9": "ecra",
-                "10": "p2emd"
+                "5": "ota_palestina",
+                "6": "green_qurban",
+                "7": "nasi_bungkus",
+                "8": "ecra",
+                "9": "p2emd"
             }
             prog_key = PETA_INDEX_PROGRAM.get(pesan_clean) or pesan_clean
             prog_data = get_program_info(prog_key)
@@ -595,17 +603,16 @@ async def waha_webhook(request: Request):
                     "Berikut pilihan program penyaluran yang tersedia di Rumah Amal USK:\n\n"
                     "1. PINTAS (Pinjaman Tanpa Syarat)\n"
                     "2. BPRA-UKT\n"
-                    "3. OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)\n"
-                    "4. GREEN QURBAN\n"
-                    "5. Bantuan Nasi Bungkus\n"
-                    "6. ECRA (Entrepreneurship Club Rumah Amal)\n"
-                    "7. P2EMD\n"
-                    "8. Beasiswa Orang Tua Asuh (OTA)\n"
-                    "9. Beasiswa Muallaf\n"
-                    "10. BPMI\n\n"
+                    "3. Beasiswa Orang Tua Asuh (OTA)\n"
+                    "4. Beasiswa Muallaf\n"
+                    "5. OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)\n"
+                    "6. GREEN QURBAN\n"
+                    "7. Bantuan Nasi Bungkus\n"
+                    "8. ECRA (Entrepreneurship Club Rumah Amal)\n"
+                    "9. P2EMD\n\n"
                     "----------------------------------------\n"
                     "📌 *Pilihan Navigasi:*\n"
-                    f"• Ketik angka *1 s.d. 10* untuk melihat detail program di atas\n"
+                    f"• Ketik angka *1 s.d. 9* untuk melihat detail program di atas\n"
                     "• Ketik *0* untuk Kembali ke Menu Utama"
                 )
                 user_sessions[nomor_wa] = session_data
@@ -948,7 +955,15 @@ async def waha_webhook(request: Request):
         # FAST-PATH 4: STATE NUNGGU_BUKTI_TRANSFER / KONFIRMASI / MEDIA RESI
         # (LOCAL PYTHON REGEX FIRST - 0.001s ANTI TIMEOUT)
         # =====================================================================
-        if status_fsm == "NUNGGU_BUKTI_TRANSFER" or status_fsm == "NUNGGU_DATA_KONFIRMASI" or (has_media and status_fsm != "IDLE"):
+        # has_media SENDIRIAN (tanpa syarat status FSM tertentu) sengaja
+        # dimasukkan di sini - sebelumnya kombinasi "kirim gambar" + status
+        # IDLE (donatur langsung kirim resi tanpa basa-basi dulu, mis. yang
+        # diarahkan dari web) malah lolos ke jalur balasan generik yang tidak
+        # pernah memanggil Vision AI ataupun menyimpan transaksi sama sekali -
+        # donasinya diam-diam tidak pernah tercatat walau bot menjawab seolah
+        # normal. Sekarang SETIAP pesan berisi gambar diproses lewat jalur
+        # baca-resi asli ini, apa pun status FSM-nya.
+        if status_fsm == "NUNGGU_BUKTI_TRANSFER" or status_fsm == "NUNGGU_DATA_KONFIRMASI" or has_media:
             session_info = state_manager.get_session(nomor_wa)
             target_prog_session = session_info.get("target_program") or "INF-RUTIN"
 
@@ -978,23 +993,60 @@ async def waha_webhook(request: Request):
 
             nama = data_diekstrak.get("nama") or nama_local or nama_pengirim
             nominal = _nominal_valid(data_diekstrak.get("nominal")) or nominal_local
-            program_kode = data_diekstrak.get("program")
-            if not program_kode or program_kode == "UMUM":
-                program_kode = target_prog_session
 
-            nama_program_layar = PETA_NAMA.get(program_kode, "Infak / Sedekah")
+            # Program "diketahui" cuma kalau benar-benar disebut - baik lewat
+            # hasil baca OCR/NER pada pesan/resi ini, ATAU lewat sesi FSM yang
+            # sebelumnya sudah ditentukan user (mis. sempat pilih menu 1-4).
+            # Kalau user cuma kirim resi mentah tanpa basa-basi (langsung
+            # diarahkan dari web, tidak pernah memilih program), JANGAN
+            # mengarang seolah-olah kita tahu programnya - target_prog_session
+            # cuma fallback teknis ("INF-RUTIN") supaya tetap ada kode_program
+            # valid yang tersimpan ke database, bukan indikasi program itu
+            # benar-benar disebutkan user.
+            program_terdeteksi = data_diekstrak.get("program")
+            program_dari_ekstraksi = bool(program_terdeteksi) and program_terdeteksi != "UMUM"
+            program_dari_sesi = bool(session_info.get("target_program"))
+            program_diketahui = program_dari_ekstraksi or program_dari_sesi
+
+            if program_dari_ekstraksi:
+                program_kode = program_terdeteksi
+            elif program_dari_sesi:
+                program_kode = target_prog_session
+            else:
+                program_kode = "INF-RUTIN"
 
             if nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
+                # Kalau programnya cuma tebakan (bukan benar-benar disebut user),
+                # JANGAN langsung dianggap tervalidasi - status "pending" supaya
+                # admin yang menentukan jenis zakat/programnya yang benar lewat
+                # foto resi yang sudah tersimpan, baru divalidasi di dashboard.
+                status_verifikasi = "validated" if program_diketahui else "pending"
                 state_manager.simpan_transaksi_final(
                     nomor_hp_real, nama, nominal, kode_program=program_kode,
                     resi_bytes=image_bytes if (has_media or image_bytes is not None) else None,
+                    status_verifikasi=status_verifikasi,
                 )
                 state_manager.reset_status(nomor_wa)
 
+                if not program_diketahui:
+                    try:
+                        notify_admin(
+                            f"📄 [RESI TANPA KETERANGAN PROGRAM] {nama} ({nomor_hp_real}) mengirim bukti transfer "
+                            f"Rp {int(nominal):,} tanpa pernah menyebut peruntukannya. Sistem sementara mencatatnya "
+                            f"sebagai Infak Rutin (dugaan) berstatus *Menunggu* - mohon cek foto resinya di Admin "
+                            f"Dashboard > Data Transaksi dan tentukan jenis zakat/programnya yang sebenarnya.",
+                            nama_sesi,
+                        )
+                    except Exception as e:
+                        print(f"[Warning Notify Admin Resi Tanpa Program] {e}")
+
                 sapaan_donatur = deteksi_sapaan_gender(nama)
                 nominal_fmt = f"{int(nominal):,}"
-                balasan = _dapatkan_doa_spesifik(program_kode, nama_donatur=_sapaan_dengan_nama(sapaan_donatur, nama), nominal_fmt=nominal_fmt)
+                balasan = _dapatkan_doa_spesifik(
+                    program_kode, nama_donatur=_sapaan_dengan_nama(sapaan_donatur, nama), nominal_fmt=nominal_fmt,
+                    program_diketahui=program_diketahui,
+                )
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "konfirmasi_sukses"}

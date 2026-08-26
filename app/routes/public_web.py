@@ -127,7 +127,7 @@ def _is_cek_riwayat(pesan_clean: str) -> bool:
 # ke pintasan panel kiri, bukan instruksi ketik angka yang menyesatkan.
 _WEB_FALLBACK_REPLY = (
     "Wah, Mimin kurang paham nih kalau mengenai hal itu 🙏\n\n"
-    "Mimin fokus membantu seputar *Zakat, Infak, Sedekah,* serta *Program Beasiswa USK* ya Kak. "
+    "Mimin fokus membantu seputar *Zakat, Infak, Sedekah,* serta *Program Beasiswa USK* ya Bapak/Ibu. "
     "Coba klik salah satu pintasan di panel kiri, atau tanyakan dengan kalimat lain ya 😊"
 )
 
@@ -137,7 +137,7 @@ _WEB_FALLBACK_REPLY = (
 # berbasis kalimat seperti "syarat"/"detail", bukan angka). Potong footer itu
 # lalu ganti dengan ajakan yang benar-benar berfungsi di kanal ini.
 _NAV_FOOTER_PATTERN = re.compile(r"\n-{5,}\n📌 \*Pilihan Navigasi:\*.*", re.DOTALL)
-_WEB_PROGRAM_HINT = "\n\n💬 Tanya bebas soal syarat, proses, atau detail programnya ya, Kak!"
+_WEB_PROGRAM_HINT = "\n\n💬 Tanya bebas soal syarat, proses, atau detail programnya ya, Bapak/Ibu!"
 
 
 def _bersihkan_navigasi_wa(reply: str) -> str:
@@ -193,7 +193,7 @@ async def web_chat(request: Request, payload: dict):
 
     pesan = (payload.get("message") or "").strip()
     if not pesan:
-        return _json_with_session(request, {"reply": "Boleh diketik dulu pesannya, Kak 🙏", "requires_otp": False})
+        return _json_with_session(request, {"reply": "Boleh diketik dulu pesannya, Bapak/Ibu 🙏", "requires_otp": False})
 
     token, session, _is_new = _get_session(request)
     state_manager.catat_pesan("web", token, "user", pesan)
@@ -201,14 +201,14 @@ async def web_chat(request: Request, payload: dict):
     pesan_clean = pesan.lower().strip()
 
     if _is_cek_riwayat(pesan_clean):
-        reply = "Untuk melihat riwayat transaksi, Mimin perlu verifikasi nomor WhatsApp Kakak dulu ya - demi menjaga data donasi tetap aman 🙏"
+        reply = "Untuk melihat riwayat transaksi, Mimin perlu verifikasi nomor WhatsApp Bapak/Ibu dulu ya - demi menjaga data donasi tetap aman 🙏"
         state_manager.catat_pesan("web", token, "bot", reply)
         return _json_with_session(request, {"reply": reply, "requires_otp": True})
 
     hasil = susun_balasan(
         pesan,
         context={"last_program_key": session.get("last_program_key")},
-        nama_pengirim="Kak",
+        nama_pengirim="",
     )
     session["last_program_key"] = hasil.get("last_program_key")
 
@@ -298,7 +298,7 @@ async def upload_resi(
 
     no_wa = _normalisasi_wa(wa_number)
     if len(no_wa) < 10:
-        return _json_with_session(request, {"status": "gagal", "reply": "Nomor WhatsApp belum valid, coba isi ulang ya Kak."})
+        return _json_with_session(request, {"status": "gagal", "reply": "Nomor WhatsApp belum valid, coba isi ulang ya Bapak/Ibu."})
 
     image_bytes = await file.read()
 
@@ -343,7 +343,7 @@ async def upload_resi(
         print(f"[Warning Web Resi Notify Admin] {e}")
 
     reply = (
-        "Alhamdulillah! 🙏 Bukti transfer Kakak sudah Mimin terima dan tercatat untuk diverifikasi admin. "
+        "Alhamdulillah! 🙏 Bukti transfer Bapak/Ibu sudah Mimin terima dan tercatat untuk diverifikasi admin. "
         "Setelah divalidasi, donasinya akan resmi tercatat. Jazakallahu Khairan atas kepercayaannya kepada Rumah Amal USK! ✨"
     )
     state_manager.catat_pesan("web", token, "bot", reply)

@@ -7,19 +7,38 @@ import re
 import unicodedata
 
 # Kamus Kata Kunci Pria (Bapak)
+# Cakupan sengaja diperluas jauh dari daftar awal - nama seperti "Muarif"
+# (staf sendiri) sebelumnya tidak terdeteksi karena daftarnya terlalu sempit.
 PRIA_KEYWORDS = {
-    "bapak", "pak", "ir", "sdr", "ustadz", "ust", "teuku", "t",
-    "muhammad", "m", "ahmad", "abdul", "syarif", "naufal", "noval",
+    "bapak", "pak", "ir", "sdr", "ustadz", "ust", "teuku", "teungku", "t",
+    "muhammad", "mohammad", "moh", "m", "ahmad", "abdul", "abdullah",
+    "abdurrahman", "abdurrazak", "abdillah", "syarif", "naufal", "noval",
     "yafi", "yafie", "yavie", "fajri", "hidayat", "hidayatullah", "pratama",
     "fauzi", "ardiansyah", "ramadhan", "fajar", "bambang", "budi", "hendra",
     "heru", "rizky", "rifky", "diki", "diky", "agung", "bayu", "dharma",
     "setiawan", "wijaya", "kusuma", "aditya", "surya", "yudi", "andi",
     "doni", "danang", "rudi", "rudy", "firmansyah", "adrian", "ilham",
-    "ridwan", "faisal", "arif", "arifin", "reza", "iqbal", "hafiz",
-    "hafidz", "wildan", "zulkarnain", "syahputra", "syahrial", "khadafi",
-    "akbar", "farhan", "alwi", "hasan", "husein", "hussein", "ali", "usman",
-    "umar", "khalid", "taufik", "taufiq", "rio", "dani", "ferry", "agus",
-    "tri", "nanda", "satria", "albar", "raihan", "rayhan"
+    "ridwan", "faisal", "arif", "arifin", "maarif", "muarif", "reza",
+    "iqbal", "hafiz", "hafidz", "wildan", "zulkarnain", "syahputra",
+    "syahrial", "khadafi", "akbar", "farhan", "alwi", "hasan", "husein",
+    "hussein", "ali", "usman", "umar", "khalid", "taufik", "taufiq", "rio",
+    "dani", "ferry", "agus", "tri", "nanda", "satria", "albar", "raihan",
+    "rayhan", "aziz", "azis", "bahri", "burhan", "burhanuddin", "darma",
+    "dedi", "dedy", "deni", "deny", "dodi", "dody", "eko", "erwin", "fadli",
+    "fadlan", "fahmi", "fahri", "fahrizal", "fikri", "fikram", "gunawan",
+    "habibi", "hadi", "hakim", "halim", "hamdani", "hamzah", "hasyim",
+    "hendri", "herman", "idris", "imran", "indra", "irfan", "irwan",
+    "iskandar", "ismail", "ismet", "jamal", "jamaluddin", "joko",
+    "junaidi", "junaid", "kamal", "kamaruddin", "kamil", "karim",
+    "khairil", "khairul", "khairuddin", "kurnia", "kurniawan", "lukman",
+    "makmur", "mansur", "marzuki", "mursyid", "musa", "mustafa", "nasir",
+    "nazir", "nizar", "nurdin", "rahman", "rahmat", "rasyid", "rasyidi",
+    "rendi", "ridho", "rizal", "rizki", "rezki", "roni", "sabri",
+    "saifullah", "saiful", "salman", "samsul", "santoso", "sofyan",
+    "sugianto", "sugiono", "sulaiman", "syafii", "syaiful", "syamsul",
+    "taufan", "wahyu", "wahyudi", "wawan", "yanto", "yoga", "yudha",
+    "yusuf", "zainal", "zainuddin", "zaki", "zulfahmi", "zulfikar",
+    "zulkifli"
 }
 
 # Kamus Kata Kunci Wanita (Ibu)
@@ -32,12 +51,29 @@ WANITA_KEYWORDS = {
     "yulia", "yuni", "titi", "desy", "desi", "fitriana", "kartika",
     "indah", "muthia", "mutia", "intan", "khairunnisa", "syarifah",
     "meutia", "laila", "laili", "suhartini", "tini", "tuti", "triana",
-    "ratu", "maharani", "amalia", "amelia", "shinta", "sinta"
+    "ratu", "maharani", "amalia", "amelia", "shinta", "sinta",
+    "aini", "ainun", "ana", "ani", "asih", "atika", "azizah", "diana",
+    "erna", "fitria", "hafsah", "hana", "hasanah", "husna", "ika", "irma",
+    "jannah", "juwita", "karimah", "khadijah", "latifah", "lisa",
+    "mardhiyah", "maryam", "mei", "melati", "nabila", "nadia", "nia",
+    "novita", "rahayu", "raihanah", "rani", "rizka", "rosa", "safira",
+    "salma", "salsabila", "salwa", "sabrina", "tia", "ulfa", "ulfah",
+    "susanti", "vina", "wahyuni", "widya", "yasmin", "yeni", "yulianti",
+    "zahra", "zainab", "zulaikha"
 }
 
 # Akhiran dan Substring Spesifik
-SUBSTRING_PRIA = ["hidayat", "syahputra", "pratama", "ramadhan", "fauzi", "ardiansyah", "firmansyah", "zulkarnain"]
-SUBSTRING_WANITA = ["fadhilah", "zahrani", "lestari", "purnamasari", "khairunnisa", "syarifah", "fitriana"]
+SUBSTRING_PRIA = [
+    "hidayat", "syahputra", "pratama", "ramadhan", "fauzi", "ardiansyah",
+    "firmansyah", "zulkarnain", "arif", "rahman", "kurnia", "syaiful",
+    "saiful", "zulkifli", "zulfikar", "nurdin", "kamaruddin", "burhanuddin",
+    "jamaluddin", "zainuddin",
+]
+SUBSTRING_WANITA = [
+    "fadhilah", "zahrani", "lestari", "purnamasari", "khairunnisa",
+    "syarifah", "fitriana", "hasanah", "mardhiyah", "khadijah",
+    "salsabila", "rahayu", "karimah", "latifah",
+]
 
 
 def bersihkan_dan_normalisasi_nama(nama_raw: str) -> str:
@@ -84,11 +120,12 @@ def deteksi_sapaan_gender(nama_raw: str) -> str:
     Mendeteksi gender dari nama dan mengembalikan sapaan resmi:
     - 'Bapak' (jika terdeteksi Pria)
     - 'Ibu' (jika terdeteksi Wanita)
-    - 'Kak' (Default Safety Net jika ambigu / low confidence)
+    - 'Bapak/Ibu' (Default Safety Net jika ambigu / low confidence - permintaan
+      staf karena rentang usia donatur rata-rata sudah tidak sesuai dipanggil "Kak")
     """
     nama_clean = bersihkan_dan_normalisasi_nama(nama_raw)
     if not nama_clean:
-        return "Kak"
+        return "Bapak/Ibu"
 
     words = nama_clean.split()
 
@@ -109,8 +146,12 @@ def deteksi_sapaan_gender(nama_raw: str) -> str:
         if len(word) >= 4:
             if word.endswith(("wan", "syah", "din", "putra", "fauzi")):
                 return "Bapak"
-            if word.endswith(("wati", "sari", "nisah", "nisa", "putri")):
+            # "-ah" adalah penanda feminin dalam nama berakar Arab (Aisyah,
+            # Fatimah, Hasanah, Latifah, dst) - jarang sekali dipakai di
+            # akhir nama pria, jadi aman dipakai sebagai sinyal umum di luar
+            # nama-nama yang sudah eksplisit terdaftar di atas.
+            if word.endswith(("wati", "sari", "nisah", "nisa", "putri", "ah")):
                 return "Ibu"
 
     # 3. Fallback Safety Net jika tidak ada kepastian 100%
-    return "Kak"
+    return "Bapak/Ibu"

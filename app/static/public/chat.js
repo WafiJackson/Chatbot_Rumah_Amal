@@ -99,7 +99,7 @@
 
     async function sendResiUpload(caption) {
         if (!waNumberForOtp) {
-            var input = prompt("Boleh Mimin tahu nomor WhatsApp Kakak, untuk konfirmasi donasinya?");
+            var input = prompt("Boleh Mimin tahu nomor WhatsApp Bapak/Ibu, untuk konfirmasi donasinya?");
             if (!input) return;
             waNumberForOtp = input.trim();
             localStorage.setItem("ra_wa_number", waNumberForOtp);

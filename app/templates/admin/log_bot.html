@@ -11,8 +11,8 @@
     <div id="list-pane" class="w-full md:w-[360px] shrink-0 border-b md:border-b-0 md:border-r border-amal-100 flex flex-col min-h-0">
         <div class="p-4 border-b border-amal-100 flex flex-col gap-3 shrink-0">
             <div class="relative">
-                <svg class="w-4.5 h-4.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z"></path></svg>
-                <input id="search-input" oninput="renderList()" type="text" placeholder="Cari nomor WA atau isi pesan..." class="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-amal-200 bg-white text-[13px] text-slate-700 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 placeholder:text-slate-400 transition-all" />
+                <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z"></path></svg>
+                <input id="search-input" oninput="renderList()" type="text" placeholder="Cari nomor WA atau isi pesan..." class="w-full pl-11 pr-3 py-2.5 rounded-2xl border border-amal-200 bg-white text-[13px] text-slate-700 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 placeholder:text-slate-400 transition-all" />
             </div>
             <div class="flex gap-1.5" id="source-filters">
                 <button type="button" data-src="" onclick="setSourceFilter('')" class="src-chip px-3 py-1.5 rounded-xl text-[11.5px] font-bold border transition-all"></button>
@@ -35,7 +35,7 @@
         <div id="detail-content" class="hidden flex-col min-h-0 flex-1">
             <div class="flex items-center gap-3 px-5 md:px-6 py-4 border-b border-amal-100 shrink-0">
                 <button type="button" onclick="closeDetailMobile()" class="md:hidden w-8 h-8 -ml-1 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 shrink-0" aria-label="Kembali ke daftar">
-                    <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path></svg>
                 </button>
                 <div id="detail-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-[13px] shrink-0"></div>
                 <div class="min-w-0 flex-1">

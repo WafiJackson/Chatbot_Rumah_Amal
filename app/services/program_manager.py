@@ -88,23 +88,6 @@ PROGRAMS = {
             }
         ]
     },
-    "bpmi": {
-        "nama": "BPMI (Beasiswa Pendidikan Mahasiswa Internasional)",
-        "deskripsi": "Program bantuan biaya pendidikan bagi mahasiswa internasional jenjang S1 di Universitas Syiah Kuala yang berasal dari keluarga kurang mampu dan mengalami kendala finansial. Bantuan diberikan sebesar Rp700.000/bulan selama satu tahun.",
-        "syarat": [
-            "Mahasiswa internasional USK jenjang S1 dari keluarga kurang mampu",
-            "Tidak berpacaran dan tidak merokok",
-            "Tidak sedang menerima beasiswa lain",
-            "Memiliki surat rekomendasi dari OIA (Office of International Affairs) USK"
-        ],
-        "proses": "Pendaftaran dilakukan online melalui website resmi rumahamal.usk.ac.id saat periode dibuka - mengisi formulir dan mengunggah berkas administrasi (surat permohonan, rekomendasi OIA, surat pernyataan, scan KTM, scan paspor) dalam satu file PDF maksimal 1MB, beserta pasfoto berwarna 3x4 format JPG maksimal 1MB.",
-        "qna": [
-            {
-                "tanya": "Berapa nominal bantuan BPMI dan berapa lama diberikan?",
-                "jawab": "Bantuan diberikan sebesar Rp700.000 per bulan selama satu tahun."
-            }
-        ]
-    },
     "ota_palestina": {
         "nama": "OTA PALESTINA (Orang Tua Asuh Mahasiswa Palestina)",
         "deskripsi": "Program beasiswa dan bantuan biaya hidup khusus untuk mahasiswa asal Palestina.",
@@ -191,8 +174,7 @@ PROGRAM_ALIASES = {
     "pemberdayaan": "p2emd",
     "orang tua asuh": "ota_beasiswa",
     "ota": "ota_beasiswa",
-    "mualaf": "muallaf",
-    "internasional": "bpmi"
+    "mualaf": "muallaf"
 }
 
 
@@ -226,21 +208,20 @@ def get_program_list():
     return (
         "✨ *KATALOG PROGRAM & BANTUAN RUMAH AMAL USK*\n\n"
         "Berikut program penyaluran & beasiswa yang tersedia:\n\n"
-        "🎓 *Beasiswa & Bantuan Mahasiswa:*\n"
+        "🎓 *Beasiswa & Bantuan:*\n"
         " 1. 🎓 PINTAS (Pinjaman Tanpa Syarat)\n"
         " 2. 📚 BPRA-UKT (Bantuan Pembayaran UKT)\n"
         " 3. 👨‍👩‍👧 Beasiswa Orang Tua Asuh (OTA)\n"
-        " 4. 🌙 Beasiswa Muallaf\n"
-        " 5. 💼 BPMI (Beasiswa Pendidikan Mahasiswa Internasional)\n\n"
+        " 4. 🌙 Beasiswa Muallaf\n\n"
         "💚 *Penyaluran & Pemberdayaan Sosial:*\n"
-        " 6. 🇵🇸 OTA Palestina\n"
-        " 7. 🥩 Green Qurban\n"
-        " 8. 🍱 Bantuan Nasi Bungkus\n"
-        " 9. 🚀 ECRA (Entrepreneurship Club)\n"
-        " 10. 🏦 P2EMD (Modal Usaha Dhuafa)\n\n"
+        " 5. 🇵🇸 OTA Palestina\n"
+        " 6. 🥩 Green Qurban\n"
+        " 7. 🍱 Bantuan Nasi Bungkus\n"
+        " 8. 🚀 ECRA (Entrepreneurship Club)\n"
+        " 9. 🏦 P2EMD (Modal Usaha Dhuafa)\n\n"
         "----------------------------------------\n"
         "📌 *Pilihan Navigasi:*\n"
-        "• Ketik angka *1 s.d. 10* untuk melihat detail program\n"
+        "• Ketik angka *1 s.d. 9* untuk melihat detail program\n"
         "• Ketik *0* untuk Kembali ke Menu Utama"
     )
 
@@ -261,7 +242,7 @@ def extract_program_keyword(pesan: str) -> str:
         if _contains_keyword(pesan_lower, alias):
             return PROGRAM_ALIASES[alias]
     
-    keywords = ["pintas", "bpra", "ukt", "palestina", "qurban", "nasi", "ecra", "p2emd", "ota", "muallaf", "mualaf", "bpmi"]
+    keywords = ["pintas", "bpra", "ukt", "palestina", "qurban", "nasi", "ecra", "p2emd", "ota", "muallaf", "mualaf"]
     for keyword in keywords:
         if _contains_keyword(pesan_lower, keyword):
             if keyword in ["muallaf", "mualaf"]: return "muallaf"
@@ -269,7 +250,7 @@ def extract_program_keyword(pesan: str) -> str:
             return keyword
     return None
 
-def format_program_response(program_data: dict, sapaan: str = "Kak") -> str:
+def format_program_response(program_data: dict, sapaan: str = "Bapak/Ibu") -> str:
     if not program_data: return None
     
     response = f"*{program_data['nama']}*\n\n{program_data['deskripsi']}\n\n*Syarat & Ketentuan:*\n"

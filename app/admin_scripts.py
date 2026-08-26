@@ -167,7 +167,7 @@ QA_SCRIPT = {
         "Program komunitas sedekah/infak rutin untuk meningkatkan konsistensi (istiqamah) dalam bersedekah bulanan demi membantu sesama."
     ),
     "daftar_infak_rutin": (
-        "Alhamdulillah, terima kasih atas niat baiknya Kak! 🙏\n"
+        "Alhamdulillah, terima kasih atas niat baiknya {sapaan_panggilan}! 🙏\n"
         "Untuk mendaftar program Infak Rutin, silakan salin, isi, dan kirimkan kembali formulir di bawah ini:\n\n"
         "*FORMULIR INFAK RUTIN*\n"
         "Nama : \n"
@@ -381,19 +381,35 @@ QA_SCRIPT["konfirmasi_donasi"] = (
 )
 
 
-def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:
+def _dapatkan_doa_spesifik(
+    nama_program: str = "Donasi", nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "",
+    program_diketahui: bool = True,
+) -> str:
     """
     Generator Doa Syar'i Acak (Random Doa Generator):
     Menghasilkan variasi doa syar'i berbahasa Arab + terjemahan yang berganti-ganti secara acak
     agar balasan terima kasih donasi tidak monoton jika donatur berdonasi berkali-kali.
+
+    program_diketahui=False dipakai saat donatur cuma mengirim resi/konfirmasi
+    tanpa pernah menyebut ingin berdonasi untuk program apa (mis. langsung
+    kirim foto resi tanpa basa-basi) - balasan TIDAK menyebut nama program
+    sama sekali (diganti kalimat "bukti pembayaran ... telah tercatat") supaya
+    tidak mengarang seolah-olah sistem tahu peruntukan donasinya.
     """
     nom_str = f" sebesar *Rp {nominal_fmt}*" if nominal_fmt else ""
     sapaan = nama_donatur if nama_donatur else "Bapak/Ibu"
 
+    if program_diketahui:
+        label = "Donasi/Penyaluran"
+        keterangan_program = f" untuk program *{nama_program}*"
+    else:
+        label = "bukti pembayaran"
+        keterangan_program = ""
+
     variasi_doa = [
         # Variasi 1: Doa Penyucian Harta & Pahala
         (
-            f"Alhamdulillah! 🙏 Donasi/Penyaluran{nom_str} dari *{sapaan}* untuk program *{nama_program}* telah kami terima dengan baik.\n\n"
+            f"Alhamdulillah! 🙏 {label}{nom_str} dari *{sapaan}*{keterangan_program} telah kami terima dengan baik.\n\n"
             f"🤲 *Doa untuk {sapaan} & Keluarga:*\n"
             f"\"آجَرَكَ اللهُ فِيْمَا أَعْطَيْتَ، وَبَارَكَ فِيْمَا أَبْقَيْتَ وَجَعَلَهُ لَكَ طَهُوْرًا\"\n"
             f"_(\"Semoga Allah memberikan pahala atas apa yang {sapaan} berikan, memberkahi harta yang tersisa, dan menyucikan jiwa serta rezeki keluarga.\")_\n\n"
@@ -401,7 +417,7 @@ def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Ba
         ),
         # Variasi 2: Doa Keberkahan Kelipatan Rezeki
         (
-            f"Alhamdulillah, masyaAllah! 🌟 Donasi/Penyaluran{nom_str} dari *{sapaan}* untuk program *{nama_program}* telah tercatat di sistem kami.\n\n"
+            f"Alhamdulillah, masyaAllah! 🌟 {label}{nom_str} dari *{sapaan}*{keterangan_program} telah tercatat di sistem kami.\n\n"
             f"🤲 *Doa Keberkahan Rezeki:*\n"
             f"\"اللَّهُمَّ أَعْطِ مُنْفِقًا خَلَفًا\"\n"
             f"_(\"Ya Allah, berikanlah ganti keberkahan yang berlipat ganda bagi {sapaan} yang telah berderma, serta mudahkanlah seluruh urusan keluarga.\")_\n\n"
@@ -409,14 +425,14 @@ def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Ba
         ),
         # Variasi 3: Doa Kemudahan Urusan & Kebahagiaan
         (
-            f"Alhamdulillah, terima kasih banyak {sapaan}! 🙏 Donasi/Penyaluran{nom_str} untuk program *{nama_program}* telah kami terima.\n\n"
+            f"Alhamdulillah, terima kasih banyak {sapaan}! 🙏 {label}{nom_str}{keterangan_program} telah kami terima.\n\n"
             f"🤲 *Doa Kemudahan & Kebahagiaan:*\n"
             f"\"Ya Allah, berikanlah ganti bagi hamba-Mu yang dermawan ini. Mudahkanlah segala urusannya serta keluarganya, dan berikanlah kebahagiaan sejati di dunia dan akhirat.\"\n\n"
             f"Semoga donasi ini menjadi amal jariyah yang terus mengalir pahalanya. Aamiin Yaa Rabbal 'Aalamiin. ✨"
         ),
         # Variasi 4: Doa Perlindungan & Kesucian Rezeki
         (
-            f"Alhamdulillah! Donasi/Penyaluran{nom_str} dari *{sapaan}* untuk program *{nama_program}* sudah kami terima dan InsyaAllah akan segera disalurkan.\n\n"
+            f"Alhamdulillah! {label}{nom_str} dari *{sapaan}*{keterangan_program} sudah kami terima dan InsyaAllah akan segera disalurkan.\n\n"
             f"🤲 *Doa Perlindungan & Keberkahan:*\n"
             f"Semoga {sapaan} dan keluarga senantiasa diberikan kesehatan, kemudahan, keberkahan rezeki, dan dijauhkan dari segala marabahaya.\n\n"
             f"Jazakallahu Khairan atas kepedulian bersama Rumah Amal Masjid Jamik USK! 🙏"
@@ -773,7 +789,7 @@ def susun_balasan(
     pesan: str,
     has_media: bool = False,
     context: dict | None = None,
-    nama_pengirim: str = "Kak",
+    nama_pengirim: str = "",
     use_llm_paraphrase: bool = True,
 ) -> dict:
     """
@@ -905,36 +921,5 @@ def susun_balasan(
         "should_wait_admin": should_wait_admin,
         "normalized_model_output": normalisasi_output_model(" | ".join(intents)),
     }
-
-
-DAFTAR_DOA_SYARI = [
-    {
-        "arab": "اللَّهُمَّ أَعْطِ مُنْفِقًا خَلَفًا",
-        "arti": "Ya Allah, berikanlah ganti keberkahan yang berlipat ganda bagi {nama_donatur} yang telah berderma, serta mudahkanlah seluruh urusan keluarga."
-    },
-    {
-        "arab": "آجَرَكَ اللهُ فِيمَا أَعْطَيْتَ، وَبَارَكَ فِيمَا أَبْقَيْتَ، وَجَعَلَهُ لَكَ طَهُورًا",
-        "arti": "Semoga Allah memberikan pahala atas apa yang telah {nama_donatur} berikan, memberkahi harta yang masih tersisa, dan menjadikannya pembersih jiwa serta penolak bala."
-    },
-    {
-        "arab": "اللَّهُمَّ صَلِّ عَلَيْهِمْ وَبَارِكْ لَهُمْ فِي أَمْوَالِهِمْ",
-        "arti": "Ya Allah, limpahkanlah rahmat, ketenangan hati, dan keberkahan yang melimpah pada rezeki dan keluarga {nama_donatur}."
-    }
-]
-
-
-def _dapatkan_doa_spesifik(nama_program: str = "Donasi", nama_donatur: str = "Bapak/Ibu", nominal_fmt: str = "") -> str:
-    """Mengembalikan satu format doa keberkahan syar'i lengkap tanpa duplikasi kata."""
-    import random
-    doa = random.choice(DAFTAR_DOA_SYARI)
-    arti_doa = doa["arti"].replace("{nama_donatur}", nama_donatur)
-    nominal_teks = f"sebesar *Rp {nominal_fmt}* " if nominal_fmt else ""
-    return (
-        f"Alhamdulillah, masyaAllah! 🌟 Donasi/Penyaluran {nominal_teks}dari *{nama_donatur}* untuk program *{nama_program}* telah tercatat di sistem kami.\n\n"
-        f"🤲 *Doa Keberkahan Rezeki:*\n"
-        f"\"{doa['arab']}\"\n"
-        f"(\"{arti_doa}\")\n\n"
-        f"Aamiin Yaa Rabbal 'Aalamiin. Terima kasih banyak {nama_donatur}! 🙏"
-    )
 
 

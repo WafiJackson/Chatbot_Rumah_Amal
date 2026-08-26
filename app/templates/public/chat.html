@@ -22,6 +22,16 @@
     </script>
     <style>
         body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
+        /* 100vh di browser mobile dihitung dari tinggi viewport TERBESAR
+           (seolah address bar sudah collapse), bukan tinggi yang benar-benar
+           terlihat saat halaman pertama dibuka - kalau body tidak bisa
+           di-scroll sama sekali (overflow-hidden, disengaja untuk layout
+           app-like ini), bagian bawah kartu chat (area ketik pesan) bisa
+           kedorong ke luar area yang benar-benar terlihat, tidak terjangkau
+           sama sekali. 100dvh mengikuti tinggi viewport yang SUNGGUHAN
+           terlihat saat itu juga - browser lama yang belum kenal satuan ini
+           otomatis abaikan baris ini dan tetap pakai 100vh di atasnya.*/
+        .app-shell-height { height: 100vh; height: 100dvh; }
         @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         .msg-enter { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         ::-webkit-scrollbar { width: 6px; }
@@ -31,7 +41,7 @@
         .otp-digit::-webkit-outer-spin-button, .otp-digit::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-amal-50 via-white to-gold-50/60 text-slate-800 antialiased h-screen overflow-hidden flex items-center justify-center p-0 md:p-6">
+<body class="app-shell-height bg-gradient-to-br from-amal-50 via-white to-gold-50/60 text-slate-800 antialiased overflow-hidden flex items-center justify-center p-0 md:p-6">
 
     <div class="w-full max-w-6xl h-full md:h-[90vh] bg-white md:border border-amal-100 md:shadow-2xl md:shadow-amal-900/10 md:rounded-3xl flex flex-col md:flex-row overflow-hidden">
 
