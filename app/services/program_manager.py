@@ -18,7 +18,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Apakah permohonan dana PINTAS wajib mengikuti sesi wawancara langsung dengan admin?",
-                "jawab": "Ya, untuk pengajuan bantuan dana atau program PINTAS, proses validasi dan wawancara wajib dilakukan langsung bersama tim admin Rumah Amal."
+                "jawab": "Ya, untuk pengajuan bantuan dana atau program PINTAS, proses validasi dan wawancara wajib dilakukan langsung bersama tim admin Rumah Amal.",
+                "kata_kunci": ["wawancara"]
             }
         ]
     },
@@ -34,27 +35,33 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Apa saja syarat utama mendaftar beasiswa BPRA-UKT?",
-                "jawab": "Syarat utama yaitu mahasiswa aktif USK berstatus kurang mampu yang melampirkan SKTM serta melengkapi berkas administrasi."
+                "jawab": "Syarat utama yaitu mahasiswa aktif USK berstatus kurang mampu yang melampirkan SKTM serta melengkapi berkas administrasi.",
+                "kata_kunci": ["syarat utama", "syarat mendaftar", "syarat pendaftaran"]
             },
             {
                 "tanya": "Berapa batas IPK minimal dan untuk semester berapa saja?",
-                "jawab": "Syarat IPK minimal disesuaikan saat periode pendaftaran dibuka (biasanya terbuka untuk mahasiswa aktif minimal semester 2 ke atas)."
+                "jawab": "Syarat IPK minimal disesuaikan saat periode pendaftaran dibuka (biasanya terbuka untuk mahasiswa aktif minimal semester 2 ke atas).",
+                "kata_kunci": ["ipk"]
             },
             {
                 "tanya": "Berkas/dokumen apa saja yang wajib disiapkan?",
-                "jawab": "KTM, KTP, Kartu Keluarga, SKTM dari desa/kelurahan, Slip UKT, dan Transkrip Nilai terbaru."
+                "jawab": "KTM, KTP, Kartu Keluarga, SKTM dari desa/kelurahan, Slip UKT, dan Transkrip Nilai terbaru.",
+                "kata_kunci": ["berkas", "dokumen"]
             },
             {
                 "tanya": "Apakah penerima KIP-Kuliah / beasiswa lain boleh mendaftar (double funding)?",
-                "jawab": "Tidak diperbolehkan double funding jika sudah menerima beasiswa beasiswa rutin penuh seperti KIP-Kuliah."
+                "jawab": "Tidak diperbolehkan double funding jika sudah menerima beasiswa beasiswa rutin penuh seperti KIP-Kuliah.",
+                "kata_kunci": ["kip kuliah", "kip-kuliah", "double funding", "beasiswa lain"]
             },
             {
                 "tanya": "Bagaimana aturan mutlak mengenai akhlak (merokok, berpacaran, judi online)?",
-                "jawab": "Penerima manfaat wajib menjaga akhlak karimah. Pelanggaran aturan akhlak (seperti judi online/judol) akan didiskualifikasi secara otomatis."
+                "jawab": "Penerima manfaat wajib menjaga akhlak karimah. Pelanggaran aturan akhlak (seperti judi online/judol) akan didiskualifikasi secara otomatis.",
+                "kata_kunci": ["akhlak", "merokok", "berpacaran", "judi online", "judol"]
             },
             {
                 "tanya": "Berapa kali periode pendaftaran dibuka dalam setahun?",
-                "jawab": "Beasiswa BPRA-UKT biasanya dibuka 2 kali dalam setahun mengikuti kalender akademik semester ganjil dan genap."
+                "jawab": "Beasiswa BPRA-UKT biasanya dibuka 2 kali dalam setahun mengikuti kalender akademik semester ganjil dan genap.",
+                "kata_kunci": ["periode pendaftaran", "berapa kali", "kapan dibuka"]
             }
         ]
     },
@@ -69,7 +76,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Bagaimana sistem skema beasiswa Orang Tua Asuh (OTA)?",
-                "jawab": "Donatur (Orang Tua Asuh) memberikan bantuan beasiswa rutin untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK."
+                "jawab": "Donatur (Orang Tua Asuh) memberikan bantuan beasiswa rutin untuk mendukung keberlangsungan studi mahasiswa dhuafa berprestasi di USK.",
+                "kata_kunci": ["sistem", "skema"]
             }
         ]
     },
@@ -84,7 +92,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Apakah ada pembinaan khusus selain bantuan biaya bagi penerima beasiswa Muallaf?",
-                "jawab": "Ya, selain beasiswa pendidikan, penerima manfaat juga mendapatkan pendampingan dan pembinaan keagamaan."
+                "jawab": "Ya, selain beasiswa pendidikan, penerima manfaat juga mendapatkan pendampingan dan pembinaan keagamaan.",
+                "kata_kunci": ["pembinaan"]
             }
         ]
     },
@@ -99,7 +108,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Apakah Rumah Amal menggalang bantuan khusus untuk mahasiswa Palestina?",
-                "jawab": "Ya, Rumah Amal mengelola skema beasiswa dan bantuan biaya hidup khusus solidaritas global untuk mahasiswa asal Palestina di USK."
+                "jawab": "Ya, Rumah Amal mengelola skema beasiswa dan bantuan biaya hidup khusus solidaritas global untuk mahasiswa asal Palestina di USK.",
+                "kata_kunci": ["menggalang", "galang dana", "galang bantuan"]
             }
         ]
     },
@@ -114,7 +124,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Bagaimana sistem penyaluran hewan/daging kurban di Rumah Amal USK?",
-                "jawab": "Rumah Amal menerima titipan hewan/donasi kurban, mengelola pemotongan ramah lingkungan (non-plastik), dan menyalurkan kupon daging kurban secara merata kepada masyarakat miskin serta mahasiswa kurang mampu."
+                "jawab": "Rumah Amal menerima titipan hewan/donasi kurban, mengelola pemotongan ramah lingkungan (non-plastik), dan menyalurkan kupon daging kurban secara merata kepada masyarakat miskin serta mahasiswa kurang mampu.",
+                "kata_kunci": ["penyaluran", "daging kurban", "hewan kurban"]
             }
         ]
     },
@@ -129,7 +140,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Kepada siapa saja bantuan makanan/nasi bungkus ini didistribusikan?",
-                "jawab": "Makanan gratis didistribusikan pada Jumat Berkah untuk masyarakat dhuafa, pekerja informal di lingkungan kampus, dan anak yatim piatu."
+                "jawab": "Makanan gratis didistribusikan pada Jumat Berkah untuk masyarakat dhuafa, pekerja informal di lingkungan kampus, dan anak yatim piatu.",
+                "kata_kunci": ["kepada siapa", "didistribusikan", "siapa saja"]
             }
         ]
     },
@@ -154,7 +166,8 @@ PROGRAMS = {
         "qna": [
             {
                 "tanya": "Bagaimana bentuk bantuan P2EMD bagi masyarakat dhuafa?",
-                "jawab": "Berupa bantuan modal usaha, pelatihan, dan pendampingan UMKM dhuafa yang seleksinya dilakukan melalui survei lapangan oleh tim Rumah Amal."
+                "jawab": "Berupa bantuan modal usaha, pelatihan, dan pendampingan UMKM dhuafa yang seleksinya dilakukan melalui survei lapangan oleh tim Rumah Amal.",
+                "kata_kunci": ["bentuk bantuan"]
             }
         ]
     }

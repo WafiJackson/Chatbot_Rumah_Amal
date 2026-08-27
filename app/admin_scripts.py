@@ -34,7 +34,9 @@ SAPAAAN_KATA = [
     "assalamu alaikum",
     "pagi",
     "siang",
+    "sore",
     "malam",
+    "met",
     "permisi",
     "min",
     "p",
@@ -760,6 +762,21 @@ def _gunakan_konteks_program(teks: str, context: dict | None) -> str | None:
     return None
 
 
+def _cocokkan_qna(teks_norm: str, qna_list: list[dict]) -> dict | None:
+    """Web Chat tidak punya mekanisme 'ketik angka 1' seperti WhatsApp untuk
+    menjawab salah satu 'Pertanyaan Populer' yang ditampilkan - tanpa ini,
+    pertanyaan itu cuma jadi teaser yang tidak pernah bisa benar-benar
+    dijawab di kanal web (kalimat bebasnya cuma memicu info program yang
+    sama diulang lagi, bukan jawaban spesifiknya). Dicocokkan lewat
+    "kata_kunci" pendek per QnA (program_manager.py) - bukan kalimat "tanya"
+    penuh - supaya tahan typo/parafrase wajar (mis. "beassiswa")."""
+    for qna in qna_list:
+        kata_kunci = qna.get("kata_kunci") or []
+        if kata_kunci and _ada_salah_satu(teks_norm, kata_kunci):
+            return qna
+    return None
+
+
 def _tambah_hasil(daftar: list[str], item: str):
     if item and item not in daftar:
         daftar.append(item)
@@ -868,8 +885,16 @@ def susun_balasan(
             if data_program:
                 detected_program_key = program_key
                 _tambah_hasil(intents, f"program:{program_key}")
+
+                # Web tidak punya "ketik angka 1" seperti WhatsApp untuk
+                # menjawab salah satu "Pertanyaan Populer" - kalau kalimat
+                # bebas user cocok kata kunci salah satu QnA program ini,
+                # balas jawaban spesifiknya saja, bukan info program lagi.
+                qna_cocok = _cocokkan_qna(teks_norm, data_program.get("qna", []))
                 # Untuk beberapa pertanyaan bercanda, berikan klarifikasi ringan tapi tetap aman.
-                if program_key == "green_qurban" and _ada_salah_satu(teks_norm, ["warna", "berwarna", "green"]):
+                if qna_cocok:
+                    _tambah_hasil(responses, f"❓ *{qna_cocok['tanya']}*\n\n{qna_cocok['jawab']}")
+                elif program_key == "green_qurban" and _ada_salah_satu(teks_norm, ["warna", "berwarna", "green"]):
                     _tambah_hasil(
                         responses,
                         format_program_response(data_program)

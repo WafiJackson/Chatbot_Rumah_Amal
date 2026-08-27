@@ -311,16 +311,26 @@ def ambil_semua_transaksi(limit: int = 50) -> list[dict]:
         return [dict(r) for r in cursor.fetchall()]
 
 
-def update_status_verifikasi(transaksi_id: int, status_baru: str) -> bool:
-    """Admin menandai transaksi (biasanya resi dari web) sebagai 'validated'
-    atau 'rejected'. Mengembalikan True kalau baris ditemukan & diupdate."""
+def update_status_verifikasi(transaksi_id: int, status_baru: str, kode_program_baru: str | None = None) -> bool:
+    """Admin menandai transaksi (biasanya resi dari web/resi tanpa keterangan
+    program) sebagai 'validated' atau 'rejected'. kode_program_baru opsional -
+    dipakai saat kategori sebelumnya cuma tebakan sistem (mis. resi tanpa
+    keterangan apa pun) dan admin mengoreksinya jadi kategori yang benar
+    sekalian saat memvalidasi. Mengembalikan True kalau baris ditemukan &
+    diupdate."""
     if status_baru not in {"validated", "rejected", "pending"}:
         return False
     with get_db_connection() as conn:
-        cursor = conn.execute(
-            "UPDATE transaksi_donasi SET status_verifikasi = ? WHERE id = ?",
-            (status_baru, transaksi_id),
-        )
+        if kode_program_baru:
+            cursor = conn.execute(
+                "UPDATE transaksi_donasi SET status_verifikasi = ?, kode_program = ? WHERE id = ?",
+                (status_baru, kode_program_baru, transaksi_id),
+            )
+        else:
+            cursor = conn.execute(
+                "UPDATE transaksi_donasi SET status_verifikasi = ? WHERE id = ?",
+                (status_baru, transaksi_id),
+            )
         conn.commit()
         return cursor.rowcount > 0
 

@@ -139,6 +139,11 @@
         window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank", "noopener");
     }
 
+    function openExternalLink(url, label) {
+        addMessage("bot", "Membuka " + label + " di tab baru ↗️");
+        window.open(url, "_blank", "noopener");
+    }
+
     function handleKeydown(e) {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -431,6 +436,7 @@
     window.sendMessage = sendMessage;
     window.quickPrompt = quickPrompt;
     window.openGoogleSearch = openGoogleSearch;
+    window.openExternalLink = openExternalLink;
     window.handleKeydown = handleKeydown;
     window.autoExpand = autoExpand;
     window.triggerUpload = triggerUpload;

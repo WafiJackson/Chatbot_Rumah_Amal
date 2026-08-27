@@ -73,6 +73,19 @@ def _require_login(request: Request):
 
 _STATUS_LABEL = {"validated": "Tervalidasi", "pending": "Menunggu", "rejected": "Ditolak"}
 
+# Kategori donasi yang bisa dipilih admin saat mengoreksi transaksi pending
+# (resi tanpa keterangan program apa pun - lihat _format_transaksi_tampilan).
+# Sengaja cuma 5 kode ini (bukan seluruh 10+ program beasiswa) karena inilah
+# satu-satunya kode yang benar-benar dipakai untuk transaksi donasi/zakat -
+# baik dari menu PILIH_PROGRAM WhatsApp maupun hasil baca Vision AI.
+KATEGORI_DONASI_VALID = {
+    "ZKT-MAL": "Zakat Mal",
+    "ZKT-PENGHASILAN": "Zakat Penghasilan",
+    "INF-RUTIN": "Infak Rutin",
+    "DONASI": "Donasi (Bantuan Kemanusiaan)",
+    "DON-PALESTINA": "OTA Palestina",
+}
+
 
 def _tanggal_saja(waktu_raw: str) -> str:
     return (waktu_raw or "").split(" ")[0].split("T")[0]
@@ -132,6 +145,7 @@ def _format_transaksi_tampilan(rows: list[dict]) -> list[dict]:
             "no_wa": r.get("no_wa") or "-",
             "nama_donatur": r.get("nama_donatur") or "-",
             "kode_program": PETA_NAMA.get(r.get("kode_program"), r.get("kode_program") or "Donasi"),
+            "kode_program_raw": r.get("kode_program") or "",
             "nominal": r.get("nominal") or 0,
             "waktu_transaksi": waktu_raw,
             "status": r.get("status_verifikasi") or "validated",
@@ -289,11 +303,14 @@ def lihat_resi(filename: str, request: Request):
 
 
 @router.post("/transactions/{transaksi_id}/status")
-def update_transaksi_status(transaksi_id: int, request: Request, status: str = Form(...)):
+def update_transaksi_status(transaksi_id: int, request: Request, status: str = Form(...), kode_program: str | None = Form(None)):
     if not _is_authenticated(request):
         return JSONResponse({"status": "gagal", "pesan": "Sesi login sudah berakhir."}, status_code=401)
 
-    ok = state_manager.update_status_verifikasi(transaksi_id, status)
+    if kode_program and kode_program not in KATEGORI_DONASI_VALID:
+        return JSONResponse({"status": "gagal", "pesan": "Kategori tidak dikenali."}, status_code=400)
+
+    ok = state_manager.update_status_verifikasi(transaksi_id, status, kode_program_baru=kode_program)
     if not ok:
         return JSONResponse({"status": "gagal", "pesan": "Transaksi tidak ditemukan atau status tidak valid."}, status_code=400)
 

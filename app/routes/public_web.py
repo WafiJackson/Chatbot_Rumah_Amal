@@ -136,7 +136,12 @@ _WEB_FALLBACK_REPLY = (
 # WhatsApp yang tidak berlaku di web (susun_balasan() hanya mengenali follow-up
 # berbasis kalimat seperti "syarat"/"detail", bukan angka). Potong footer itu
 # lalu ganti dengan ajakan yang benar-benar berfungsi di kanal ini.
-_NAV_FOOTER_PATTERN = re.compile(r"\n-{5,}\n📌 \*Pilihan Navigasi:\*.*", re.DOTALL)
+#
+# Pola dibatasi HANYA ke baris-baris berawalan "• " setelah header-nya (bukan
+# ".*" rakus sampai akhir string) - beberapa balasan (mis. candaan warna Green
+# Qurban di admin_scripts.py) menambahkan catatan tambahan SETELAH footer ini;
+# pola rakus sebelumnya ikut memakan catatan itu juga, bukan cuma footernya.
+_NAV_FOOTER_PATTERN = re.compile(r"\n-{5,}\n📌 \*Pilihan Navigasi:\*(?:\n• [^\n]*)*")
 _WEB_PROGRAM_HINT = "\n\n💬 Tanya bebas soal syarat, proses, atau detail programnya ya, Bapak/Ibu!"
 
 

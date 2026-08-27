@@ -81,7 +81,11 @@
             <div class="flex flex-col gap-2.5 mb-6 text-[13px]">
                 <div class="flex items-center justify-between"><span class="text-slate-500">Nama Donatur</span><span id="resi-nama" class="font-bold text-amal-900"></span></div>
                 <div class="flex items-center justify-between"><span class="text-slate-500">Nomor WA</span><span id="resi-wa" class="font-bold text-amal-900"></span></div>
-                <div class="flex items-center justify-between"><span class="text-slate-500">Kategori</span><span id="resi-kategori" class="font-bold text-amal-900"></span></div>
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-slate-500 shrink-0">Kategori</span>
+                    <span id="resi-kategori" class="font-bold text-amal-900 text-right"></span>
+                    <select id="resi-kategori-select" class="hidden flex-1 max-w-[220px] text-right pl-2 pr-1 py-1.5 rounded-lg border border-gold-300 bg-gold-50 text-[13px] font-bold text-amal-900 outline-none focus:ring-2 focus:ring-gold-400/40"></select>
+                </div>
                 <div class="flex items-center justify-between"><span class="text-slate-500">Nominal</span><span id="resi-nominal" class="font-extrabold text-gold-600"></span></div>
                 <div class="flex items-center justify-between"><span class="text-slate-500">Waktu</span><span id="resi-waktu" class="font-bold text-amal-900"></span></div>
                 <div class="flex items-center justify-between"><span class="text-slate-500">Sumber</span><span id="resi-sumber" class="font-bold text-amal-900"></span></div>
@@ -103,6 +107,26 @@
     };
     const STATUS_DOT = { validated: "bg-green-500", pending: "bg-gold-500 animate-pulse", rejected: "bg-rose-500" };
     const SUMBER_LABEL = { whatsapp: "WhatsApp", web: "Web Chatbot" };
+    // Kategori yang bisa dipilih admin saat memvalidasi transaksi pending -
+    // kode_program yang tersimpan sebelumnya seringkali cuma tebakan sistem
+    // (mis. resi tanpa keterangan program apa pun), jadi admin perlu bisa
+    // mengoreksinya sekalian saat menekan "Tandai Tervalidasi".
+    const KATEGORI_DONASI_VALID = {
+        "ZKT-MAL": "Zakat Mal",
+        "ZKT-PENGHASILAN": "Zakat Penghasilan",
+        "INF-RUTIN": "Infak Rutin",
+        "DONASI": "Donasi (Bantuan Kemanusiaan)",
+        "DON-PALESTINA": "OTA Palestina"
+    };
+
+    (function populateKategoriSelect() {
+        const sel = document.getElementById("resi-kategori-select");
+        Object.keys(KATEGORI_DONASI_VALID).forEach(function (kode) {
+            const opt = document.createElement("option");
+            opt.value = kode; opt.textContent = KATEGORI_DONASI_VALID[kode];
+            sel.appendChild(opt);
+        });
+    })();
 
     (function populateKategoriFilter() {
         const sel = document.getElementById("filter-kategori");
@@ -195,17 +219,30 @@
 
         document.getElementById("resi-nama").textContent = t.nama_donatur;
         document.getElementById("resi-wa").textContent = t.no_wa;
-        document.getElementById("resi-kategori").textContent = t.kode_program;
         document.getElementById("resi-nominal").textContent = formatRupiah(t.nominal);
         document.getElementById("resi-waktu").textContent = t.waktu_transaksi;
         document.getElementById("resi-sumber").textContent = SUMBER_LABEL[t.sumber] || t.sumber;
 
+        const kategoriLabel = document.getElementById("resi-kategori");
+        const kategoriSelect = document.getElementById("resi-kategori-select");
         const actions = document.getElementById("resi-actions");
         if (t.status === "pending") {
+            // Kategori transaksi pending seringkali cuma tebakan sistem
+            // (mis. resi tanpa keterangan program apa pun) - beri dropdown
+            // supaya admin bisa mengoreksinya sekalian saat memvalidasi,
+            // bukan cuma menerima tebakan itu mentah-mentah.
+            kategoriLabel.classList.add("hidden");
+            kategoriSelect.classList.remove("hidden");
+            kategoriSelect.value = KATEGORI_DONASI_VALID[t.kode_program_raw] ? t.kode_program_raw : "INF-RUTIN";
+
             actions.innerHTML =
                 '<button type="button" onclick="setStatus(' + t.id + ',\'rejected\')" class="flex-1 py-3 rounded-2xl border border-rose-200 text-rose-600 font-extrabold text-[13.5px] hover:bg-rose-50 transition-all">Tolak</button>' +
                 '<button type="button" onclick="setStatus(' + t.id + ',\'validated\')" class="flex-1 py-3 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[13.5px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Tandai Tervalidasi</button>';
         } else {
+            kategoriLabel.classList.remove("hidden");
+            kategoriSelect.classList.add("hidden");
+            kategoriLabel.textContent = t.kode_program;
+
             actions.innerHTML = '<button type="button" onclick="closeResiModal()" class="flex-1 py-3 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[13.5px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Tutup</button>';
         }
 
@@ -230,6 +267,14 @@
         try {
             const form = new URLSearchParams();
             form.set("status", status);
+            // Saat validasi, sertakan kategori yang dipilih admin di dropdown
+            // (bisa berbeda dari tebakan sistem sebelumnya kalau dikoreksi).
+            if (status === "validated") {
+                const kategoriSelect = document.getElementById("resi-kategori-select");
+                if (kategoriSelect && !kategoriSelect.classList.contains("hidden")) {
+                    form.set("kode_program", kategoriSelect.value);
+                }
+            }
             const res = await fetch("/admin/transactions/" + id + "/status", { method: "POST", body: form });
             const data = await res.json();
             if (data.status !== "sukses") {
@@ -237,7 +282,14 @@
                 return;
             }
             const t = TRANSAKSI.find(function (x) { return x.id === id; });
-            if (t) t.status = status;
+            if (t) {
+                t.status = status;
+                const kategoriBaru = form.get("kode_program");
+                if (kategoriBaru) {
+                    t.kode_program_raw = kategoriBaru;
+                    t.kode_program = KATEGORI_DONASI_VALID[kategoriBaru] || kategoriBaru;
+                }
+            }
             closeResiModal();
             renderTable();
             showToast(status === "validated" ? (t.id_tampil + " ditandai tervalidasi") : (t.id_tampil + " ditolak"), status === "validated" ? "&#9989;" : "&#128683;");
