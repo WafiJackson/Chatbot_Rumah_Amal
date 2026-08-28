@@ -504,10 +504,10 @@ async def waha_webhook(request: Request):
         # =====================================================================
         # FAST-PATH 0A: SAPAAN AWAL / MENU UTAMA PADA STATE IDLE ("halo", "0", "menu")
         # =====================================================================
-        from admin_scripts import _is_sapaan
+        from admin_scripts import _is_sapaan, _deteksi_waktu_sapaan
         if status_fsm == "IDLE" and not has_media:
             if _is_sapaan(pesan_clean) or pesan_clean in {"p", "ping", "p!", "ping!", "halo", "hai", "hi", "assalamualaikum", "0", "0.", "menu", "menu utama", "kembali", "kembali ke menu utama"}:
-                balasan = ambil_balasan("sapaan", nama_pengirim=nama_pengirim)
+                balasan = ambil_balasan("sapaan", nama_pengirim=nama_pengirim, waktu_sapaan=_deteksi_waktu_sapaan(pesan_clean))
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "sapaan"}
@@ -647,7 +647,19 @@ async def waha_webhook(request: Request):
                 return {"status": "sukses", "intent": "sapaan"}
 
             # 3. Konfirmasi Handoff Admin ('ya' / 'tidak')
-            if any(k in pesan_clean for k in ["ya", "iya", "sambungkan", "ok", "oke", "setuju"]):
+            # Catatan: "ya"/"ok" TIDAK BOLEH dicocokkan sebagai substring polos -
+            # kata "saYA" (kata ganti "aku", salah satu kata paling umum dalam
+            # bahasa Indonesia) dan akhiran posesif "-nYA" (programnya, syaratnya,
+            # dst) sama-sama mengandung "ya", begitu juga "ok" muncul di "tOKo"/
+            # "pOKok". Kalau tetap substring, HAMPIR SEMUA kalimat bebas yang
+            # dikirim di state ini akan salah dianggap konfirmasi "Ya" ke Admin.
+            # Dicek sebagai kata utuh saja; frasa yang jelas beda konteks
+            # ("sambungkan", "setuju") aman tetap substring.
+            pesan_tokens_admin = set(pesan_clean.split())
+            is_konfirmasi_ya = bool(pesan_tokens_admin & {"ya", "iya", "ok", "oke", "y"}) or any(
+                k in pesan_clean for k in ["sambungkan", "setuju"]
+            )
+            if is_konfirmasi_ya:
                 state_manager.reset_status(nomor_wa)
                 session_data["state"] = "IDLE"
 
@@ -666,7 +678,12 @@ async def waha_webhook(request: Request):
                 user_sessions[nomor_wa] = session_data
                 return {"status": "sukses", "intent": "handoff_admin_success"}
 
-            if any(k in pesan_clean for k in ["batal", "cancel", "tidak", "ga", "gak"]):
+            # "ga"/"gak" juga TIDAK BOLEH substring polos - "juGA" (kata "juga",
+            # sangat umum), "harGA", "warGA", dst semuanya mengandung "ga".
+            is_konfirmasi_tidak = any(k in pesan_clean for k in ["batal", "cancel"]) or bool(
+                pesan_tokens_admin & {"tidak", "ga", "gak", "nggak", "enggak"}
+            )
+            if is_konfirmasi_tidak:
                 state_manager.reset_status(nomor_wa)
                 session_data["state"] = "IDLE"
                 balasan_user = f"Baik {sapaan_donatur}, pengajuan sambung ke Admin telah dibatalkan. Ada lagi hal lain yang bisa Mimin bantu?"
@@ -829,6 +846,12 @@ async def waha_webhook(request: Request):
 
         is_tanya_beasiswa = (pesan_clean in ["info beasiswa", "beasiswa", "daftar beasiswa", "beasiswa apa saja"]) or bool(re.search(r"(beasiswa|bantuan ukt|bantuan kuliah)", pesan_clean))
         if is_tanya_beasiswa and status_fsm == "IDLE":
+            # Set status FSM khusus (TANYA_BEASISWA) supaya angka 1-4 yang
+            # diketik setelah ini ditafsirkan sesuai daftar beasiswa di bawah,
+            # BUKAN kebablasan dicocokkan ke shortcut menu utama global
+            # (mis. "2" = Ingin berdonasi) - itu bug lama yang bikin user
+            # nyasar ke alur lain tanpa sadar.
+            state_manager.update_status(nomor_wa, "TANYA_BEASISWA")
             balasan = (
                 "Berikut program beasiswa resmi yang tersedia di Rumah Amal USK:\n\n"
                 "1. BPRA-UKT (Bantuan Biaya UKT Mahasiswa)\n"
@@ -837,12 +860,52 @@ async def waha_webhook(request: Request):
                 "4. BEASISWA MUALLAF (Khusus Mahasiswa/Masyarakat Muallaf)\n\n"
                 "----------------------------------------\n"
                 "📌 *Pilihan Navigasi:*\n"
-                f"• Ketik *1* atau *Program apa saja* untuk melihat katalog 10 program lengkap\n"
+                f"• Ketik angka *1 s.d. 4* untuk melihat detail program di atas\n"
+                f"• Ketik *Program apa saja* untuk melihat katalog 9 program lengkap\n"
                 "• Ketik *0* untuk Kembali ke Menu Utama"
             )
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "info_beasiswa"}
+
+        # Penanganan Pilihan 1-4 pada State TANYA_BEASISWA (menu beasiswa
+        # spesifik di atas - PUNYA NOMOR SENDIRI, beda dari katalog 9
+        # program utama, jadi butuh status FSM & pemetaan angka terpisah).
+        if status_fsm == "TANYA_BEASISWA" and not has_media:
+            if pesan_clean in ["0", "0.", "kembali ke menu utama", "menu utama"]:
+                state_manager.reset_status(nomor_wa)
+                balasan = ambil_balasan("sapaan", nama_pengirim=nama_pengirim)
+                user_sessions[nomor_wa] = session_data
+                send_message_to_waha(chat_id_asli, balasan, nama_sesi)
+                return {"status": "sukses", "intent": "sapaan"}
+
+            if pesan_clean in ["1", "1.", "program apa saja", "program apa saja?", "katalog"]:
+                state_manager.update_status(nomor_wa, "TANYA_PROGRAM")
+                from services.program_manager import get_program_list
+                balasan = get_program_list()
+                user_sessions[nomor_wa] = session_data
+                send_message_to_waha(chat_id_asli, balasan, nama_sesi)
+                return {"status": "sukses", "intent": "tanya_program_prompt"}
+
+            PETA_INDEX_BEASISWA = {
+                "1": "bpra_ukt",
+                "2": "ota_palestina",
+                "3": "ota_beasiswa",
+                "4": "muallaf",
+            }
+            beasiswa_key = PETA_INDEX_BEASISWA.get(pesan_clean)
+            if beasiswa_key:
+                prog_data = get_program_info(beasiswa_key)
+                if prog_data:
+                    balasan_resmi = format_program_response(prog_data, sapaan=sapaan_donatur)
+                    nama_prog_tag = prog_data.get("nama", "Program Rumah Amal")
+                    balasan_resmi += (
+                        f"\n\nAtau untuk informasi lebih lanjut mengenai program *{nama_prog_tag}*, apakah {sapaan_donatur} ingin disambungkan ke Admin? (Balas *Ya* atau *Tidak*)"
+                    )
+                    state_manager.update_status(nomor_wa, "TANYA_PROGRAM_DETAIL", target_program=beasiswa_key)
+                    user_sessions[nomor_wa] = session_data
+                    send_message_to_waha(chat_id_asli, balasan_resmi, nama_sesi)
+                    return {"status": "sukses", "intent": "detail_program_response"}
 
         is_tanya_jam_kerja = (pesan_clean in ["jam kerja", "jam operasional", "buka jam berapa"]) or bool(re.search(r"(jam kerja|jam operasional|buka jam berapa|tutup jam berapa|buka hari apa|jadwal buka)", pesan_clean))
         if is_tanya_jam_kerja and status_fsm == "IDLE":
@@ -902,7 +965,17 @@ async def waha_webhook(request: Request):
                 return {"status": "sukses", "intent": "lanjut_sesi"}
 
             # 3. Pengecekan Kata Sapaan
-            if any(s in pesan_clean for s in ["halo", "assalamualaikum", "selamat", "pagi", "siang", "sore", "malam", "ping", "p", "hi", "hai"]) and status_fsm != "PILIH_PROGRAM":
+            # Catatan: "p" dan "hi" TIDAK BOLEH dicocokkan sebagai substring
+            # polos - huruf "p" muncul di hampir semua kalimat bahasa Indonesia
+            # ("program", "penyaluran", "pilihan", dst), begitu juga "hi" di
+            # "hitung"/"hijau". Dicek sebagai kata utuh saja; frasa/kata sapaan
+            # yang lebih panjang aman tetap substring.
+            pesan_tokens_sapaan = set(pesan_clean.split())
+            is_sapaan_di_state_aktif = (
+                bool(pesan_tokens_sapaan & {"p", "hi"})
+                or any(s in pesan_clean for s in ["halo", "assalamualaikum", "selamat", "pagi", "siang", "sore", "malam", "ping", "hai"])
+            )
+            if is_sapaan_di_state_aktif and status_fsm != "PILIH_PROGRAM":
                 session_info = state_manager.get_session(nomor_wa)
                 target_prog_session = session_info.get("target_program") or "Infak / Zakat"
                 nama_prog = PETA_NAMA.get(target_prog_session, target_prog_session)
@@ -1128,7 +1201,13 @@ async def waha_webhook(request: Request):
         # =====================================================================
         if status_fsm == "MENUNGGU_ADMIN":
             pesan_normal = (pesan or "").strip().lower()
-            if any(k in pesan_normal for k in ["ya", "iya", "sambungkan", "ok", "oke", "setuju", "boleh", "lanjut"]):
+            # Catatan: "ya"/"ok" TIDAK BOLEH substring polos - lihat penjelasan
+            # di blok konfirmasi handoff admin lainnya di atas ("saYA", "-nYA",
+            # "tOKo" semuanya mengandung "ya"/"ok"). Dicek sebagai kata utuh.
+            pesan_tokens_menunggu = set(pesan_normal.split())
+            if bool(pesan_tokens_menunggu & {"ya", "iya", "ok", "oke", "y"}) or any(
+                k in pesan_normal for k in ["sambungkan", "setuju", "boleh", "lanjut"]
+            ):
                 session_info = state_manager.get_session(nomor_wa)
                 nama_prog_admin = session_info.get("target_program") or "PINTAS"
                 state_manager.reset_status(nomor_wa)
@@ -1151,7 +1230,9 @@ async def waha_webhook(request: Request):
                 user_sessions[nomor_wa] = session_data
                 return {"status": "sukses", "intent": "handoff_admin_success"}
 
-            elif any(k in pesan_normal for k in ["batal", "cancel", "tidak", "ga", "gak"]):
+            elif any(k in pesan_normal for k in ["batal", "cancel"]) or bool(
+                pesan_tokens_menunggu & {"tidak", "ga", "gak", "nggak", "enggak"}
+            ):
                 state_manager.reset_status(nomor_wa)
                 session_data["state"] = "IDLE"
                 balasan_user = f"Baik {sapaan_donatur}, pengajuan sambung ke Admin telah dibatalkan. Ada lagi hal lain yang bisa Mimin bantu?"

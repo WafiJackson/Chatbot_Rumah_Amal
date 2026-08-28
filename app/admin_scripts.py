@@ -55,7 +55,6 @@ SAPAAAN_KATA = [
     "wae",
     "bang",
     "kak",
-    "admin",
 ]
 
 
@@ -94,6 +93,17 @@ def _is_sapaan(teks_norm: str) -> bool:
             return True
 
     return False
+
+
+def _deteksi_waktu_sapaan(teks_norm: str) -> str | None:
+    """Deteksi kata waktu (pagi/siang/sore/malam) dalam sapaan user, supaya
+    balasan bot bisa mengulang waktu yang sama - permintaan staf karena
+    banyak user membuka chat dengan salam kearifan lokal ("selamat siang",
+    dst) dan berharap dijawab senada, bukan salam generik."""
+    for waktu in ["pagi", "siang", "sore", "malam"]:
+        if waktu in teks_norm:
+            return waktu
+    return None
 
 
 QA_SCRIPT = {
@@ -661,7 +671,7 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
     return "tidak_diketahui"
 
 
-def ambil_balasan(intent: str, nama_pengirim: str | None = None) -> str:
+def ambil_balasan(intent: str, nama_pengirim: str | None = None, waktu_sapaan: str | None = None) -> str:
     from services.gender_detector import deteksi_sapaan_gender, bersihkan_dan_normalisasi_nama
     sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
     clean_name = bersihkan_dan_normalisasi_nama(nama_pengirim).title() if nama_pengirim else ""
@@ -680,6 +690,15 @@ def ambil_balasan(intent: str, nama_pengirim: str | None = None) -> str:
         return get_program_list()
 
     text = QA_SCRIPT.get(intent, QA_SCRIPT["tidak_diketahui"])
+
+    # Permintaan staf: kalau user membuka chat dengan salam waktu ("selamat
+    # siang", dst), balasan bot ikut menyebut waktu yang sama alih-alih
+    # salam generik - banyak user membuka chat dengan salam kearifan lokal.
+    if intent == "sapaan" and waktu_sapaan:
+        text = text.replace(
+            "Assalamu'alaikum {sapaan_panggilan}!",
+            f"Assalamu'alaikum, Selamat {waktu_sapaan} {{sapaan_panggilan}}!",
+        )
 
     if "{sapaan_panggilan}" in text:
         text = text.replace("{sapaan_panggilan}", sapaan_lengkap)
@@ -938,7 +957,9 @@ def susun_balasan(
             _tambah_hasil(intents, intent)
         else:
             _tambah_hasil(intents, intent)
-            _tambah_hasil(responses, ambil_balasan(intent, nama_pengirim=nama_pengirim))
+            _tambah_hasil(responses, ambil_balasan(
+                intent, nama_pengirim=nama_pengirim, waktu_sapaan=_deteksi_waktu_sapaan(teks_norm)
+            ))
 
     if not responses:
         intents = ["tidak_diketahui"]
