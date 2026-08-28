@@ -331,9 +331,17 @@ async def waha_webhook(request: Request):
             return {"status": "sukses", "intent": "panggilan_suara_diabaikan"}
 
         # Filter event type WAHA (hanya proses pesan teks / media utama, abaikan ack / reaction / update)
+        # Catatan: WAHA mengirim event "message.ack" untuk SETIAP status pengiriman
+        # (sent/delivered/read) dari pesan yang KITA kirim sendiri. Payload-nya tidak
+        # selalu punya field "fromMe", jadi kalau lolos di sini ia bisa diproses seolah
+        # pesan masuk baru dan berakhir jadi balasan "tidak_diketahui" duplikat -
+        # makanya event semacam ini harus ditolak eksplisit, bukan hanya diserahkan ke
+        # cocokan substring "message" yang longgar.
         ALLOWED_EVENTS = {"message", "message.upsert", "message.create"}
-        if event_name not in ALLOWED_EVENTS and "message" not in event_name:
-            return {"status": "diabaikan"}
+        EVENT_BUKAN_PESAN_BARU = ("ack", "reaction", "revoked", "edited", "status", "seen", "read", "typing", "presence", "poll")
+        if event_name not in ALLOWED_EVENTS:
+            if "message" not in event_name or any(kata in event_name for kata in EVENT_BUKAN_PESAN_BARU):
+                return {"status": "diabaikan"}
 
         if payload_waha.get("fromMe") is True:
             return {"status": "diabaikan"}
@@ -362,6 +370,13 @@ async def waha_webhook(request: Request):
             print(f"[Rate Limit Exceeded] Nomor {nomor_wa} melampaui batas 20 pesan/menit.")
             return {"status": "rate_limit_exceeded"}
         has_media = payload_waha.get("hasMedia", False) or bool(payload_waha.get("media")) or bool(payload_waha.get("mediaUrl"))
+
+        # Jaring pengaman kedua: event tanpa teks DAN tanpa media bukan pesan
+        # sungguhan dari user (biasanya sisa event status/ack yang lolos dari filter
+        # di atas). Daripada dipaksa masuk ke susun_balasan() dan berakhir jadi
+        # balasan "tidak_diketahui" yang nyasar ke user, abaikan saja di sini.
+        if not pesan.strip() and not has_media:
+            return {"status": "diabaikan_tanpa_konten"}
 
         # "" (bukan lagi "Kak") sebagai fallback saat WAHA tidak memberi nama sama
         # sekali - dibiarkan kosong supaya deteksi_sapaan_gender()/
@@ -497,7 +512,11 @@ async def waha_webhook(request: Request):
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "sapaan"}
         # Fast-Path Unlocking: Jika user sedang di status FSM aktif tetapi mengajukan pertanyaan baru spesifik, reset status ke IDLE
-        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "batal", "cancel", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat"]
+        # Catatan: "batal"/"cancel" SENGAJA tidak dimasukkan - lihat komentar pada
+        # KATA_KUNCI_OVERRIDE kedua di bawah (FAST-PATH 2 punya penanganan is_batal
+        # sendiri dengan balasan konfirmasi yang jelas; kalau direset diam-diam di
+        # sini duluan, balasan itu jadi tidak pernah kepakai).
+        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat"]
         if status_fsm in {"PILIH_PROGRAM", "NUNGGU_BUKTI_TRANSFER", "NUNGGU_DATA_KONFIRMASI", "NUNGGU_DATA_INFAK", "TANYA_PROGRAM"} and not has_media:
             if any(k in pesan_clean for k in KATA_KUNCI_OVERRIDE):
                 state_manager.reset_status(nomor_wa)
@@ -745,7 +764,13 @@ async def waha_webhook(request: Request):
             return {"status": "sukses", "intent": "pilih_program_prompt"}
 
         # Fast-Path Unlocking: Jika user sedang di status FSM aktif tetapi mengajukan pertanyaan baru spesifik / sapaan baru, reset status ke IDLE
-        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "batal", "cancel", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "hi", "assalamualaikum", "menu utama"]
+        # Catatan: "batal"/"cancel" SENGAJA tidak dimasukkan ke daftar ini - keduanya
+        # sudah punya penanganan khusus di FAST-PATH 2 di bawah (is_batal) yang
+        # mengirim balasan konfirmasi "telah dibatalkan" yang jelas. Kalau ikut
+        # direset diam-diam di sini duluan, blok is_batal itu jadi tidak pernah
+        # kepakai dan user cuma dapat balasan "tidak mengerti" yang membingungkan
+        # padahal sesinya sudah benar direset di belakang layar.
+        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "hi", "assalamualaikum", "menu utama"]
         # Token pendek/generik ("0", "p") HARUS dicocokkan persis sebagai kata utuh,
         # bukan substring - kalau tidak, nominal donasi seperti "90000" ikut
         # dianggap perintah "0" (kembali ke menu) dan sesi donasi ter-reset diam-diam.
@@ -918,7 +943,14 @@ async def waha_webhook(request: Request):
             kode_target, nama_target = None, None
             if pesan_clean in PETA_PILIHAN:
                 kode_target, nama_target = PETA_PILIHAN[pesan_clean]
-            else:
+            elif len(pesan_clean.split()) <= 5:
+                # Pencocokan substring longgar HANYA untuk balasan pendek/langsung
+                # (mis. "saya mau infak", "yang zakat mal"). Kalimat panjang seperti
+                # curhat/pertanyaan lain ("loh kok gak paham saya mau donasi") sering
+                # kebetulan menyebut kata "donasi"/"infak" tanpa bermaksud MEMILIH
+                # opsi itu - kalau tetap dicocokkan, itu salah tangkap sebagai
+                # pilihan sah dan langsung minta transfer untuk program yang tidak
+                # pernah benar-benar dipilih user.
                 for k, (kode, nama_p) in PETA_PILIHAN.items():
                     if k in pesan_clean:
                         kode_target, nama_target = kode, nama_p

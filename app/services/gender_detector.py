@@ -59,7 +59,11 @@ WANITA_KEYWORDS = {
     "novita", "rahayu", "raihanah", "rani", "rizka", "rosa", "safira",
     "salma", "salsabila", "salwa", "sabrina", "tia", "ulfa", "ulfah",
     "susanti", "vina", "wahyuni", "widya", "yasmin", "yeni", "yulianti",
-    "zahra", "zainab", "zulaikha"
+    "zahra", "zainab", "zulaikha", "delia", "yuhana", "yohana", "natalia",
+    "silvia", "claudia", "sonia", "lidia", "cynthia", "julia", "olivia",
+    "patricia", "stevani", "stevania", "novia", "elvira", "monica",
+    "veronica", "cindy", "elisabeth", "elisa", "grace", "gracia", "priska",
+    "priskila", "debora", "sarah", "sara", "rebecca", "ester", "esther"
 }
 
 # Akhiran dan Substring Spesifik
@@ -151,6 +155,12 @@ def deteksi_sapaan_gender(nama_raw: str) -> str:
             # akhir nama pria, jadi aman dipakai sebagai sinyal umum di luar
             # nama-nama yang sudah eksplisit terdaftar di atas.
             if word.endswith(("wati", "sari", "nisah", "nisa", "putri", "ah")):
+                return "Ibu"
+            # "-ia" adalah akhiran nama wanita yang umum di nama bercorak
+            # Indonesia-Kristen/Barat (Delia, Natalia, Silvia, Claudia, Sonia,
+            # Julia, dst) - belum ada satupun nama pria terdaftar di atas yang
+            # berakhiran ini, jadi aman dipakai sebagai sinyal umum tambahan.
+            if word.endswith("ia"):
                 return "Ibu"
 
     # 3. Fallback Safety Net jika tidak ada kepastian 100%

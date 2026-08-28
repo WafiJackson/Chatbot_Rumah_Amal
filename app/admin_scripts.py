@@ -533,6 +533,21 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         return "info_qris"
     if _ada_salah_satu(teks, ["rekening", "nomor rekening", "norek", "transfer ke mana", "transfer kemana"]):
         return "info_rekening"
+    # Frasa niat LANGSUNG ("ingin/mau ...") dipisah dari frasa bertanya "cara ..."
+    # - donatur yang sudah menyatakan niat pantas langsung dikasih nomor rekening
+    # (intent "ingin_donasi" = cara_donasi + info_rekening), bukan cuma penjelasan
+    # umum tanpa nomor rekening yang memaksa mereka bertanya ulang.
+    if _ada_salah_satu(
+        teks,
+        [
+            "ingin berdonasi",
+            "ingin donasi",
+            "mau donasi",
+            "mau berdonasi",
+            "mau bayar zakat",
+        ],
+    ):
+        return "ingin_donasi"
     if _ada_salah_satu(
         teks,
         [
@@ -541,13 +556,10 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
             "cara zakat",
             "cara infak",
             "cara sedekah",
-            "ingin berdonasi",
-            "mau donasi",
             "bayar zakat",
             "membayar zakat",
             "pembayaran zakat",
             "menunaikan zakat",
-            "mau bayar zakat",
         ],
     ):
         return "cara_donasi"
