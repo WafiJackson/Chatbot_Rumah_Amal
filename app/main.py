@@ -17,6 +17,17 @@ from services.logger import logger
 
 # Inisialisasi SQLite State Store
 state_manager.init_db()
+
+# Retensi log_percakapan (90 hari) - dijalankan tiap kali aplikasi start
+# (bukan penjadwalan rutin sungguhan, tapi cukup untuk mencegah tabel ini
+# tumbuh tanpa batas selamanya seperti sebelumnya).
+try:
+    _jumlah_dihapus = state_manager.bersihkan_log_percakapan_lama(hari=90)
+    if _jumlah_dihapus:
+        logger.info(f"[Startup] Membersihkan {_jumlah_dihapus} baris log_percakapan yang lebih tua dari 90 hari.")
+except Exception as e:
+    logger.warning(f"[Startup] Gagal membersihkan log_percakapan lama: {e}")
+
 logger.info("[Startup] Bot Rumah Amal USK Modular Aktif & Production Logger Siap.")
 
 app = FastAPI(

@@ -5,13 +5,18 @@ services:
     image: rumah_amal_api_image:latest
     container_name: rumah_amal_api
     ports:
-      - "8000:8000"
+      # Diikat ke loopback (127.0.0.1) - Caddy tetap bisa menjangkaunya lewat
+      # jaringan Docker internal (bot_network) tanpa perlu port ini publik
+      # sama sekali; port 8000 langsung ke internet TIDAK diperlukan lagi
+      # sejak Caddy menangani semua trafik publik di 80/443.
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
     env_file:
       - .env
     environment:
       - WAHA_ENDPOINT=http://waha-gateway:3000
       - WAHA_API_KEY=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET wajib diisi di .env - generate dengan: python -c "import secrets; print(secrets.token_urlsafe(32))"}
       - DB_PATH=/code/app_db/donatur.db
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -37,7 +42,7 @@ services:
       - WAHA_ZIP_SESSIONS=True
       - WAHA_API_KEY=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
       - WAHA_API_KEY_SECRET=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
-      - WHATSAPP_HOOK_URL=http://api-bot:8000/webhook
+      - WHATSAPP_HOOK_URL=http://api-bot:8000/webhook?secret=${WEBHOOK_SECRET:?WEBHOOK_SECRET wajib diisi di .env}
       - WHATSAPP_HOOK_EVENTS=message
     volumes:
       - waha_sessions:/tmp/waha-sessions

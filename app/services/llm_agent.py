@@ -2,13 +2,31 @@ import os
 import json
 import re
 import base64
+from datetime import date
 import requests
 from dotenv import load_dotenv
+
+from services.logger import logger
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+
+# Pelacak pemakaian harian sederhana (in-memory, reset otomatis saat tanggal
+# berganti) - sebelumnya kalau kuota gratis 20/hari habis, semua fitur AI
+# (OCR resi, deteksi NER) diam-diam mundur ke balasan default tanpa staf
+# pernah tahu KENAPA - cuma keliatan generik "kurang menangkap" di WhatsApp.
+_PEMAKAIAN_GEMINI_HARI_INI = {"tanggal": None, "jumlah": 0}
+
+
+def _catat_pemakaian_gemini() -> int:
+    hari_ini = date.today().isoformat()
+    if _PEMAKAIAN_GEMINI_HARI_INI["tanggal"] != hari_ini:
+        _PEMAKAIAN_GEMINI_HARI_INI["tanggal"] = hari_ini
+        _PEMAKAIAN_GEMINI_HARI_INI["jumlah"] = 0
+    _PEMAKAIAN_GEMINI_HARI_INI["jumlah"] += 1
+    return _PEMAKAIAN_GEMINI_HARI_INI["jumlah"]
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -48,6 +66,7 @@ def _panggil_gemini_api(prompt: str, image_bytes: bytes | None = None, is_json: 
     timeout_val = 35 if image_bytes else 15
     percobaan_maks = 2  # percobaan awal + 1x retry khusus timeout (hiccup jaringan sesaat cukup sering pada OCR resi)
     for percobaan in range(percobaan_maks):
+        jumlah_hari_ini = _catat_pemakaian_gemini()
         try:
             res = requests.post(url, headers=headers, json=payload, timeout=timeout_val)
             if res.status_code == 200:
@@ -58,15 +77,22 @@ def _panggil_gemini_api(prompt: str, image_bytes: bytes | None = None, is_json: 
                     if parts_out:
                         return parts_out[0].get("text", "").strip()
                 return ""
-            print(f"[Warning Gemini API Status {res.status_code}] {res.text[:200]}")
+            if res.status_code == 429:
+                logger.error(
+                    f"[KUOTA GEMINI HABIS] Panggilan ke-{jumlah_hari_ini} hari ini kena limit (HTTP 429). "
+                    f"Semua fitur AI (baca resi, deteksi nama/nominal) akan mundur ke balasan default "
+                    f"sampai kuota reset - donatur akan melihat balasan generik tanpa penjelasan."
+                )
+            else:
+                logger.warning(f"[Gemini API Status {res.status_code}] {res.text[:200]}")
             return ""
         except requests.exceptions.Timeout as e:
             is_percobaan_terakhir = percobaan + 1 >= percobaan_maks
-            print(f"[Error Gemini API Timeout, percobaan {percobaan + 1}/{percobaan_maks}] {e}")
+            logger.warning(f"[Gemini API Timeout, percobaan {percobaan + 1}/{percobaan_maks}] {e}")
             if is_percobaan_terakhir:
                 return ""
         except Exception as e:
-            print(f"[Error Gemini API] {e}")
+            logger.warning(f"[Gemini API Error] {e}")
             return ""
     return ""
 

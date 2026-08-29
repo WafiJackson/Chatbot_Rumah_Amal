@@ -362,6 +362,22 @@ def ambil_riwayat_donasi(no_wa: str) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def bersihkan_log_percakapan_lama(hari: int = 90) -> int:
+    """Hapus baris log_percakapan yang lebih tua dari `hari` hari - sebelumnya
+    tabel ini tumbuh terus tanpa batas (dicatat sebagai gap terbuka dari audit
+    sebelumnya). Dipanggil sekali saat startup aplikasi (lihat main.py) -
+    bukan solusi sempurna (baru "membersihkan" tiap kali container di-restart,
+    bukan penjadwalan rutin sungguhan), tapi jauh lebih baik daripada tidak
+    ada retensi sama sekali. Kembalikan jumlah baris yang dihapus."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM log_percakapan WHERE waktu < datetime('now', ?)",
+            (f"-{int(hari)} days",),
+        )
+        conn.commit()
+        return cursor.rowcount
+
+
 def catat_pesan(sumber: str, kontak: str, dari: str, teks: str):
     """Mencatat satu baris pesan (user/bot/sistem) ke log_percakapan untuk
     halaman admin Log Bot. `kontak` = no_wa (WhatsApp) atau token sesi

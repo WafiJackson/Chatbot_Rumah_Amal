@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 import requests
 import os
 import re
+import secrets
 
 from admin_scripts import ambil_balasan, susun_balasan
 from services.llm_agent import (
@@ -14,6 +16,7 @@ from services.form_parser import ekstrak_formulir
 from services.program_manager import get_program_info, format_program_response
 from services.gender_detector import deteksi_sapaan_gender
 from services.logger import logger
+from services.media_validator import MAKS_UKURAN_RESI_BYTES, sniff_gambar_valid, unduh_dengan_batas_ukuran
 
 router = APIRouter()
 WAHA_ENDPOINT = os.getenv("WAHA_ENDPOINT", "http://waha-gateway:3000").rstrip("/")
@@ -21,6 +24,17 @@ WAHA_SEND_URL = f"{WAHA_ENDPOINT}/api/sendText"
 WAHA_API_KEY = os.getenv("WAHA_API_KEY", "")
 if not WAHA_API_KEY:
     logger.warning("[Config] WAHA_API_KEY tidak diset di environment. Panggilan ke WAHA kemungkinan akan gagal otentikasi.")
+
+# Endpoint /webhook TIDAK dilindungi otentikasi apapun sebelum ini - siapa saja
+# yang tahu URL-nya (dan port 8000 sempat ter-bind ke semua interface) bisa
+# mengirim payload WAHA palsu, memicu bot mengirim WA ke sembarang nomor,
+# men-spam notifikasi admin, atau menghabiskan kuota Gemini. WEBHOOK_SECRET
+# wajib cocok (lewat query string ?secret=...) sebelum payload diproses -
+# nilainya disisipkan ke WHATSAPP_HOOK_URL di docker-compose.yml.
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+if not WEBHOOK_SECRET:
+    logger.warning("[Config] WEBHOOK_SECRET tidak diset - endpoint /webhook TIDAK terlindungi otentikasi apapun.")
+
 user_sessions = {}
 
 # Nomor rekening resmi Rumah Amal USK (satu sumber kebenaran, jangan hardcode ulang)
@@ -300,6 +314,14 @@ PROCESSED_MSG_IDS = set()
 @router.post("/webhook")
 @router.post("/api/webhook")
 async def waha_webhook(request: Request):
+    # Verifikasi secret SEBELUM apapun lain diproses (termasuk parsing body) -
+    # menolak lebih awal supaya request tak terotentikasi tidak sempat memicu
+    # efek samping (kirim WA, panggil Gemini, tulis DB) sama sekali.
+    secret_diterima = request.query_params.get("secret", "")
+    if not WEBHOOK_SECRET or not secrets.compare_digest(secret_diterima, WEBHOOK_SECRET):
+        logger.warning(f"[Keamanan] Percobaan akses /webhook tanpa secret yang valid dari {request.client.host if request.client else 'unknown'}.")
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+
     try:
         data = await request.json()
         if not isinstance(data, dict):
@@ -420,7 +442,11 @@ async def waha_webhook(request: Request):
                 import base64
                 try:
                     image_bytes = base64.b64decode(media_data)
-                    print(f"[Debug Media] Berhasil decode base64 gambar ({len(image_bytes)} bytes)")
+                    if len(image_bytes) > MAKS_UKURAN_RESI_BYTES:
+                        print(f"[Warning Media] Gambar base64 melebihi batas {MAKS_UKURAN_RESI_BYTES} bytes, diabaikan.")
+                        image_bytes = None
+                    else:
+                        print(f"[Debug Media] Berhasil decode base64 gambar ({len(image_bytes)} bytes)")
                 except Exception as e_b64:
                     print(f"[Warning Base64 Media Decode] {e_b64}")
 
@@ -441,28 +467,33 @@ async def waha_webhook(request: Request):
                         media_url = f"{WAHA_ENDPOINT}{media_url}"
 
                 if media_url and media_url.startswith("http"):
-                    try:
-                        headers_img = {"X-Api-Key": WAHA_API_KEY, "Accept": "*/*"}
-                        res_img = requests.get(media_url, headers=headers_img, timeout=5)
-                        if res_img.status_code == 200 and len(res_img.content) > 1000:
-                            image_bytes = res_img.content
-                            print(f"[Debug Media] Berhasil unduh gambar penuh dari URL ({len(image_bytes)} bytes)")
-                        else:
-                            print(f"[Warning Media Download] HTTP Status {res_img.status_code} ({len(res_img.content)} bytes)")
-                    except Exception as e_img:
-                        print(f"[Warning Webhook Image Download Error] {e_img}")
+                    # Diunduh via streaming dengan batas ukuran - sebelumnya
+                    # tidak ada batas sama sekali, jadi gambar sebesar apapun
+                    # akan dimuat penuh ke memori sebelum ada kesempatan
+                    # ditolak (celah ditemukan lewat audit keamanan 28 Agustus).
+                    headers_img = {"X-Api-Key": WAHA_API_KEY, "Accept": "*/*"}
+                    hasil_unduh = unduh_dengan_batas_ukuran(media_url, headers_img, timeout=5)
+                    if hasil_unduh and len(hasil_unduh) > 1000:
+                        image_bytes = hasil_unduh
+                        print(f"[Debug Media] Berhasil unduh gambar penuh dari URL ({len(image_bytes)} bytes)")
+                    else:
+                        print("[Warning Media Download] Gagal unduh atau melebihi batas ukuran.")
 
             # 3. Fallback: Unduh via WAHA Message Media API jika pesan memiliki ID
             msg_id = payload_waha.get("id") or payload_waha.get("_data", {}).get("id", {}).get("_serialized")
             if (not image_bytes or len(image_bytes) < 5000) and msg_id:
-                try:
-                    waha_media_endpoint = f"{WAHA_ENDPOINT}/api/{nama_sesi}/messages/{msg_id}/media"
-                    res_msg_media = requests.get(waha_media_endpoint, headers={"X-Api-Key": WAHA_API_KEY}, timeout=5)
-                    if res_msg_media.status_code == 200 and len(res_msg_media.content) > 1000:
-                        image_bytes = res_msg_media.content
-                        print(f"[Debug Media] Berhasil unduh dari WAHA Message API ({len(image_bytes)} bytes)")
-                except Exception as e_msg_media:
-                    print(f"[Warning WAHA Message Media API Error] {e_msg_media}")
+                waha_media_endpoint = f"{WAHA_ENDPOINT}/api/{nama_sesi}/messages/{msg_id}/media"
+                hasil_unduh_msg = unduh_dengan_batas_ukuran(waha_media_endpoint, {"X-Api-Key": WAHA_API_KEY}, timeout=5)
+                if hasil_unduh_msg and len(hasil_unduh_msg) > 1000:
+                    image_bytes = hasil_unduh_msg
+                    print(f"[Debug Media] Berhasil unduh dari WAHA Message API ({len(image_bytes)} bytes)")
+
+            # Validasi akhir: pastikan hasil unduhan benar-benar gambar (sniff
+            # magic bytes), bukan sekadar percaya mimetype/ekstensi dari
+            # payload - sama seperti pengaman yang sudah ada di Web Chat.
+            if image_bytes and not sniff_gambar_valid(image_bytes):
+                print("[Warning Media] Berkas yang diunduh bukan format gambar yang dikenali, diabaikan.")
+                image_bytes = None
 
 
 
@@ -500,6 +531,35 @@ async def waha_webhook(request: Request):
 
             user_sessions[nomor_wa] = session_data
             return {"status": "sukses", "intent": "minta_bantuan_pintas"}
+
+        # =====================================================================
+        # FAST-PATH: JENDELA PEMBATALAN SEGERA SETELAH HANDOFF ADMIN BERHASIL
+        # =====================================================================
+        # Kalau user bilang "ya" mau disambungkan admin, notifikasi SUDAH
+        # terlanjur terkirim ke admin ("mohon segera di-follow up"). Kalau
+        # pesan BERIKUTNYA langsung berupa niat batal ("eh tidak jadi deh"),
+        # tanpa ini admin tidak akan pernah tahu permintaannya sudah tidak
+        # relevan lagi - staf berisiko buang waktu follow-up ke user yang
+        # sudah berubah pikiran. Jendela ini cuma berlaku utk 1 pesan
+        # berikutnya - kalau bukan pembatalan, status dilepas diam-diam
+        # (seperti pola "unlocking" lain) supaya pesan itu diproses normal.
+        if status_fsm == "ADMIN_BARU_DIHUBUNGI" and not has_media:
+            is_retraksi_admin = any(k in pesan_clean for k in ["batal", "cancel", "tidak jadi", "gak jadi", "ga jadi", "enggak jadi", "nggak jadi"])
+            session_info_retraksi = state_manager.get_session(nomor_wa)
+            nama_prog_retraksi = session_info_retraksi.get("target_program") or "ADMIN"
+            state_manager.reset_status(nomor_wa)
+            status_fsm = "IDLE"
+            if is_retraksi_admin:
+                balasan = f"Baik {sapaan_donatur}, sudah kami sampaikan pembatalannya ke Admin. Ada lagi hal lain yang bisa Mimin bantu?"
+                nomor_hp_batal, nama_batal = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
+                notify_admin(
+                    f"↩️ [PEMBATALAN] Permintaan sebelumnya dari {nama_batal} ({nomor_hp_batal}) untuk *{nama_prog_retraksi}* "
+                    f"SUDAH DIBATALKAN oleh user - tidak perlu di-follow up lagi.",
+                    nama_sesi,
+                )
+                user_sessions[nomor_wa] = session_data
+                send_message_to_waha(chat_id_asli, balasan, nama_sesi)
+                return {"status": "sukses", "intent": "handoff_admin_retraksi"}
 
         # =====================================================================
         # FAST-PATH 0A: SAPAAN AWAL / MENU UTAMA PADA STATE IDLE ("halo", "0", "menu")
@@ -660,7 +720,11 @@ async def waha_webhook(request: Request):
                 k in pesan_clean for k in ["sambungkan", "setuju"]
             )
             if is_konfirmasi_ya:
-                state_manager.reset_status(nomor_wa)
+                # Status "ADMIN_BARU_DIHUBUNGI" (bukan langsung IDLE) - beri
+                # jendela 1 pesan untuk user membatalkan kalau langsung
+                # berubah pikiran, supaya admin bisa diberi tahu susulan
+                # (lihat FAST-PATH "JENDELA PEMBATALAN..." di atas).
+                state_manager.update_status(nomor_wa, "ADMIN_BARU_DIHUBUNGI", target_program=nama_prog_tag)
                 session_data["state"] = "IDLE"
 
                 balasan_user = f"Baik {sapaan_donatur}, permintaan {sapaan_donatur} sedang kami teruskan ke Admin untuk penanganan lebih lanjut. Mohon ditunggu ya."
@@ -758,6 +822,50 @@ async def waha_webhook(request: Request):
             return {"status": "sukses", "intent": "cek_riwayat_sukses"}
 
         # =====================================================================
+        # FAST-PATH: LAPORAN "SUDAH TRANSFER" LANGSUNG DARI IDLE (BEDA DARI
+        # NIAT DONASI BARU) - harus diperiksa SEBELUM is_niat_donasi di bawah,
+        # karena kata "zakat"/"donasi" di dalam laporan ini bisa ikut kena
+        # regex niat donasi yang lebih umum, bikin user yang SUDAH bilang
+        # sudah transfer & menyebutkan kategorinya malah disuruh mengulang
+        # pilih program dari awal seolah belum bilang apa-apa (ditemukan
+        # lewat tes skenario "koreksi kategori donasi beruntun").
+        # =====================================================================
+        is_lapor_sudah_transfer = bool(re.search(
+            r"(sudah transfer|udah transfer|barusan transfer|habis transfer|sudah tf|bukti tf|sudah kirim|konfirmasi transfer)",
+            pesan_clean
+        ))
+        if is_lapor_sudah_transfer and status_fsm == "IDLE" and not has_media:
+            PETA_KATEGORI_LAPOR_TRANSFER = {
+                "zakat mal": "ZKT-MAL",
+                "zakat maal": "ZKT-MAL",
+                "zakat penghasilan": "ZKT-PENGHASILAN",
+                "zakat profesi": "ZKT-PENGHASILAN",
+                "infak rutin": "INF-RUTIN",
+                "infak": "INF-RUTIN",
+                "sedekah": "INF-RUTIN",
+                "donasi": "DONASI",
+            }
+            kode_lapor_terdeteksi = None
+            for kata, kode in PETA_KATEGORI_LAPOR_TRANSFER.items():
+                if kata in pesan_clean:
+                    kode_lapor_terdeteksi = kode
+                    break
+
+            if kode_lapor_terdeteksi:
+                nama_lapor_terdeteksi = PETA_NAMA.get(kode_lapor_terdeteksi, kode_lapor_terdeteksi)
+                state_manager.update_status(nomor_wa, "NUNGGU_BUKTI_TRANSFER", target_program=kode_lapor_terdeteksi)
+                balasan = (
+                    f"Baik {sapaan_donatur}, Alhamdulillah atas transfernya untuk *{nama_lapor_terdeteksi}*! 🙏\n\n"
+                    f"Agar dapat kami catatkan dengan benar, mohon kirimkan foto/gambar bukti transfer (resi BSI Mobile / BYOND) ke sini ya."
+                )
+                user_sessions[nomor_wa] = session_data
+                send_message_to_waha(chat_id_asli, balasan, nama_sesi)
+                return {"status": "sukses", "intent": "lapor_transfer_minta_resi"}
+            # Kategori tidak disebutkan eksplisit - biarkan lanjut ke
+            # is_niat_donasi di bawah supaya tetap ditanya mau pilih program
+            # yang mana, alih-alih menebak sembarangan.
+
+        # =====================================================================
         # FAST-PATH 1B: DETEKSI NIAT DONASI / ZAKAT (MENU UTAMA DONASI 1-4)
         # =====================================================================
         is_niat_donasi = bool(re.search(
@@ -787,11 +895,14 @@ async def waha_webhook(request: Request):
         # direset diam-diam di sini duluan, blok is_batal itu jadi tidak pernah
         # kepakai dan user cuma dapat balasan "tidak mengerti" yang membingungkan
         # padahal sesinya sudah benar direset di belakang layar.
-        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "hi", "assalamualaikum", "menu utama"]
-        # Token pendek/generik ("0", "p") HARUS dicocokkan persis sebagai kata utuh,
-        # bukan substring - kalau tidak, nominal donasi seperti "90000" ikut
-        # dianggap perintah "0" (kembali ke menu) dan sesi donasi ter-reset diam-diam.
-        KATA_KUNCI_OVERRIDE_EXACT = {"p", "0", "0."}
+        KATA_KUNCI_OVERRIDE = ["pinjam", "pintas", "ukt", "bpra", "beasiswa", "alamat", "rekening", "admin", "bantuan ukt", "kurang dana", "lokasi", "jam kerja", "riwayat", "halo", "assalamualaikum", "menu utama"]
+        # Token pendek/generik ("0", "p", "hi") HARUS dicocokkan persis sebagai
+        # kata utuh, bukan substring - kalau tidak, nominal donasi seperti
+        # "90000" ikut dianggap perintah "0" (kembali ke menu), dan kata biasa
+        # seperti "meng-HI-tung"/"HI-jau" ikut ter-reset sesi diam-diam gara-gara
+        # "hi" (pola bug yang sama ditemukan berulang kali hari ini - lihat
+        # CATATAN_KEKURANGAN_PROYEK.txt bagian 20-22).
+        KATA_KUNCI_OVERRIDE_EXACT = {"p", "0", "0.", "hi"}
         if status_fsm in {"PILIH_PROGRAM", "NUNGGU_BUKTI_TRANSFER", "NUNGGU_DATA_KONFIRMASI", "NUNGGU_DATA_INFAK", "TANYA_PROGRAM"} and not has_media:
             pesan_tokens = set(pesan_clean.split())
             if any(k in pesan_clean for k in KATA_KUNCI_OVERRIDE) or (pesan_tokens & KATA_KUNCI_OVERRIDE_EXACT):
@@ -1017,15 +1128,21 @@ async def waha_webhook(request: Request):
             if pesan_clean in PETA_PILIHAN:
                 kode_target, nama_target = PETA_PILIHAN[pesan_clean]
             elif len(pesan_clean.split()) <= 5:
-                # Pencocokan substring longgar HANYA untuk balasan pendek/langsung
-                # (mis. "saya mau infak", "yang zakat mal"). Kalimat panjang seperti
+                # Pencocokan longgar HANYA untuk balasan pendek/langsung (mis.
+                # "saya mau infak", "yang zakat mal"). Kalimat panjang seperti
                 # curhat/pertanyaan lain ("loh kok gak paham saya mau donasi") sering
                 # kebetulan menyebut kata "donasi"/"infak" tanpa bermaksud MEMILIH
                 # opsi itu - kalau tetap dicocokkan, itu salah tangkap sebagai
                 # pilihan sah dan langsung minta transfer untuk program yang tidak
                 # pernah benar-benar dipilih user.
+                # Key SATU KATA ("mal","donasi","infak",dst) dicocokkan sebagai
+                # kata utuh, bukan substring - "mal" sebagai substring polos akan
+                # ikut kena kata "norMAL"/"forMAL" yang sama sekali tidak
+                # berhubungan. Key multi-kata ("zakat mal") aman tetap substring.
+                pesan_tokens_pilihan = set(pesan_clean.split())
                 for k, (kode, nama_p) in PETA_PILIHAN.items():
-                    if k in pesan_clean:
+                    cocok = (k in pesan_tokens_pilihan) if " " not in k else (k in pesan_clean)
+                    if cocok:
                         kode_target, nama_target = kode, nama_p
                         break
 
@@ -1210,7 +1327,10 @@ async def waha_webhook(request: Request):
             ):
                 session_info = state_manager.get_session(nomor_wa)
                 nama_prog_admin = session_info.get("target_program") or "PINTAS"
-                state_manager.reset_status(nomor_wa)
+                # Status "ADMIN_BARU_DIHUBUNGI" (bukan langsung IDLE) - beri
+                # jendela 1 pesan untuk user membatalkan kalau langsung
+                # berubah pikiran, supaya admin bisa diberi tahu susulan.
+                state_manager.update_status(nomor_wa, "ADMIN_BARU_DIHUBUNGI", target_program=nama_prog_admin)
                 session_data["state"] = "IDLE"
 
                 # 1. Beri tahu user

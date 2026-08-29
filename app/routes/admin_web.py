@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import secrets
@@ -18,12 +19,40 @@ templates = Jinja2Templates(directory="templates/admin")
 WIB = timezone(timedelta(hours=7))
 
 ADMIN_USERNAME = os.getenv("ADMIN_DASHBOARD_USERNAME", "admin")
+# ADMIN_DASHBOARD_PASSWORD_HASH (format "salt_hex:hash_hex", lihat hash_password()
+# di bawah) adalah cara yang DIANJURKAN - password asli tidak pernah tersimpan
+# di .env sama sekali. ADMIN_DASHBOARD_PASSWORD (plaintext) tetap didukung
+# sebagai fallback supaya deployment lama tidak langsung rusak, tapi kalau
+# .env sampai bocor, password plaintext langsung terpakai tanpa perlu di-crack.
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_DASHBOARD_PASSWORD_HASH", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_DASHBOARD_PASSWORD", "")
 SESSION_COOKIE = "admin_session"
 
 # Sesi login disimpan in-memory (pola yang sama dengan user_sessions di bot_webhook.py) -
 # cukup untuk single-instance deployment, sesuai kebutuhan "session sederhana" di blueprint.
-ADMIN_SESSIONS: set[str] = set()
+# Disimpan sebagai token -> waktu_dibuat supaya sesi bisa kedaluwarsa (sebelumnya
+# token yang sekali terbit valid selamanya sampai restart server/logout manual).
+ADMIN_SESSIONS: dict[str, float] = {}
+ADMIN_SESSION_MAKS_DETIK = 24 * 60 * 60  # 24 jam
+
+
+def hash_password(password: str, salt: bytes | None = None) -> str:
+    """Hasilkan hash PBKDF2 (stdlib saja, tanpa dependency baru) dalam format
+    "salt_hex:hash_hex" - dipakai untuk membuat nilai ADMIN_DASHBOARD_PASSWORD_HASH."""
+    salt = salt or os.urandom(16)
+    hash_bytes = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return f"{salt.hex()}:{hash_bytes.hex()}"
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        salt_hex, hash_hex = stored_hash.split(":")
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+    except (ValueError, AttributeError):
+        return False
+    actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return secrets.compare_digest(actual, expected)
 
 # Rate limiter percobaan login (pola sama dengan _check_rate_limit di
 # public_web.py) - tanpa ini, password admin bisa dicoba tanpa batas oleh
@@ -56,7 +85,12 @@ templates.env.filters["rupiah"] = _format_rupiah
 
 def _is_authenticated(request: Request) -> bool:
     token = request.cookies.get(SESSION_COOKIE)
-    return bool(token) and token in ADMIN_SESSIONS
+    if not token or token not in ADMIN_SESSIONS:
+        return False
+    if time.time() - ADMIN_SESSIONS[token] > ADMIN_SESSION_MAKS_DETIK:
+        del ADMIN_SESSIONS[token]
+        return False
+    return True
 
 
 def _require_login(request: Request):
@@ -212,12 +246,17 @@ def login_submit(request: Request, username: str = Form(...), password: str = Fo
     if _login_rate_limited(client_ip):
         return RedirectResponse(url="/admin/login?error=terlalu_banyak", status_code=303)
 
-    if not ADMIN_PASSWORD:
+    if not ADMIN_PASSWORD_HASH and not ADMIN_PASSWORD:
         return RedirectResponse(url="/admin/login?error=belum_dikonfigurasi", status_code=303)
 
-    if username == ADMIN_USERNAME and secrets.compare_digest(password, ADMIN_PASSWORD):
+    if ADMIN_PASSWORD_HASH:
+        password_cocok = _verify_password(password, ADMIN_PASSWORD_HASH)
+    else:
+        password_cocok = secrets.compare_digest(password, ADMIN_PASSWORD)
+
+    if username == ADMIN_USERNAME and password_cocok:
         token = secrets.token_urlsafe(32)
-        ADMIN_SESSIONS.add(token)
+        ADMIN_SESSIONS[token] = time.time()
         response = RedirectResponse(url="/admin/dashboard", status_code=303)
         response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https")
         return response
@@ -228,7 +267,7 @@ def login_submit(request: Request, username: str = Form(...), password: str = Fo
 @router.get("/logout")
 def logout(request: Request):
     token = request.cookies.get(SESSION_COOKIE)
-    ADMIN_SESSIONS.discard(token)
+    ADMIN_SESSIONS.pop(token, None)
     response = RedirectResponse(url="/admin/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE)
     return response

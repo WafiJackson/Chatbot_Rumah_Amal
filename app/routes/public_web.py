@@ -11,6 +11,7 @@ from services import state_manager
 from services.llm_agent import ekstrak_resi_vision
 from services.gender_detector import deteksi_sapaan_gender
 from routes.bot_webhook import send_message_to_waha, notify_admin, PETA_NAMA
+from services.media_validator import MAKS_UKURAN_RESI_BYTES, sniff_gambar_valid as _sniff_gambar_valid
 
 router = APIRouter(tags=["public-web"])
 templates = Jinja2Templates(directory="templates/public")
@@ -51,25 +52,6 @@ def _client_ip(request: Request) -> str:
 
 def _rate_limited_response(pesan: str) -> JSONResponse:
     return JSONResponse({"status": "gagal", "reply": pesan, "pesan": pesan, "requires_otp": False}, status_code=429)
-
-
-MAKS_UKURAN_RESI_BYTES = 5 * 1024 * 1024  # 5 MB
-
-
-def _sniff_gambar_valid(data: bytes) -> bool:
-    """Validasi longgar berbasis magic bytes - menolak file yang jelas bukan
-    gambar, walau tidak seketat validasi format penuh."""
-    if not data:
-        return False
-    if data.startswith(b"\xff\xd8\xff"):
-        return True
-    if data.startswith(b"\x89PNG"):
-        return True
-    if data.startswith(b"RIFF") and b"WEBP" in data[:20]:
-        return True
-    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
-        return True
-    return False
 
 
 def _get_session(request: Request) -> tuple[str, dict, bool]:
