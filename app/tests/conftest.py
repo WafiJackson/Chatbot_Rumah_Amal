@@ -50,29 +50,37 @@ def client():
     return TestClient(main_module.app)
 
 
+import base64
+
+_JPEG_PALSU = b"\xff\xd8\xff" + b"\x00" * 6000
+
+
 @pytest.fixture
 def kirim_pesan(client):
-    """Helper: kirim satu pesan webhook simulasi & kembalikan (response_json, balasan_ke_user, semua_pesan_terkirim)."""
+    """Helper: kirim satu pesan webhook simulasi & kembalikan (response_json, balasan_ke_user, semua_pesan_terkirim).
+
+    has_media=True otomatis melampirkan gambar JPEG kecil yang valid (magic
+    bytes-nya benar) supaya lolos validasi media_validator."""
     _counter = {"n": 0}
 
-    def _kirim(nomor: str, body: str, pushname: str = "Tester", has_media: bool = False, msg_id: str | None = None):
+    def _kirim(nomor: str, body: str | None = None, pushname: str = "Tester", has_media: bool = False, msg_id: str | None = None):
         _counter["n"] += 1
         chat_id = f"{nomor}@c.us"
         _pesan_terkirim.clear()
+        payload = {
+            "id": msg_id or f"true_{chat_id}_M{_counter['n']}",
+            "from": chat_id,
+            "hasMedia": has_media,
+            "fromMe": False,
+            "pushname": pushname,
+        }
+        if body is not None:
+            payload["body"] = body
+        if has_media:
+            payload["media"] = {"data": base64.b64encode(_JPEG_PALSU).decode(), "mimetype": "image/jpeg"}
         resp = client.post(
             f"/webhook?secret={WEBHOOK_SECRET}",
-            json={
-                "event": "message",
-                "session": "default",
-                "payload": {
-                    "id": msg_id or f"true_{chat_id}_M{_counter['n']}",
-                    "from": chat_id,
-                    "body": body,
-                    "hasMedia": has_media,
-                    "fromMe": False,
-                    "pushname": pushname,
-                },
-            },
+            json={"event": "message", "session": "default", "payload": payload},
         )
         balasan_ke_user = ""
         for tujuan, teks in _pesan_terkirim:
@@ -81,6 +89,37 @@ def kirim_pesan(client):
         return resp.json(), balasan_ke_user, list(_pesan_terkirim)
 
     return _kirim
+
+
+@pytest.fixture
+def mock_ocr_resi():
+    """Ganti sementara ekstrak_resi_vision() dengan hasil tiruan (hindari
+    panggilan Gemini API sungguhan di test) - kembalikan fungsi setter."""
+    asli = bot_webhook.ekstrak_resi_vision
+
+    def _set(nama=None, nominal=None, program="UMUM"):
+        bot_webhook.ekstrak_resi_vision = lambda image_bytes, caption="": {
+            "nama": nama, "nominal": nominal, "program": program,
+        }
+
+    yield _set
+    bot_webhook.ekstrak_resi_vision = asli
+
+
+@pytest.fixture
+def baca_transaksi_terakhir():
+    import sqlite3
+
+    def _baca(no_wa: str):
+        conn = sqlite3.connect(os.environ["DB_PATH"])
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM transaksi_donasi WHERE no_wa = ? ORDER BY id DESC LIMIT 1", (no_wa,)
+        ).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    return _baca
 
 
 import itertools

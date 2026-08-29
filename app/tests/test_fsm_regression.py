@@ -219,3 +219,44 @@ def test_ingin_donasi_menampilkan_rekening():
     assert klasifikasi_pesan("ingin berdonasi") == "ingin_donasi"
     hasil = susun_balasan("ingin berdonasi", nama_pengirim="Tester")
     assert "7099400409" in hasil["reply"]
+
+
+# =========================================================================
+# KEPUTUSAN 29 Agustus: resi WhatsApp yang TIDAK didahului percakapan
+# eksplisit (mis. "saya mau infak" dulu) HARUS selalu "pending" menunggu
+# admin - walau OCR berhasil membaca kategori dari catatan di struk resinya
+# sendiri. Sebelumnya OCR yang berhasil membaca catatan langsung dianggap
+# "program diketahui" dan auto-validated, walau user tidak pernah
+# menyatakan niatnya lewat chat - celah ini bisa disalahgunakan resi apapun
+# (termasuk yang dimanipulasi) dengan catatan yang "kebetulan" terbaca.
+# =========================================================================
+def test_resi_dingin_dengan_ocr_tetap_pending(nomor_baru, kirim_pesan, mock_ocr_resi, baca_transaksi_terakhir):
+    nomor = nomor_baru()
+    mock_ocr_resi(nama="Vera Fitria", nominal="2000", program="INF-RUTIN")
+    resp, balasan, semua = kirim_pesan(nomor, has_media=True)
+    assert resp["intent"] == "konfirmasi_sukses"
+
+    # DB menyimpan format lokal "0..." (lihat _dapatkan_nomor_hp_asli), bukan "62..." mentah.
+    baris = baca_transaksi_terakhir("0" + nomor[2:])
+    assert baris is not None
+    assert baris["status_verifikasi"] == "pending"
+    assert baris["kode_program"] == "INF-RUTIN"  # tetap terisi sbg dugaan, cuma statusnya pending
+
+    # Admin harus diberi tahu ini masih perlu divalidasi manual
+    assert any("RESI PERLU DIVALIDASI" in teks for _, teks in semua)
+    # Balasan ke user harus jujur (tidak mengklaim kepastian program)
+    assert "untuk program" not in balasan
+
+
+def test_resi_setelah_pilih_program_di_chat_tetap_validated(nomor_baru, kirim_pesan, mock_ocr_resi, baca_transaksi_terakhir):
+    nomor = nomor_baru()
+    kirim_pesan(nomor, "saya mau donasi")
+    kirim_pesan(nomor, "infak")  # eksplisit pilih program lewat chat
+    mock_ocr_resi(nama="Fauzan", nominal="50000", program="UMUM")  # OCR gagal baca kategori, TIDAK masalah
+    resp, balasan, _ = kirim_pesan(nomor, has_media=True)
+    assert resp["intent"] == "konfirmasi_sukses"
+
+    baris = baca_transaksi_terakhir("0" + nomor[2:])
+    assert baris["status_verifikasi"] == "validated"
+    assert baris["kode_program"] == "INF-RUTIN"
+    assert "Infak Rutin" in balasan

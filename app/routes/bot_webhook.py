@@ -1216,24 +1216,29 @@ async def waha_webhook(request: Request):
             nama = data_diekstrak.get("nama") or nama_local or nama_pengirim
             nominal = _nominal_valid(data_diekstrak.get("nominal")) or nominal_local
 
-            # Program "diketahui" cuma kalau benar-benar disebut - baik lewat
-            # hasil baca OCR/NER pada pesan/resi ini, ATAU lewat sesi FSM yang
-            # sebelumnya sudah ditentukan user (mis. sempat pilih menu 1-4).
-            # Kalau user cuma kirim resi mentah tanpa basa-basi (langsung
-            # diarahkan dari web, tidak pernah memilih program), JANGAN
-            # mengarang seolah-olah kita tahu programnya - target_prog_session
-            # cuma fallback teknis ("INF-RUTIN") supaya tetap ada kode_program
-            # valid yang tersimpan ke database, bukan indikasi program itu
-            # benar-benar disebutkan user.
+            # Program "diketahui" HANYA kalau user benar-benar memilihnya
+            # lewat percakapan (mis. sempat pilih menu 1-4) - keputusan user
+            # 29 Agustus: catatan yang terbaca OCR dari struk resi itu sendiri
+            # SENGAJA TIDAK dihitung sebagai "diketahui" lagi, walau jelas
+            # tertulis di sana. Alasannya: admin dashboard memang dibuat
+            # khusus untuk memvalidasi resi yang belum dipastikan sumbernya -
+            # kalau OCR struk saja cukup untuk auto-validasi, resi apapun
+            # (termasuk yang di-manipulasi/salah kirim) dengan catatan yang
+            # "kebetulan" terbaca akan langsung tercatat sebagai donasi resmi
+            # tanpa pernah dicek manusia, berapa pun nominalnya.
             program_terdeteksi = data_diekstrak.get("program")
             program_dari_ekstraksi = bool(program_terdeteksi) and program_terdeteksi != "UMUM"
             program_dari_sesi = bool(session_info.get("target_program"))
-            program_diketahui = program_dari_ekstraksi or program_dari_sesi
+            program_diketahui = program_dari_sesi
 
-            if program_dari_ekstraksi:
-                program_kode = program_terdeteksi
-            elif program_dari_sesi:
+            # program_kode (kategori yang DISIMPAN) tetap boleh memakai dugaan
+            # OCR sebagai pra-isian yang masuk akal buat admin di dashboard -
+            # yang berubah cuma STATUSNYA (selalu "pending" tanpa program_dari_sesi),
+            # bukan tebakan kategorinya.
+            if program_dari_sesi:
                 program_kode = target_prog_session
+            elif program_dari_ekstraksi:
+                program_kode = program_terdeteksi
             else:
                 program_kode = "INF-RUTIN"
 
@@ -1253,11 +1258,17 @@ async def waha_webhook(request: Request):
 
                 if not program_diketahui:
                     try:
+                        nama_kategori_dugaan = PETA_NAMA.get(program_kode, program_kode)
+                        keterangan_dugaan = (
+                            f"terbaca *{nama_kategori_dugaan}* dari catatan di struk resinya"
+                            if program_dari_ekstraksi
+                            else "tidak ada keterangan apapun (sistem sementara menduga Infak Rutin)"
+                        )
                         notify_admin(
-                            f"📄 [RESI TANPA KETERANGAN PROGRAM] {nama} ({nomor_hp_real}) mengirim bukti transfer "
-                            f"Rp {int(nominal):,} tanpa pernah menyebut peruntukannya. Sistem sementara mencatatnya "
-                            f"sebagai Infak Rutin (dugaan) berstatus *Menunggu* - mohon cek foto resinya di Admin "
-                            f"Dashboard > Data Transaksi dan tentukan jenis zakat/programnya yang sebenarnya.",
+                            f"📄 [RESI PERLU DIVALIDASI] {nama} ({nomor_hp_real}) mengirim bukti transfer "
+                            f"Rp {int(nominal):,} tanpa pernah menyebut peruntukannya lewat chat - {keterangan_dugaan}. "
+                            f"Berstatus *Menunggu* - mohon cek foto resinya di Admin Dashboard > Data Transaksi "
+                            f"dan konfirmasi/koreksi jenis zakat/programnya sebelum divalidasi.",
                             nama_sesi,
                         )
                     except Exception as e:
