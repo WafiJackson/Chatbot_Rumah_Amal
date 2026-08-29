@@ -45,7 +45,15 @@ services:
       - WHATSAPP_HOOK_URL=http://api-bot:8000/webhook?secret=${WEBHOOK_SECRET:?WEBHOOK_SECRET wajib diisi di .env}
       - WHATSAPP_HOOK_EVENTS=message
     volumes:
-      - waha_sessions:/tmp/waha-sessions
+      # Path WAJIB "/app/.sessions" - itu lokasi ASLI WAHA menyimpan data
+      # sesi/kredensial WhatsApp (dikonfirmasi dari dokumentasi resmi:
+      # https://waha.devlike.pro/docs/how-to/storages/). Sebelumnya salah
+      # ditulis "/tmp/waha-sessions" - volume-nya "ada" tapi menunjuk ke
+      # folder yang TIDAK PERNAH benar-benar dipakai WAHA, jadi sesi WA
+      # tetap hilang tiap kali container di-recreate walau volume sudah
+      # di-mount (ditemukan 29 Agustus saat mengecek permintaan persistensi
+      # sesi WA agar tidak perlu scan QR ulang tiap restart/update).
+      - waha_sessions:/app/.sessions
     networks:
       - bot_network
 
