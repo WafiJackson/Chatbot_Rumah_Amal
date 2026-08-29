@@ -260,3 +260,82 @@ def test_resi_setelah_pilih_program_di_chat_tetap_validated(nomor_baru, kirim_pe
     assert baris["status_verifikasi"] == "validated"
     assert baris["kode_program"] == "INF-RUTIN"
     assert "Infak Rutin" in balasan
+
+
+# =========================================================================
+# BUG (ditemukan 29 Agustus saat menyelidiki resi yang tetap tervalidasi):
+# jalur "FORMULIR INFAK RUTIN" (bot_webhook.py FAST-PATH 5) memanggil
+# simpan_transaksi_final() TANPA status_verifikasi sama sekali, diam-diam
+# memakai default lama "validated" - satu pesan dingin berisi kata kunci
+# "FORMULIR INFAK RUTIN" + nama + nominal langsung tervalidasi tanpa
+# pernah melalui menu pilih program. Diperbaiki jadi selalu "pending",
+# dan status_verifikasi di simpan_transaksi_final() dijadikan wajib diisi
+# (tanpa default) supaya kelas bug ini tidak terulang di pemanggil baru.
+# =========================================================================
+def test_formulir_infak_dingin_tetap_pending(nomor_baru, kirim_pesan, baca_transaksi_terakhir):
+    nomor = nomor_baru()
+    resp, balasan, semua = kirim_pesan(nomor, "FORMULIR INFAK RUTIN\nNama: Budi\nInstansi/Pekerjaan: Dosen\nNominal Komitmen: 25000")
+
+    baris = baca_transaksi_terakhir("0" + nomor[2:])
+    if baris is not None:  # hanya lanjut cek kalau ekstraksi nama/nominal berhasil
+        assert baris["status_verifikasi"] == "pending"
+        assert any("FORMULIR PERLU DIVALIDASI" in teks for _, teks in semua)
+
+
+# =========================================================================
+# BUG (ditemukan 29 Agustus): reset_status() tidak pernah membersihkan
+# target_program lama - transaksi yang SUDAH SELESAI (mis. "Zakat Mal")
+# nyangkut di sesi selamanya dan "bocor" ke resi BARU yang sama sekali
+# tidak berhubungan, membuatnya salah dianggap program_dari_sesi=True dan
+# lolos auto-validated dengan kategori basi.
+# =========================================================================
+def test_reset_status_membersihkan_target_program_lama(nomor_baru, kirim_pesan, mock_ocr_resi, baca_transaksi_terakhir):
+    nomor = nomor_baru()
+
+    # Sesi 1: pilih Zakat Mal eksplisit lewat chat, selesaikan transaksinya
+    kirim_pesan(nomor, "saya mau donasi")
+    kirim_pesan(nomor, "zakat mal")
+    mock_ocr_resi(nama="Yafi", nominal="500000", program="UMUM")
+    kirim_pesan(nomor, has_media=True)
+
+    from services import state_manager
+    sesi = state_manager.get_session("0" + nomor[2:])
+    assert sesi["target_program"] is None, "target_program lama harus bersih setelah transaksi selesai"
+
+    # Sesi 2: BARU, TANPA chat sama sekali - resi dingin yang tidak berhubungan
+    mock_ocr_resi(nama="Yafi", nominal="84000", program="UMUM")
+    resp, balasan, _ = kirim_pesan(nomor, has_media=True)
+
+    baris = baca_transaksi_terakhir("0" + nomor[2:])
+    assert baris["status_verifikasi"] == "pending"  # BUKAN ikut "validated" warisan sesi lama
+    assert baris["kode_program"] != "ZKT-MAL"  # tidak boleh mewarisi kategori basi
+
+
+# =========================================================================
+# BUG (ditemukan 29 Agustus): pesan yang kena rate limit (>20/menit) lenyap
+# TANPA JEJAK sama sekali - tidak dicatat ke Log Bot, tidak ada balasan
+# apapun ke user. Diperbaiki: tetap dicatat, dan user diberi tahu jujur
+# untuk kirim ulang nanti (bukan dijanjikan otomatis dibalas - server
+# 1-worker tidak bisa "menunggu" tanpa membekukan semua user lain).
+# =========================================================================
+def test_pesan_kena_rate_limit_tetap_tercatat_dan_diberi_tahu(nomor_baru, kirim_pesan):
+    from services import state_manager
+    nomor = nomor_baru()
+
+    # "halo" sengaja dipakai (bukan teks bebas) - dijawab lewat fast-path
+    # sapaan langsung tanpa panggilan Gemini, supaya test ini tetap cepat
+    # dan deterministik (tidak tergantung kuota/jaringan API sungguhan).
+    hasil = [kirim_pesan(nomor, "halo") for _ in range(22)]
+
+    # Pesan ke-21 (index 20, pertama kali melampaui batas) HARUS dapat
+    # peringatan "mohon tunggu". Pesan ke-22 (index 21) TIDAK - jendela
+    # cooldown 20 detik sengaja mencegah spam balasan berulang.
+    resp_21, balasan_21, _ = hasil[20]
+    resp_22, balasan_22, _ = hasil[21]
+    assert resp_21["status"] == "rate_limit_exceeded"
+    assert "tunggu" in balasan_21.lower()
+    assert resp_22["status"] == "rate_limit_exceeded"
+    assert balasan_22 == ""  # cooldown - tidak dobel peringatan
+
+    baris = state_manager.ambil_pesan_kontak("whatsapp", "0" + nomor[2:], limit=50)
+    assert len(baris) == 22, "pesan yang kena rate limit harus tetap tercatat ke Log Bot"

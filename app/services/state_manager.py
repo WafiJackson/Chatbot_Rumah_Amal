@@ -170,8 +170,33 @@ def update_status(no_wa: str, status_baru: str, target_program: str | None = Non
 
 
 def reset_status(no_wa: str):
-    """Mereset status percakapan pengguna ke 'IDLE'."""
-    update_status(no_wa, "IDLE")
+    """Mereset status percakapan pengguna ke 'IDLE' DAN membersihkan
+    target_program - bukan cuma reset status seperti sebelumnya.
+
+    Bug yang diperbaiki (29 Agustus): update_status() TIDAK PERNAH
+    menghapus target_program kalau parameternya kosong (cuma UPDATE status
+    saja) - jadi target_program lama (mis. "ZKT-MAL" dari transaksi yang
+    SUDAH SELESAI) nyangkut selamanya di baris sesi_percakapan, dan
+    diam-diam "bocor" ke transaksi BARU yang tidak berhubungan sama sekali
+    di kemudian hari. Ini membuat program_dari_sesi di bot_webhook.py
+    salah menganggap "user baru saja memilih program ini" padahal itu cuma
+    sisa basi, membuat resi BARU (yang seharusnya "pending" sesuai
+    kebijakan bagian 24) malah ikut auto-validated memakai kategori lama
+    yang sudah tidak relevan."""
+    if not no_wa:
+        return
+    now_str = datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+    if is_supabase_configured():
+        try:
+            supabase_update_status(no_wa, "IDLE", None)
+        except Exception as e:
+            print(f"[Supabase Fallback to SQLite - reset_status] {e}")
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE sesi_percakapan SET status = ?, target_program = NULL, waktu_update = ? WHERE no_wa = ?",
+            ("IDLE", now_str, no_wa),
+        )
+        conn.commit()
 
 
 def get_session(no_wa: str) -> dict:
@@ -223,13 +248,23 @@ def simpan_transaksi_final(
     nominal: str | int,
     kode_program: str | None = None,
     pekerjaan: str | None = None,
-    status_verifikasi: str = "validated",
+    *,
+    status_verifikasi: str,
     sumber: str = "whatsapp",
     resi_bytes: bytes | None = None,
 ) -> int | None:
     """
     Menyimpan pendaftaran/transaksi ke tabel `transaksi_donasi`
     berdasarkan `kode_program` eksplisit atau `target_program` dari `sesi_percakapan`, lalu mereset status ke IDLE.
+
+    status_verifikasi SENGAJA dibuat wajib diisi (tanpa default) - dulu
+    default-nya diam-diam "validated", dan satu pemanggil (jalur "FORMULIR
+    INFAK RUTIN" di bot_webhook.py) lupa mengisinya, jadi transaksi lolos
+    tervalidasi otomatis tanpa admin sempat mengecek - ditemukan 29 Agustus
+    saat menyelidiki kenapa resi tanpa chat eksplisit tetap tervalidasi
+    (lihat CATATAN_KEKURANGAN_PROYEK.txt bagian 24 & 26). Memaksa setiap
+    pemanggil menyatakan pilihannya secara sadar mencegah kelas bug ini
+    terulang di pemanggil baru manapun di masa depan.
 
     status_verifikasi='pending' dipakai untuk resi yang diunggah lewat web
     (identitas pengunjung belum terverifikasi saat unggah) - baru dianggap
@@ -293,11 +328,6 @@ def simpan_transaksi_final(
     # web tidak punya sesi FSM jadi ini no-op aman untuknya juga.
     reset_status(no_wa)
     return transaksi_id
-
-
-def simpan_pendaftaran_one_shot(no_wa: str, nama: str, nominal: str, kode_program: str = "INF-RUTIN"):
-    """Alias kompatibilitas untuk menyimpan transaksi final."""
-    simpan_transaksi_final(no_wa, nama, nominal, kode_program=kode_program)
 
 
 def ambil_semua_transaksi(limit: int = 50) -> list[dict]:

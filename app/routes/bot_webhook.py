@@ -274,6 +274,7 @@ def notify_admin(pesan_peringatan: str, session_name: str = "default"):
 
 
 USER_RATE_LIMIT = {}  # {nomor_wa: [timestamps]}
+_LAST_RATE_LIMIT_WARNING: dict[str, float] = {}  # cegah spam balasan "mohon tunggu" kalau user terus melewati batas
 
 
 def _check_rate_limit(nomor_wa: str) -> bool:
@@ -390,6 +391,31 @@ async def waha_webhook(request: Request):
         # Rate Limiter Anti-Spam (Maksimal 20 pesan per menit per nomor WA)
         if not _check_rate_limit(nomor_wa):
             print(f"[Rate Limit Exceeded] Nomor {nomor_wa} melampaui batas 20 pesan/menit.")
+            # Sebelumnya pesan yang kena limit lenyap TANPA JEJAK sama sekali -
+            # tidak dicatat ke Log Bot, tidak ada balasan apapun ke user
+            # (ditemukan 29 Agustus - pesan asli user hilang dari Log Bot admin
+            # tanpa penjelasan). Sekarang tetap dicatat, dan user diberi tahu
+            # jujur untuk KIRIM ULANG nanti - server 1-worker tidak bisa
+            # "menunggu lalu otomatis membalas" tanpa membekukan semua user
+            # lain, jadi tidak dijanjikan balasan otomatis susulan.
+            try:
+                state_manager.catat_pesan(
+                    "whatsapp", state_manager.normalisasi_no_wa(nomor_wa), "user",
+                    (payload_waha.get("body") or "") or "📷 (kiriman gambar)",
+                )
+            except Exception as e:
+                print(f"[Warning Log Percakapan - Rate Limited] {e}")
+
+            import time
+            now_rl = time.time()
+            peringatan_terakhir = _LAST_RATE_LIMIT_WARNING.get(nomor_wa, 0)
+            if now_rl - peringatan_terakhir > 20:
+                _LAST_RATE_LIMIT_WARNING[nomor_wa] = now_rl
+                send_message_to_waha(
+                    chat_id_asli,
+                    "Mohon maaf, terlalu banyak pesan dalam waktu singkat 🙏 Mohon tunggu sekitar 1 menit, lalu kirim ulang pesan terakhir Anda ya.",
+                    nama_sesi,
+                )
             return {"status": "rate_limit_exceeded"}
         has_media = payload_waha.get("hasMedia", False) or bool(payload_waha.get("media")) or bool(payload_waha.get("mediaUrl"))
 
@@ -1309,11 +1335,28 @@ async def waha_webhook(request: Request):
 
             if nama and nominal:
                 nomor_hp_real, _ = _dapatkan_nomor_hp_asli(chat_id_asli, payload_waha, nama_sesi)
-                state_manager.simpan_transaksi_final(nomor_hp_real, nama, nominal, kode_program="INF-RUTIN")
+                # "pending" (BUKAN default "validated") - keputusan yang sama
+                # seperti resi via foto (bagian 24, CATATAN_KEKURANGAN_PROYEK.txt):
+                # kalimat "FORMULIR INFAK RUTIN" + nama + nominal dalam SATU
+                # pesan dingin (tanpa pernah melalui menu pilih program) bukan
+                # konfirmasi terverifikasi - admin yang menentukan lewat dashboard.
+                state_manager.simpan_transaksi_final(
+                    nomor_hp_real, nama, nominal, kode_program="INF-RUTIN", status_verifikasi="pending",
+                )
                 state_manager.reset_status(nomor_wa)
 
+                try:
+                    notify_admin(
+                        f"📄 [FORMULIR PERLU DIVALIDASI] {nama} ({nomor_hp_real}) mengisi formulir Infak Rutin "
+                        f"(Rp{nominal}) lewat chat tanpa melalui menu pilih program. Berstatus *Menunggu* - "
+                        f"mohon cek di Admin Dashboard > Data Transaksi sebelum divalidasi.",
+                        nama_sesi,
+                    )
+                except Exception as e:
+                    print(f"[Warning Notify Admin Formulir] {e}")
+
                 sapaan_donatur = deteksi_sapaan_gender(nama)
-                balasan = f"MasyaAllah, pencatatan atas nama {_sapaan_dengan_nama(sapaan_donatur, nama)} untuk nominal Rp{nominal} berhasil dicatat! Semoga berkah."
+                balasan = f"MasyaAllah, atas nama {_sapaan_dengan_nama(sapaan_donatur, nama)} untuk nominal Rp{nominal} sudah kami terima dan akan segera diperiksa admin. Semoga berkah."
                 user_sessions[nomor_wa] = session_data
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "one_shot_ner_infak"}
