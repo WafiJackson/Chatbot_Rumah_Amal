@@ -16,7 +16,7 @@ services:
     environment:
       - WAHA_ENDPOINT=http://waha-gateway:3000
       - WAHA_API_KEY=${WAHA_API_KEY:?WAHA_API_KEY wajib diisi di .env}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET wajib diisi di .env - generate dengan: python -c "import secrets; print(secrets.token_urlsafe(32))"}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET wajib diisi di .env}
       - DB_PATH=/code/app_db/donatur.db
     extra_hosts:
       - "host.docker.internal:host-gateway"
