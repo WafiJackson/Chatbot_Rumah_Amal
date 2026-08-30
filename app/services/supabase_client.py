@@ -45,13 +45,20 @@ def update_status(no_wa: str, status_baru: str, target_program: str | None = Non
     if not supabase_client:
         return
     now_str = datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+    # target_program SELALU disertakan (walau None) - upsert Supabase cuma
+    # menyentuh kolom yang ADA di payload, jadi kalau kolomnya dihilangkan
+    # saat target_program kosong (perilaku lama), nilai LAMA di Supabase
+    # tidak pernah ter-reset dan "bocor" ke sesi/transaksi baru yang sama
+    # sekali tidak berhubungan - bug yang sama seperti reset_status() di
+    # state_manager.py (SQLite), ditemukan 30 Agustus saat menyelidiki
+    # kenapa resi dingin tetap mewarisi kategori dari transaksi lama
+    # padahal sisi SQLite-nya sudah diperbaiki.
     payload = {
         "no_wa": no_wa,
         "status": status_baru,
-        "waktu_update": now_str
+        "target_program": target_program,
+        "waktu_update": now_str,
     }
-    if target_program:
-        payload["target_program"] = target_program
 
     res = supabase_client.table("sesi_percakapan").upsert(payload, on_conflict="no_wa").execute()
     if hasattr(res, "error") and res.error:

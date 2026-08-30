@@ -1132,7 +1132,16 @@ async def waha_webhook(request: Request):
         # =====================================================================
         # FAST-PATH 3: STATE PILIH_PROGRAM (MEMILIH MENU DONASI 1-4 ATAU TEKS)
         # =====================================================================
-        if status_fsm == "PILIH_PROGRAM":
+        # "and not has_media" WAJIB ADA - kalau tidak, resi/foto yang dikirim
+        # SAAT status sedang menunggu pilihan menu (mis. gara-gara sebelumnya
+        # tidak sengaja masuk PILIH_PROGRAM) ikut ditangkap logika pencocokan
+        # menu 1-4 di bawah ini (yang cuma cek teks), gagal cocok karena foto
+        # tidak ada teksnya, dan berakhir cuma dibalas "belum menangkap
+        # pilihannya" - RESI-NYA SENDIRI TIDAK PERNAH SAMPAI ke logika baca
+        # resi/simpan transaksi di FAST-PATH 4, hilang tanpa jejak (ditemukan
+        # 30 Agustus). Dengan guard ini, media SELALU diteruskan ke FAST-PATH
+        # 4 yang memang dirancang menangani resi apa pun status FSM-nya.
+        if status_fsm == "PILIH_PROGRAM" and not has_media:
             PETA_PILIHAN = {
                 "1": ("ZKT-MAL", "Zakat Mal"),
                 "zakat mal": ("ZKT-MAL", "Zakat Mal"),
@@ -1370,7 +1379,12 @@ async def waha_webhook(request: Request):
         # =====================================================================
         # FAST-PATH: STATE MENUNGGU_ADMIN (PENANGANAN KONFIRMASI 'YA' / 'BATAL')
         # =====================================================================
-        if status_fsm == "MENUNGGU_ADMIN":
+        # "and not has_media" - pola bug yang sama seperti PILIH_PROGRAM di atas
+        # (ditemukan 30 Agustus): tanpa ini, resi yang dikirim saat status
+        # sedang menunggu jawaban Ya/Tidak akan hilang tanpa jejak (cuma
+        # dibalas "mohon balasi dengan Ya/Batal"), bukan diteruskan ke
+        # FAST-PATH 4 yang memang menangani resi apa pun status FSM-nya.
+        if status_fsm == "MENUNGGU_ADMIN" and not has_media:
             pesan_normal = (pesan or "").strip().lower()
             # Catatan: "ya"/"ok" TIDAK BOLEH substring polos - lihat penjelasan
             # di blok konfirmasi handoff admin lainnya di atas ("saYA", "-nYA",

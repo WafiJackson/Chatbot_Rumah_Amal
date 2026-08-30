@@ -339,3 +339,36 @@ def test_pesan_kena_rate_limit_tetap_tercatat_dan_diberi_tahu(nomor_baru, kirim_
 
     baris = state_manager.ambil_pesan_kontak("whatsapp", "0" + nomor[2:], limit=50)
     assert len(baris) == 22, "pesan yang kena rate limit harus tetap tercatat ke Log Bot"
+
+
+# =========================================================================
+# BUG (ditemukan 30 Agustus di WA asli): resi yang dikirim SAAT status FSM
+# sedang menunggu pilihan menu (PILIH_PROGRAM) ditangkap oleh logika
+# pencocokan menu (yang cuma cek teks), gagal cocok karena foto tidak ada
+# teksnya, dan berakhir cuma dibalas "belum menangkap pilihannya" - resi-
+# nya sendiri TIDAK PERNAH sampai ke logika baca resi/simpan transaksi,
+# hilang tanpa jejak sama sekali (tidak ada baris transaksi tersimpan).
+# Kejadian nyata: user tidak sengaja memicu PILIH_PROGRAM (pesan berisi
+# kata "donasi" tanpa maksud), lalu kirim resi - resi itu lenyap total.
+# =========================================================================
+def test_resi_saat_pilih_program_tidak_hilang(nomor_baru, kirim_pesan, mock_ocr_resi, baca_transaksi_terakhir):
+    nomor = nomor_baru()
+    kirim_pesan(nomor, "saya mau donasi")  # masuk PILIH_PROGRAM
+    mock_ocr_resi(nama="Budi", nominal="50000", program="UMUM")
+    resp, balasan, _ = kirim_pesan(nomor, has_media=True)  # resi dikirim SAAT masih PILIH_PROGRAM
+
+    assert resp["intent"] == "konfirmasi_sukses"  # bukan "pilih_program_reprompt"
+    baris = baca_transaksi_terakhir("0" + nomor[2:])
+    assert baris is not None, "resi yang dikirim saat PILIH_PROGRAM tidak boleh hilang tanpa tersimpan"
+    assert baris["status_verifikasi"] == "pending"
+
+
+def test_resi_saat_menunggu_admin_tidak_hilang(nomor_baru, kirim_pesan, mock_ocr_resi, baca_transaksi_terakhir):
+    nomor = nomor_baru()
+    kirim_pesan(nomor, "hubungi admin")  # masuk MENUNGGU_ADMIN
+    mock_ocr_resi(nama="Budi", nominal="50000", program="UMUM")
+    resp, balasan, _ = kirim_pesan(nomor, has_media=True)
+
+    assert resp["intent"] == "konfirmasi_sukses"
+    baris = baca_transaksi_terakhir("0" + nomor[2:])
+    assert baris is not None, "resi yang dikirim saat MENUNGGU_ADMIN tidak boleh hilang tanpa tersimpan"
