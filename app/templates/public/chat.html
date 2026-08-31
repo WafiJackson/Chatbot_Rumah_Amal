@@ -2,7 +2,18 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- interactive-widget=resizes-content (Chrome Android 108+) - tanpa ini,
+         Chrome Android SECARA DEFAULT TIDAK menyusutkan layout viewport (dan
+         "100dvh") sama sekali saat keyboard on-screen terbuka - keyboard
+         cuma menimpa/menutupi bagian bawah layar yang tetap dianggap "penuh"
+         oleh CSS. Kombinasinya dengan body overflow-hidden (disengaja untuk
+         layout satu-layar) membuat browser kadang gagal/batal membuka
+         keyboard sama sekali karena tidak ada ruang yang bisa disusutkan
+         untuk menampilkannya. Dengan directive ini, 100dvh ikut menyusut
+         sungguhan saat keyboard terbuka, sesuai perilaku yang sudah
+         diasumsikan desain layout ini sejak awal (area ketik pesan
+         "shrink-0" di bagian paling bawah). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
     <title>Mimin AI &middot; Rumah Amal Masjid Jamik USK</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +42,11 @@
            sama sekali. 100dvh mengikuti tinggi viewport yang SUNGGUHAN
            terlihat saat itu juga - browser lama yang belum kenal satuan ini
            otomatis abaikan baris ini dan tetap pakai 100vh di atasnya.*/
-        .app-shell-height { height: 100vh; height: 100dvh; }
+        /* --app-vh (diset via JS lewat visualViewport API, lihat chat.js)
+           jadi prioritas utama untuk browser yang belum ikut menyusutkan
+           100dvh saat keyboard on-screen terbuka (mis. Samsung Internet) -
+           kalau JS/API itu tidak tersedia, otomatis jatuh ke 100dvh biasa. */
+        .app-shell-height { height: 100vh; height: 100dvh; height: var(--app-vh, 100dvh); }
         @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         .msg-enter { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         ::-webkit-scrollbar { width: 6px; }

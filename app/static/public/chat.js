@@ -13,6 +13,23 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // Fallback tambahan untuk browser yang belum kenal meta
+    // "interactive-widget=resizes-content" (mis. Samsung Internet, Chrome
+    // Android versi lama) - visualViewport API sudah didukung jauh lebih
+    // luas dan tetap melaporkan tinggi layar yang SUNGGUHAN terlihat saat
+    // keyboard on-screen terbuka, walau layout viewport (dan CSS dvh) itu
+    // sendiri tidak ikut menyusut di browser tsb. --app-vh dipakai sebagai
+    // prioritas utama lewat CSS var(--app-vh, 100dvh) - kalau API ini tidak
+    // didukung sama sekali, otomatis jatuh ke 100dvh seperti sebelumnya.
+    function syncVisualViewportHeight() {
+        if (!window.visualViewport) return;
+        document.documentElement.style.setProperty("--app-vh", window.visualViewport.height + "px");
+    }
+    if (window.visualViewport) {
+        syncVisualViewportHeight();
+        window.visualViewport.addEventListener("resize", syncVisualViewportHeight);
+    }
+
     function nowTime() {
         var d = new Date();
         return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
