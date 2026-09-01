@@ -41,21 +41,41 @@
         return div.innerHTML;
     }
 
+    // Avatar bot Mimin (badan bulat + peci), warnanya ikut tema lewat CSS
+    // custom property --bot-body/--bot-body-stroke/--bot-face (lihat chat.html)
+    // supaya markup yang sama otomatis benar di mode terang maupun gelap.
+    function botAvatarSvg() {
+        return (
+            '<svg viewBox="0 0 36 36" class="bot-avatar mt-1">' +
+            '<path d="M11 9 Q11 2 18 2 Q25 2 25 9 Z" fill="#1A1A1A"/>' +
+            '<rect x="10.5" y="7.8" width="15" height="1.4" rx="0.7" fill="#000" opacity="0.35"/>' +
+            '<ellipse cx="15" cy="4.5" rx="2.3" ry="1" fill="#3D3D3D" opacity="0.7"/>' +
+            '<rect x="5" y="9" width="26" height="22" rx="8" fill="var(--bot-body)" stroke="var(--bot-body-stroke)" stroke-width="1"/>' +
+            '<rect x="9" y="13" width="18" height="10" rx="4" fill="var(--bot-face)"/>' +
+            '<g class="bot-eyes">' +
+            '<circle cx="14" cy="18" r="2" fill="#fff"/>' +
+            '<circle cx="22" cy="18" r="2" fill="#fff"/>' +
+            '<circle cx="14.6" cy="17.3" r="0.6" fill="#F6C445"/>' +
+            '<circle cx="22.6" cy="17.3" r="0.6" fill="#F6C445"/>' +
+            "</g></svg>"
+        );
+    }
+
     function addMessage(sender, text) {
         var row = document.createElement("div");
         var isUser = sender === "user";
         row.className = "flex gap-3 max-w-[85%] msg-enter" + (isUser ? " self-end flex-row-reverse" : "");
 
-        var avatarClass = isUser
-            ? "w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center text-[13px] font-bold shrink-0 mt-1"
-            : "w-8 h-8 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 text-white flex items-center justify-center text-[13px] shrink-0 mt-1 shadow-sm font-bold";
+        var avatarHtml = isUser
+            ? '<div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-amal-800 border border-slate-200 dark:border-amal-700 text-slate-500 dark:text-amal-300 flex items-center justify-center text-[13px] font-bold shrink-0 mt-1">K</div>'
+            : botAvatarSvg();
         var bubbleClass = isUser
             ? "px-4 py-3 rounded-2xl rounded-tr-sm bg-gradient-to-tr from-amal-700 to-amal-600 text-white text-[14px] leading-relaxed whitespace-pre-wrap shadow-sm"
-            : "px-4 py-3 rounded-2xl rounded-tl-sm bg-white border border-amal-100 shadow-sm text-slate-700 text-[14px] leading-relaxed whitespace-pre-wrap";
-        var timeClass = "text-[11px] text-slate-400 mt-1.5" + (isUser ? " text-right mr-1" : " ml-1");
+            : "px-4 py-3 rounded-2xl rounded-tl-sm bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 shadow-sm text-slate-700 dark:text-amal-50 text-[14px] leading-relaxed whitespace-pre-wrap";
+        var timeClass = "text-[11px] text-slate-400 dark:text-amal-500 mt-1.5" + (isUser ? " text-right mr-1" : " ml-1");
 
         row.innerHTML =
-            '<div class="' + avatarClass + '">' + (isUser ? "K" : "M") + "</div>" +
+            avatarHtml +
             '<div><div class="' + bubbleClass + '">' + escapeHtml(text) + "</div>" +
             '<div class="' + timeClass + '">' + nowTime() + "</div></div>";
         messagesEl.appendChild(row);
@@ -67,8 +87,8 @@
         row.className = "flex gap-3 max-w-[85%] msg-enter";
         row.id = "typing-row";
         row.innerHTML =
-            '<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 text-white flex items-center justify-center text-[13px] font-bold shrink-0 mt-1 shadow-sm">M</div>' +
-            '<div class="flex gap-1 px-4 py-3.5 bg-white border border-amal-100 rounded-2xl rounded-tl-sm shadow-sm">' +
+            botAvatarSvg() +
+            '<div class="flex gap-1 px-4 py-3.5 bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl rounded-tl-sm shadow-sm">' +
             '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:0ms"></span>' +
             '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:150ms"></span>' +
             '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:300ms"></span>' +
@@ -194,6 +214,12 @@
         chip.classList.add("hidden");
         chip.classList.remove("flex");
         document.getElementById("file-input").value = "";
+    }
+
+    // ---------- Toggle tema terang/gelap ----------
+    function toggleTheme() {
+        var isDark = document.documentElement.classList.toggle("dark");
+        localStorage.setItem("ra_theme", isDark ? "dark" : "light");
     }
 
     // ---------- Mobile sidebar drawer ----------
@@ -461,6 +487,7 @@
     window.clearResi = clearResi;
     window.openSidebar = openSidebar;
     window.closeSidebar = closeSidebar;
+    window.toggleTheme = toggleTheme;
     window.closeOtpModal = closeOtpModal;
     window.submitPhone = submitPhone;
     window.submitOtp = submitOtp;

@@ -21,6 +21,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -30,6 +31,16 @@
                 }
             }
         }
+    </script>
+    <script>
+        // Terapkan tema tersimpan SEBELUM body dirender, supaya tidak ada
+        // kedipan (flash) tema terang lalu berubah ke gelap. Default ikut
+        // preferensi sistem kalau pengguna belum pernah memilih manual.
+        (function () {
+            var saved = localStorage.getItem("ra_theme");
+            var dark = saved ? saved === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+            if (dark) document.documentElement.classList.add("dark");
+        })();
     </script>
     <style>
         body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
@@ -54,14 +65,26 @@
         ::-webkit-scrollbar-thumb { background: #B9DFC4; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #8CC79E; }
         .otp-digit::-webkit-outer-spin-button, .otp-digit::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* Avatar bot Mimin: badan bulat + peci (bukan ikon generik) - warnanya
+           lewat custom property supaya SATU markup SVG (dipakai statis di HTML
+           ini dan digenerate ulang oleh chat.js) otomatis ikut tema gelap/terang
+           tanpa perlu dua versi SVG terpisah. */
+        :root { --bot-body: #155C36; --bot-body-stroke: #0F452A; --bot-face: #0A301D; }
+        .dark { --bot-body: #1F7A46; --bot-body-stroke: #2F8C52; --bot-face: #051B10; }
+        @keyframes botFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        .bot-avatar { width: 32px; height: 32px; flex-shrink: 0; animation: botFloat 3s ease-in-out infinite; }
+        @keyframes botBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+        .bot-eyes { transform-origin: center; animation: botBlink 3.6s infinite; }
+        @media (prefers-reduced-motion: reduce) { .bot-avatar, .bot-eyes { animation: none; } }
     </style>
 </head>
-<body class="app-shell-height bg-gradient-to-br from-amal-50 via-white to-gold-50/60 text-slate-800 antialiased overflow-hidden flex items-center justify-center p-0 md:p-6">
+<body class="app-shell-height bg-gradient-to-br from-amal-50 via-white to-gold-50/60 dark:from-amal-950 dark:via-amal-900 dark:to-amal-950 text-slate-800 dark:text-amal-50 antialiased overflow-hidden flex items-center justify-center p-0 md:p-6">
 
-    <div class="w-full max-w-6xl h-full md:h-[90vh] bg-white md:border border-amal-100 md:shadow-2xl md:shadow-amal-900/10 md:rounded-3xl flex flex-col md:flex-row overflow-hidden">
+    <div class="w-full max-w-6xl h-full md:h-[90vh] bg-white dark:bg-amal-900 md:border border-amal-100 dark:border-amal-800 md:shadow-2xl md:shadow-amal-900/10 md:rounded-3xl flex flex-col md:flex-row overflow-hidden">
 
         <!-- LEFT: BRAND / EDUCATION PANEL -->
-        <aside id="sidebar" class="fixed md:static inset-0 z-40 w-full md:w-[380px] bg-white border-b md:border-b-0 md:border-r border-amal-100 overflow-y-auto shrink-0 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
+        <aside id="sidebar" class="fixed md:static inset-0 z-40 w-full md:w-[380px] bg-white dark:bg-amal-900 border-b md:border-b-0 md:border-r border-amal-100 dark:border-amal-800 overflow-y-auto shrink-0 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
 
             <div class="relative p-8 pb-9 bg-gradient-to-br from-amal-800 via-amal-700 to-amal-600 overflow-hidden shrink-0">
                 <div class="absolute -top-12 -right-10 w-40 h-40 rounded-full bg-white/5"></div>
@@ -82,7 +105,7 @@
             </div>
 
             <div class="p-6 flex flex-col flex-1">
-                <p class="text-[11px] font-bold uppercase tracking-widest text-amal-600 mb-3 ml-1">Pintasan Cepat</p>
+                <p class="text-[11px] font-bold uppercase tracking-widest text-amal-600 dark:text-amal-300 mb-3 ml-1">Pintasan Cepat</p>
                 <div class="flex flex-col gap-2.5 mb-5">
                     <button type="button" onclick="quickPrompt('Bagaimana cara berdonasi zakat?')"
                             class="group flex items-center gap-3.5 text-left bg-gradient-to-r from-amal-700 to-amal-600 hover:from-amal-800 hover:to-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] shadow-md shadow-amal-700/25 transition-all duration-300 transform hover:-translate-y-0.5">
@@ -92,90 +115,106 @@
                         <span class="text-white font-bold">Cara Berdonasi Zakat</span>
                     </button>
                     <button type="button" onclick="quickPrompt('Program apa saja yang tersedia di Rumah Amal?')"
-                            class="group flex items-center gap-3.5 text-left bg-white border border-amal-100 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 transition-all duration-300 transform hover:-translate-y-0.5">
-                        <span class="w-8 h-8 rounded-full bg-amal-50 flex items-center justify-center text-amal-700 group-hover:bg-amal-600 group-hover:text-white transition-colors shrink-0">
+                            class="group flex items-center gap-3.5 text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 dark:hover:border-amal-500 transition-all duration-300 transform hover:-translate-y-0.5">
+                        <span class="w-8 h-8 rounded-full bg-amal-50 dark:bg-amal-900 flex items-center justify-center text-amal-700 dark:text-amal-300 group-hover:bg-amal-600 group-hover:text-white transition-colors shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                         </span>
-                        <span class="text-slate-700 group-hover:text-amal-700">Lihat Program Donasi</span>
+                        <span class="text-slate-700 dark:text-amal-100 group-hover:text-amal-700 dark:group-hover:text-white">Lihat Program Donasi</span>
                     </button>
                     <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
-                            class="group flex items-center gap-3.5 text-left bg-white border border-amal-100 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 transition-all duration-300 transform hover:-translate-y-0.5">
-                        <span class="w-8 h-8 rounded-full bg-gold-50 flex items-center justify-center text-gold-600 group-hover:bg-gold-400 group-hover:text-amal-900 transition-colors shrink-0">
+                            class="group flex items-center gap-3.5 text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 dark:hover:border-amal-500 transition-all duration-300 transform hover:-translate-y-0.5">
+                        <span class="w-8 h-8 rounded-full bg-gold-50 dark:bg-amal-900 flex items-center justify-center text-gold-600 dark:text-gold-400 group-hover:bg-gold-400 group-hover:text-amal-900 transition-colors shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
                         </span>
-                        <span class="text-slate-700 group-hover:text-amal-700">Cek Riwayat Transaksi</span>
+                        <span class="text-slate-700 dark:text-amal-100 group-hover:text-amal-700 dark:group-hover:text-white">Cek Riwayat Transaksi</span>
                     </button>
                 </div>
 
                 <div class="mb-6">
                     <div class="flex items-center gap-2 px-1 mb-2">
-                        <svg class="w-3.5 h-3.5 text-amal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                        <span class="text-[11px] font-bold uppercase tracking-widest text-amal-600">Konsultasi Zakat</span>
+                        <svg class="w-3.5 h-3.5 text-amal-500 dark:text-amal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        <span class="text-[11px] font-bold uppercase tracking-widest text-amal-600 dark:text-amal-300">Konsultasi Zakat</span>
                     </div>
-                    <div class="flex flex-col gap-2 pl-2 border-l-2 border-amal-100">
+                    <div class="flex flex-col gap-2 pl-2 border-l-2 border-amal-100 dark:border-amal-700">
                         <button type="button" onclick="openExternalLink('https://rumahamal.usk.ac.id/donasi-zakat', 'Kalkulator Zakat')"
-                                class="flex items-center justify-between text-left bg-white border border-amal-100 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-amal-300 hover:text-amal-700 transition-all">
+                                class="flex items-center justify-between text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 dark:text-amal-100 shadow-sm hover:border-amal-300 dark:hover:border-amal-500 hover:text-amal-700 dark:hover:text-gold-400 transition-all">
                             <span>Kalkulator Zakat</span>
-                            <span class="text-[10px] text-slate-400 font-bold">&#8599; Website</span>
+                            <span class="text-[10px] text-slate-400 dark:text-amal-400 font-bold">&#8599; Website</span>
                         </button>
                         <button type="button" onclick="openGoogleSearch('harta yang wajib dizakati dalam islam')"
-                                class="flex items-center justify-between text-left bg-white border border-amal-100 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-amal-300 hover:text-amal-700 transition-all">
+                                class="flex items-center justify-between text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 dark:text-amal-100 shadow-sm hover:border-amal-300 dark:hover:border-amal-500 hover:text-amal-700 dark:hover:text-gold-400 transition-all">
                             <span>Harta yang Wajib Dizakati</span>
-                            <span class="text-[10px] text-slate-400 font-bold">&#8599; Google</span>
+                            <span class="text-[10px] text-slate-400 dark:text-amal-400 font-bold">&#8599; Google</span>
                         </button>
                         <button type="button" onclick="openGoogleSearch('syarat wajib zakat dalam islam')"
-                                class="flex items-center justify-between text-left bg-white border border-amal-100 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-amal-300 hover:text-amal-700 transition-all">
+                                class="flex items-center justify-between text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 dark:text-amal-100 shadow-sm hover:border-amal-300 dark:hover:border-amal-500 hover:text-amal-700 dark:hover:text-gold-400 transition-all">
                             <span>Syarat Wajib Zakat</span>
-                            <span class="text-[10px] text-slate-400 font-bold">&#8599; Google</span>
+                            <span class="text-[10px] text-slate-400 dark:text-amal-400 font-bold">&#8599; Google</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="mt-auto pt-6 border-t border-amal-100">
-                    <div class="flex gap-3 items-start p-4 bg-amal-50 rounded-2xl border border-amal-100">
-                        <svg class="w-[18px] h-[18px] text-amal-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"></path></svg>
-                        <span class="text-[12px] text-amal-900/70 leading-relaxed">Sistem dilengkapi verifikasi OTP untuk mengamankan data riwayat donasi Anda.</span>
+                <div class="mt-auto pt-6 border-t border-amal-100 dark:border-amal-800">
+                    <div class="flex gap-3 items-start p-4 bg-amal-50 dark:bg-amal-800 rounded-2xl border border-amal-100 dark:border-amal-700">
+                        <svg class="w-[18px] h-[18px] text-amal-600 dark:text-amal-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"></path></svg>
+                        <span class="text-[12px] text-amal-900/70 dark:text-amal-100/80 leading-relaxed">Sistem dilengkapi verifikasi OTP untuk mengamankan data riwayat donasi Anda.</span>
                     </div>
                 </div>
             </div>
         </aside>
 
         <!-- RIGHT: CHAT AREA -->
-        <section class="flex flex-col flex-1 min-w-0 bg-white">
-            <header class="flex items-center justify-between gap-3 px-7 py-5 bg-white border-b border-amal-100 shrink-0 shadow-sm z-10">
+        <section class="flex flex-col flex-1 min-w-0 bg-white dark:bg-amal-900">
+            <header class="flex items-center justify-between gap-3 px-7 py-5 bg-white dark:bg-amal-900 border-b border-amal-100 dark:border-amal-800 shrink-0 shadow-sm z-10">
                 <div class="flex items-center gap-3.5 min-w-0">
                     <div class="relative w-11 h-11 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 flex items-center justify-center shadow-md ring-2 ring-gold-300/40 shrink-0">
                         <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gold-400"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white shadow-sm"></span>
+                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white dark:border-amal-900 shadow-sm"></span>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-[15px] font-extrabold text-amal-900 truncate">Mimin AI &middot; Rumah Amal</div>
-                        <div class="text-[12px] font-medium text-amal-600 flex items-center gap-1.5">
+                        <div class="text-[15px] font-extrabold text-amal-900 dark:text-amal-50 truncate">Mimin AI &middot; Rumah Amal</div>
+                        <div class="text-[12px] font-medium text-amal-600 dark:text-amal-300 flex items-center gap-1.5">
                             <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Online & Siap Membantu
                         </div>
                     </div>
                 </div>
-                <div class="hidden md:flex items-center gap-1.5 bg-gold-50 border border-gold-200 text-gold-700 text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
+                <div class="hidden md:flex items-center gap-1.5 bg-gold-50 dark:bg-amal-800 border border-gold-200 dark:border-gold-700/40 text-gold-700 dark:text-gold-300 text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
                     &#11088; Lembaga Amil Zakat Terverifikasi
                 </div>
-                <button type="button" onclick="openSidebar()" class="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 hover:bg-amal-50 transition-colors shrink-0" aria-label="Buka menu">
+                <button type="button" onclick="toggleTheme()" class="w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 dark:text-gold-400 hover:bg-amal-50 dark:hover:bg-amal-800 transition-colors shrink-0" aria-label="Ubah tema terang/gelap">
+                    <svg class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"></path></svg>
+                    <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"></path></svg>
+                </button>
+                <button type="button" onclick="openSidebar()" class="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 dark:text-amal-300 hover:bg-amal-50 dark:hover:bg-amal-800 transition-colors shrink-0" aria-label="Buka menu">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                 </button>
             </header>
 
-            <div id="messages" class="flex-1 overflow-y-auto p-7 flex flex-col gap-5 scroll-smooth bg-gradient-to-b from-white to-amal-50/40">
+            <div id="messages" class="flex-1 overflow-y-auto p-7 flex flex-col gap-5 scroll-smooth bg-gradient-to-b from-white to-amal-50/40 dark:from-amal-900 dark:to-amal-950">
                 <div class="flex gap-3 max-w-[85%] msg-enter">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 text-white flex items-center justify-center text-[13px] shrink-0 mt-1 shadow-sm font-bold">M</div>
+                    <svg viewBox="0 0 36 36" class="bot-avatar mt-1">
+                        <path d="M11 9 Q11 2 18 2 Q25 2 25 9 Z" fill="#1A1A1A"/>
+                        <rect x="10.5" y="7.8" width="15" height="1.4" rx="0.7" fill="#000" opacity="0.35"/>
+                        <ellipse cx="15" cy="4.5" rx="2.3" ry="1" fill="#3D3D3D" opacity="0.7"/>
+                        <rect x="5" y="9" width="26" height="22" rx="8" fill="var(--bot-body)" stroke="var(--bot-body-stroke)" stroke-width="1"/>
+                        <rect x="9" y="13" width="18" height="10" rx="4" fill="var(--bot-face)"/>
+                        <g class="bot-eyes">
+                            <circle cx="14" cy="18" r="2" fill="#fff"/>
+                            <circle cx="22" cy="18" r="2" fill="#fff"/>
+                            <circle cx="14.6" cy="17.3" r="0.6" fill="#F6C445"/>
+                            <circle cx="22.6" cy="17.3" r="0.6" fill="#F6C445"/>
+                        </g>
+                    </svg>
                     <div>
-                        <div class="px-4 py-3 rounded-2xl rounded-tl-sm bg-white border border-amal-100 shadow-sm text-slate-700 text-[14px] leading-relaxed whitespace-pre-wrap">Assalamu'alaikum Warahmatullahi Wabarakatuh! 🙏
+                        <div class="px-4 py-3 rounded-2xl rounded-tl-sm bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 shadow-sm text-slate-700 dark:text-amal-50 text-[14px] leading-relaxed whitespace-pre-wrap">Assalamu'alaikum Warahmatullahi Wabarakatuh! 🙏
 Selamat datang di layanan cerdas Rumah Amal Masjid Jamik USK. Ada yang bisa Mimin bantu hari ini?</div>
-                        <div class="text-[11px] text-slate-400 mt-1.5 ml-1">Sekarang</div>
+                        <div class="text-[11px] text-slate-400 dark:text-amal-500 mt-1.5 ml-1">Sekarang</div>
                     </div>
                 </div>
             </div>
 
-            <div class="p-5 bg-white border-t border-amal-100 shrink-0">
-                <div id="resi-chip" class="hidden items-center gap-2 bg-gold-50 border border-gold-200 text-gold-700 rounded-xl px-3 py-2 text-[12px] font-semibold mb-3 w-fit shadow-sm msg-enter">
+            <div class="p-5 bg-white dark:bg-amal-900 border-t border-amal-100 dark:border-amal-800 shrink-0">
+                <div id="resi-chip" class="hidden items-center gap-2 bg-gold-50 dark:bg-amal-800 border border-gold-200 dark:border-gold-700/40 text-gold-700 dark:text-gold-300 rounded-xl px-3 py-2 text-[12px] font-semibold mb-3 w-fit shadow-sm msg-enter">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"></path></svg>
                     <span id="resi-name"></span>
                     <button type="button" onclick="clearResi()" class="ml-2 w-5 h-5 rounded-full bg-gold-200/50 hover:bg-gold-200 flex items-center justify-center transition-colors" aria-label="Batalkan">
@@ -183,13 +222,13 @@ Selamat datang di layanan cerdas Rumah Amal Masjid Jamik USK. Ada yang bisa Mimi
                     </button>
                 </div>
 
-                <div class="flex items-end gap-2 bg-white rounded-3xl p-1.5 shadow-[0_2px_15px_-3px_rgba(15,69,42,0.08),0_10px_20px_-2px_rgba(15,69,42,0.05)] border border-amal-100 focus-within:ring-2 focus-within:ring-gold-400/50 focus-within:border-gold-300 transition-all">
-                    <button type="button" onclick="triggerUpload()" title="Unggah bukti transfer" class="w-11 h-11 rounded-2xl flex items-center justify-center text-amal-400 hover:bg-amal-50 hover:text-amal-700 transition-colors shrink-0">
+                <div class="flex items-end gap-2 bg-white dark:bg-amal-800 rounded-3xl p-1.5 shadow-[0_2px_15px_-3px_rgba(15,69,42,0.08),0_10px_20px_-2px_rgba(15,69,42,0.05)] border border-amal-100 dark:border-amal-700 focus-within:ring-2 focus-within:ring-gold-400/50 focus-within:border-gold-300 transition-all">
+                    <button type="button" onclick="triggerUpload()" title="Unggah bukti transfer" class="w-11 h-11 rounded-2xl flex items-center justify-center text-amal-400 dark:text-amal-500 hover:bg-amal-50 dark:hover:bg-amal-900 hover:text-amal-700 dark:hover:text-gold-400 transition-colors shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
                     </button>
                     <input type="file" id="file-input" accept="image/*" class="hidden" onchange="onFileChosen(event)" />
                     <textarea id="chat-input" rows="1" placeholder="Ketik pesan Anda di sini..."
-                              class="flex-1 bg-transparent border-none resize-none text-[14px] py-3 px-2 text-slate-700 outline-none max-h-[120px] placeholder:text-slate-400"
+                              class="flex-1 bg-transparent border-none resize-none text-[14px] py-3 px-2 text-slate-700 dark:text-amal-50 outline-none max-h-[120px] placeholder:text-slate-400 dark:placeholder:text-amal-500"
                               onkeydown="handleKeydown(event)" oninput="autoExpand(this)"></textarea>
                     <button type="button" onclick="sendMessage()" title="Kirim pesan" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-amal-900 flex items-center justify-center shrink-0 shadow-md shadow-gold-500/30 transition-transform transform active:scale-95">
                         <svg class="w-5 h-5 ml-0.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z"></path></svg>
@@ -201,54 +240,54 @@ Selamat datang di layanan cerdas Rumah Amal Masjid Jamik USK. Ada yang bisa Mimi
 
     <!-- OTP MODAL -->
     <div id="otp-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm items-center justify-center p-6 z-50 opacity-0 transition-opacity duration-300">
-        <div class="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl transform scale-95 transition-transform duration-300 relative" id="otp-card">
-            <button type="button" onclick="closeOtpModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" aria-label="Tutup">
+        <div class="w-full max-w-sm bg-white dark:bg-amal-900 rounded-3xl p-8 shadow-2xl transform scale-95 transition-transform duration-300 relative" id="otp-card">
+            <button type="button" onclick="closeOtpModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 dark:text-amal-400 hover:bg-slate-100 dark:hover:bg-amal-800 hover:text-slate-600 dark:hover:text-amal-100 transition-colors" aria-label="Tutup">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
 
             <div id="otp-step-phone">
-                <div class="w-12 h-12 rounded-2xl bg-amal-50 text-amal-700 flex items-center justify-center mb-5 ring-4 ring-amal-50/50">
+                <div class="w-12 h-12 rounded-2xl bg-amal-50 dark:bg-amal-800 text-amal-700 dark:text-amal-300 flex items-center justify-center mb-5 ring-4 ring-amal-50/50 dark:ring-amal-800/50">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"></path></svg>
                 </div>
-                <h4 class="text-[18px] font-extrabold text-amal-900 mb-2">Verifikasi Keamanan</h4>
-                <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">Masukkan nomor WhatsApp Anda. Kami akan mengirimkan kode OTP untuk memvalidasi akses riwayat donasi.</p>
+                <h4 class="text-[18px] font-extrabold text-amal-900 dark:text-amal-50 mb-2">Verifikasi Keamanan</h4>
+                <p class="text-[13px] text-slate-500 dark:text-amal-300 mb-6 leading-relaxed">Masukkan nomor WhatsApp Anda. Kami akan mengirimkan kode OTP untuk memvalidasi akses riwayat donasi.</p>
 
-                <label class="text-[12px] font-bold text-slate-600 mb-1.5 block">Nomor WhatsApp</label>
-                <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 mb-2 focus-within:ring-2 focus-within:ring-amal-500/30 focus-within:border-amal-300 transition-all">
-                    <span class="text-[14px] font-bold text-slate-500">+62</span>
-                    <input id="otp-phone" type="tel" inputmode="numeric" placeholder="812xxxxxxx" class="flex-1 bg-transparent border-none outline-none text-[14px] text-slate-800 placeholder:text-slate-400" />
+                <label class="text-[12px] font-bold text-slate-600 dark:text-amal-200 mb-1.5 block">Nomor WhatsApp</label>
+                <div class="flex items-center gap-2 bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-2xl px-4 py-3 mb-2 focus-within:ring-2 focus-within:ring-amal-500/30 focus-within:border-amal-300 transition-all">
+                    <span class="text-[14px] font-bold text-slate-500 dark:text-amal-300">+62</span>
+                    <input id="otp-phone" type="tel" inputmode="numeric" placeholder="812xxxxxxx" class="flex-1 bg-transparent border-none outline-none text-[14px] text-slate-800 dark:text-amal-50 placeholder:text-slate-400 dark:placeholder:text-amal-500" />
                 </div>
-                <div id="otp-error-phone" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
+                <div id="otp-error-phone" class="hidden text-[12px] text-rose-600 dark:text-rose-400 font-medium mb-3"></div>
                 <button type="button" onclick="submitPhone()" id="btn-submit-phone" class="w-full py-3.5 rounded-2xl bg-gradient-to-tr from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-amal-900 font-extrabold text-[14px] shadow-md shadow-gold-500/30 transition-all active:scale-[0.98] mt-3 disabled:opacity-50">Kirim Kode OTP</button>
             </div>
 
             <div id="otp-step-code" class="hidden">
-                <div class="w-12 h-12 rounded-2xl bg-amal-50 text-amal-700 flex items-center justify-center mb-5 ring-4 ring-amal-50/50">
+                <div class="w-12 h-12 rounded-2xl bg-amal-50 dark:bg-amal-800 text-amal-700 dark:text-amal-300 flex items-center justify-center mb-5 ring-4 ring-amal-50/50 dark:ring-amal-800/50">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"></path></svg>
                 </div>
-                <h4 class="text-[18px] font-extrabold text-amal-900 mb-2">Masukkan Kode OTP</h4>
-                <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">Kode 6 digit telah dikirim ke <span id="otp-phone-display" class="font-semibold text-amal-700"></span> via WhatsApp.</p>
+                <h4 class="text-[18px] font-extrabold text-amal-900 dark:text-amal-50 mb-2">Masukkan Kode OTP</h4>
+                <p class="text-[13px] text-slate-500 dark:text-amal-300 mb-6 leading-relaxed">Kode 6 digit telah dikirim ke <span id="otp-phone-display" class="font-semibold text-amal-700 dark:text-gold-400"></span> via WhatsApp.</p>
 
                 <div class="flex justify-between gap-2 mb-3">
-                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
-                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
-                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
-                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
-                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
-                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 border border-slate-200 rounded-xl text-amal-900 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-xl text-amal-900 dark:text-amal-50 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-xl text-amal-900 dark:text-amal-50 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-xl text-amal-900 dark:text-amal-50 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-xl text-amal-900 dark:text-amal-50 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-xl text-amal-900 dark:text-amal-50 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
+                    <input maxlength="1" inputmode="numeric" class="otp-digit w-full aspect-square text-center text-[18px] font-bold bg-slate-50 dark:bg-amal-950 border border-slate-200 dark:border-amal-700 rounded-xl text-amal-900 dark:text-amal-50 outline-none focus:ring-2 focus:ring-amal-500/30 focus:border-amal-300 transition-all" />
                 </div>
-                <div id="otp-error-code" class="hidden text-[12px] text-rose-600 font-medium mb-3"></div>
+                <div id="otp-error-code" class="hidden text-[12px] text-rose-600 dark:text-rose-400 font-medium mb-3"></div>
 
                 <button type="button" onclick="submitOtp()" id="btn-submit-otp" class="w-full py-3.5 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[14px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98] mb-3 disabled:opacity-50">Verifikasi Kode</button>
-                <p class="text-center text-[12px] text-slate-500">Tidak menerima kode? <button type="button" onclick="resendOtp()" id="otp-resend" class="font-bold text-amal-700 hover:underline disabled:text-slate-400 disabled:no-underline">Kirim ulang (<span id="otp-timer">60</span>s)</button></p>
+                <p class="text-center text-[12px] text-slate-500 dark:text-amal-300">Tidak menerima kode? <button type="button" onclick="resendOtp()" id="otp-resend" class="font-bold text-amal-700 dark:text-gold-400 hover:underline disabled:text-slate-400 dark:disabled:text-amal-500 disabled:no-underline">Kirim ulang (<span id="otp-timer">60</span>s)</button></p>
             </div>
 
             <div id="otp-step-success" class="hidden text-center">
-                <div class="w-16 h-16 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-5 mx-auto ring-8 ring-green-50/50">
+                <div class="w-16 h-16 rounded-full bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center mb-5 mx-auto ring-8 ring-green-50/50 dark:ring-green-500/10">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"></path></svg>
                 </div>
-                <h4 class="text-[18px] font-extrabold text-amal-900 mb-2">Verifikasi Berhasil!</h4>
-                <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">Identitas Anda telah terverifikasi. Sekarang Mimin bisa menampilkan riwayat donasi Anda.</p>
+                <h4 class="text-[18px] font-extrabold text-amal-900 dark:text-amal-50 mb-2">Verifikasi Berhasil!</h4>
+                <p class="text-[13px] text-slate-500 dark:text-amal-300 mb-6 leading-relaxed">Identitas Anda telah terverifikasi. Sekarang Mimin bisa menampilkan riwayat donasi Anda.</p>
                 <button type="button" onclick="finishOtp()" class="w-full py-3.5 rounded-2xl bg-gradient-to-tr from-amal-700 to-amal-600 hover:from-amal-800 hover:to-amal-700 text-white font-extrabold text-[14px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Lihat Riwayat Transaksi</button>
             </div>
         </div>

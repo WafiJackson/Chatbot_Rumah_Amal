@@ -59,42 +59,50 @@
     </div>
 </div>
 
-<!-- MODAL: CEK RESI -->
-<div id="resi-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm items-center justify-center p-6 z-50 opacity-0 transition-opacity duration-300">
-    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl transform scale-95 transition-transform duration-300 relative" id="resi-card">
-        <button type="button" onclick="closeResiModal()" class="absolute top-5 right-5 z-10 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" aria-label="Tutup">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+<!-- BACKDROP (drawer resi) -->
+<div id="resi-backdrop" onclick="closeResiModal()" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 opacity-0 transition-opacity duration-300"></div>
+
+<!-- DRAWER: CEK RESI (panel samping, bukan modal tengah - lebih natural untuk
+     alur review satu-per-satu tanpa kehilangan konteks tabel di belakangnya) -->
+<aside id="resi-modal" class="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-out flex flex-col">
+    <div class="flex items-center justify-between gap-3 px-6 py-5 border-b border-amal-100 shrink-0">
+        <div class="min-w-0">
+            <h4 class="text-[16px] font-extrabold text-amal-900">Detail Transaksi</h4>
+            <p id="resi-id" class="text-[12.5px] font-mono text-slate-400 mt-0.5">TRX-000</p>
+        </div>
+        <button type="button" onclick="closeResiModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0" aria-label="Tutup">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
-        <div class="p-7">
-            <div class="w-12 h-12 rounded-2xl bg-amal-50 text-amal-700 flex items-center justify-center mb-5 ring-4 ring-amal-50/50">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
-            </div>
-            <h4 class="text-[18px] font-extrabold text-amal-900 mb-1">Detail Transaksi</h4>
-            <p id="resi-id" class="text-[13px] text-slate-500 mb-5">TRX-000</p>
+    </div>
 
-            <img id="resi-image" src="" alt="Foto bukti transfer" class="hidden rounded-2xl w-full aspect-[4/3] object-contain bg-amal-50/50 border border-amal-100 mb-5 cursor-zoom-in" onclick="window.open(this.src, '_blank')" title="Klik untuk lihat ukuran penuh" />
-            <div id="resi-placeholder" class="rounded-2xl border-2 border-dashed border-amal-200 bg-amal-50/50 aspect-[4/3] flex flex-col items-center justify-center gap-2 mb-5 text-amal-400">
-                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
-                <span class="text-[12px] font-semibold text-amal-500 text-center px-4">Resi ini belum ada gambar tersimpan - baru mencatat hasil baca AI dari foto yang dikirim donatur</span>
-            </div>
+    <div class="flex-1 overflow-y-auto p-6">
+        <img id="resi-image" src="" alt="Foto bukti transfer" class="hidden rounded-2xl w-full aspect-[4/3] object-contain bg-amal-50/50 border border-amal-100 mb-5 cursor-zoom-in" onclick="window.open(this.src, '_blank')" title="Klik untuk lihat ukuran penuh" />
+        <div id="resi-placeholder" class="rounded-2xl border-2 border-dashed border-amal-200 bg-amal-50/50 aspect-[4/3] flex flex-col items-center justify-center gap-2 mb-5 text-amal-400">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
+            <span class="text-[12px] font-semibold text-amal-500 text-center px-4">Resi ini belum ada gambar tersimpan - baru mencatat hasil baca AI dari foto yang dikirim donatur</span>
+        </div>
 
-            <div class="flex flex-col gap-2.5 mb-6 text-[13px]">
-                <div class="flex items-center justify-between"><span class="text-slate-500">Nama Donatur</span><span id="resi-nama" class="font-bold text-amal-900"></span></div>
-                <div class="flex items-center justify-between"><span class="text-slate-500">Nomor WA</span><span id="resi-wa" class="font-bold text-amal-900"></span></div>
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-slate-500 shrink-0">Kategori</span>
-                    <span id="resi-kategori" class="font-bold text-amal-900 text-right"></span>
-                    <select id="resi-kategori-select" class="hidden flex-1 max-w-[220px] text-right pl-2 pr-1 py-1.5 rounded-lg border border-gold-300 bg-gold-50 text-[13px] font-bold text-amal-900 outline-none focus:ring-2 focus:ring-gold-400/40"></select>
-                </div>
-                <div class="flex items-center justify-between"><span class="text-slate-500">Nominal</span><span id="resi-nominal" class="font-extrabold text-gold-600"></span></div>
-                <div class="flex items-center justify-between"><span class="text-slate-500">Waktu</span><span id="resi-waktu" class="font-bold text-amal-900"></span></div>
-                <div class="flex items-center justify-between"><span class="text-slate-500">Sumber</span><span id="resi-sumber" class="font-bold text-amal-900"></span></div>
+        <div class="flex flex-col gap-2.5 text-[13px]">
+            <div class="flex items-center justify-between"><span class="text-slate-500">Nama Donatur</span><span id="resi-nama" class="font-bold text-amal-900"></span></div>
+            <div class="flex items-center justify-between"><span class="text-slate-500">Nomor WA</span><span id="resi-wa" class="font-mono font-bold text-amal-900"></span></div>
+            <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-500 shrink-0">Kategori</span>
+                <span id="resi-kategori" class="font-bold text-amal-900 text-right"></span>
+                <select id="resi-kategori-select" class="hidden flex-1 max-w-[220px] text-right pl-2 pr-1 py-1.5 rounded-lg border border-gold-300 bg-gold-50 text-[13px] font-bold text-amal-900 outline-none focus:ring-2 focus:ring-gold-400/40"></select>
             </div>
+            <div class="flex items-center justify-between"><span class="text-slate-500">Nominal</span><span id="resi-nominal" class="font-mono font-extrabold text-gold-600"></span></div>
+            <div class="flex items-center justify-between"><span class="text-slate-500">Waktu</span><span id="resi-waktu" class="font-bold text-amal-900"></span></div>
+            <div class="flex items-center justify-between"><span class="text-slate-500">Sumber</span><span id="resi-sumber" class="font-bold text-amal-900"></span></div>
+        </div>
 
-            <div id="resi-actions" class="flex gap-2.5"></div>
+        <div class="flex items-start gap-2.5 mt-5 p-3.5 bg-amal-50 border border-amal-100 rounded-2xl">
+            <svg class="w-4 h-4 text-amal-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"></path></svg>
+            <span class="text-[11.5px] text-amal-900/80 leading-relaxed">Nama, nominal, dan kategori dibaca otomatis oleh AI dari foto resi. Nilainya perlu dicocokkan manual sebelum ditandai tervalidasi.</span>
         </div>
     </div>
-</div>
+
+    <div id="resi-actions" class="flex gap-2.5 p-6 border-t border-amal-100 shrink-0"></div>
+</aside>
 
 <script>
     const TRANSAKSI = {{ transaksi | tojson }};
@@ -186,7 +194,7 @@
                     '<td class="px-7 py-4 text-[12.5px] font-mono font-bold text-slate-400">' + t.id_tampil + '</td>' +
                     '<td class="px-7 py-4 text-[13.5px] font-bold text-amal-900">' + t.no_wa + '</td>' +
                     '<td class="px-7 py-4"><span class="inline-flex px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-amal-100 text-amal-700">' + escapeHtml(t.kode_program) + '</span></td>' +
-                    '<td class="px-7 py-4 text-[14.5px] font-extrabold text-gold-600 tabular-nums">' + formatRupiah(t.nominal) + '</td>' +
+                    '<td class="px-7 py-4 text-[14.5px] font-mono font-extrabold text-gold-600 tabular-nums">' + formatRupiah(t.nominal) + '</td>' +
                     '<td class="px-7 py-4 text-[13px] font-medium text-slate-500">' + t.waktu_transaksi + '</td>' +
                     '<td class="px-7 py-4">' + statusBadge(t.status) + '</td>' +
                     '<td class="px-7 py-4"><button type="button" onclick="openResiModal(' + t.id + ')" class="px-4 py-2 rounded-xl bg-white border border-amal-200 text-[12px] font-bold text-amal-700 hover:bg-amal-600 hover:text-white transition-all shadow-sm">Lihat Detail</button></td>' +
@@ -247,20 +255,20 @@
         }
 
         const modal = document.getElementById("resi-modal");
-        const card = document.getElementById("resi-card");
-        modal.classList.remove("hidden"); modal.classList.add("flex");
+        const backdrop = document.getElementById("resi-backdrop");
+        backdrop.classList.remove("hidden");
         requestAnimationFrame(function () {
-            modal.classList.remove("opacity-0");
-            card.classList.remove("scale-95"); card.classList.add("scale-100");
+            backdrop.classList.remove("opacity-0");
+            modal.classList.remove("translate-x-full");
         });
     }
 
     function closeResiModal() {
         const modal = document.getElementById("resi-modal");
-        const card = document.getElementById("resi-card");
-        modal.classList.add("opacity-0");
-        card.classList.remove("scale-100"); card.classList.add("scale-95");
-        setTimeout(function () { modal.classList.add("hidden"); modal.classList.remove("flex"); }, 300);
+        const backdrop = document.getElementById("resi-backdrop");
+        modal.classList.add("translate-x-full");
+        backdrop.classList.add("opacity-0");
+        setTimeout(function () { backdrop.classList.add("hidden"); }, 300);
     }
 
     async function setStatus(id, status) {
