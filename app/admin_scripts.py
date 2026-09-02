@@ -919,6 +919,18 @@ def susun_balasan(
         "daftar_peduli_palestina": "DON-PALESTINA",
     }
 
+    # True kalau balasan TURN SEBELUMNYA adalah katalog kategori donasi
+    # (QA_SCRIPT["ingin_donasi"]) - dipakai di bawah untuk memprioritaskan
+    # deteksi kategori donasi di ATAS pencarian program_key beasiswa
+    # (program_manager.py, lihat blok "if program_key" beberapa baris di
+    # bawah). BUG FATAL yang ditemukan 2 Sep 2026: "ota palestina"/"palestina"
+    # adalah keyword yang JUGA dikenali extract_program_keyword() sebagai
+    # program beasiswa "ota_palestina" - tanpa prioritas ini, balasan user
+    # MEMILIH "OTA Palestina" dari katalog (mis. "ota palestina min") disangka
+    # PERTANYAAN INFO program itu dan dijawab dengan detail syarat/pendaftaran
+    # beasiswa, bukan konfirmasi kategori + nomor rekening seperti seharusnya.
+    menunggu_pilihan_kategori = bool(context.get("menunggu_pilihan_kategori"))
+
     for index, potong in enumerate(potongan):
         potong = potong.strip()
         if not potong and not has_media:
@@ -930,6 +942,19 @@ def susun_balasan(
             _tambah_hasil(intents, intent)
             _tambah_hasil(responses, ambil_balasan(intent))
             continue
+
+        if menunggu_pilihan_kategori:
+            # Jawaban apa pun mengakhiri masa "menunggu" - kalau ternyata
+            # bukan pilihan kategori yang dikenali, jangan terus memprioritaskan
+            # ini di potongan/pesan berikutnya, lanjutkan saja ke alur normal
+            # di bawah (jangan `continue` supaya tetap dapat balasan yang wajar).
+            menunggu_pilihan_kategori = False
+            intent_kategori = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
+            if intent_kategori in _INTENT_KE_KODE_DONASI:
+                detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent_kategori]
+                _tambah_hasil(intents, intent_kategori)
+                _tambah_hasil(responses, ambil_balasan(intent_kategori, nama_pengirim=nama_pengirim))
+                continue
 
         # Kasus khusus: user ingin membayar/menunaikan zakat
         # Lebih natural jika diberi "cara donasi" + "nomor rekening" sekaligus.
@@ -1042,6 +1067,7 @@ def susun_balasan(
         "reply": reply_statis,
         "last_program_key": detected_program_key or context.get("last_program_key"),
         "kode_program_donasi": detected_kode_donasi or context.get("last_donation_category"),
+        "menunggu_pilihan_kategori": "ingin_donasi" in intents,
         "should_wait_admin": should_wait_admin,
         "normalized_model_output": normalisasi_output_model(" | ".join(intents)),
     }

@@ -73,7 +73,7 @@ def _get_session(request: Request) -> tuple[str, dict, bool]:
         result = (token, WEB_SESSIONS[token], False)
     else:
         token = secrets.token_urlsafe(16)
-        WEB_SESSIONS[token] = {"last_program_key": None, "last_donation_category": None}
+        WEB_SESSIONS[token] = {"last_program_key": None, "last_donation_category": None, "menunggu_pilihan_kategori": False}
         result = (token, WEB_SESSIONS[token], True)
 
     request.state.web_session = result
@@ -197,6 +197,7 @@ async def web_chat(request: Request, payload: dict):
         context={
             "last_program_key": session.get("last_program_key"),
             "last_donation_category": session.get("last_donation_category"),
+            "menunggu_pilihan_kategori": session.get("menunggu_pilihan_kategori", False),
         },
         nama_pengirim="",
     )
@@ -208,6 +209,13 @@ async def web_chat(request: Request, payload: dict):
     # apa pun di kwitansi transfer bank (lihat catatan panjang di
     # admin_scripts.py klasifikasi_pesan() untuk kronologi bug ini).
     session["last_donation_category"] = hasil.get("kode_program_donasi")
+    # True kalau balasan barusan adalah katalog kategori donasi - dipakai
+    # susun_balasan() di pesan BERIKUTNYA untuk memprioritaskan deteksi
+    # kategori donasi di atas pencarian info program beasiswa (bug fatal:
+    # "ota palestina" adalah keyword yang overlap dengan program beasiswa
+    # "OTA Palestina" di program_manager.py - tanpa ini, balasan user
+    # MEMILIH kategori dari katalog malah disangka pertanyaan info program).
+    session["menunggu_pilihan_kategori"] = hasil.get("menunggu_pilihan_kategori", False)
 
     if "tidak_diketahui" in hasil.get("intents", []):
         reply = _WEB_FALLBACK_REPLY

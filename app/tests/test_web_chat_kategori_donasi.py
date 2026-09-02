@@ -99,6 +99,33 @@ def test_kategori_tidak_bocor_ke_resi_donasi_tanpa_kategori(client, monkeypatch,
     assert baris["kode_program"] == "INF-RUTIN"
 
 
+def test_pilih_ota_palestina_dari_katalog_tidak_disangka_tanya_info(client):
+    """Bug fatal (dilaporkan 2 Sep 2026, lewat screenshot langsung): "ota
+    palestina"/"palestina" adalah keyword yang JUGA dikenali
+    extract_program_keyword() (program_manager.py) sebagai program beasiswa
+    "OTA Palestina" (info syarat/pendaftaran) - tanpa prioritas konteks
+    "menunggu_pilihan_kategori", balasan user MEMILIH kategori itu dari
+    katalog donasi (mis. "ota palestina min") malah dijawab dengan detail
+    program beasiswanya, bukan konfirmasi kategori + nomor rekening."""
+    resp1 = client.post("/api/web-chat", json={"message": "min, mau donasi dong"})
+    assert "OTA Palestina" in resp1.json()["reply"]  # tercantum di katalog
+
+    resp2 = client.post("/api/web-chat", json={"message": "ota palestina min"})
+    reply2 = resp2.json()["reply"]
+    assert "7099400409" in reply2
+    assert "Syarat" not in reply2  # bukan format_program_response() beasiswa
+    assert "Proses Pendaftaran" not in reply2
+
+
+def test_tanya_info_program_palestina_tanpa_konteks_katalog_tetap_info(client):
+    """Kebalikannya: TANPA baru saja melihat katalog donasi, "OTA Palestina"
+    tetap harus dijawab sebagai info program seperti biasa (bukan dipaksa
+    selalu jadi jawaban donasi)."""
+    resp = client.post("/api/web-chat", json={"message": "apa itu OTA Palestina?"})
+    reply = resp.json()["reply"]
+    assert "7099400409" not in reply
+
+
 def test_resi_dengan_nominal_tidak_terbaca_tetap_tersimpan(client, monkeypatch, baca_transaksi_terakhir):
     """Bug lama: kalau OCR gagal baca nominal, transaksi TIDAK tersimpan sama
     sekali walau pesan notifikasi ke admin bilang 'cek di dashboard' - resi
