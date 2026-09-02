@@ -215,10 +215,27 @@ def test_sapaan_polos_tetap_generik():
 # =========================================================================
 # BUG: "ingin berdonasi" diarahkan ke intent lama tanpa nomor rekening.
 # =========================================================================
-def test_ingin_donasi_menampilkan_rekening():
+def test_ingin_donasi_generik_menampilkan_katalog_bukan_rekening_langsung():
+    """Diperbarui 2 Sep 2026: niat donasi GENERIK (tanpa kategori disebutkan)
+    sengaja tidak lagi langsung dikasih nomor rekening - tanpa kategori yang
+    jelas, resi yang diunggah setelahnya cuma bisa ditebak asal oleh AI baca
+    gambar. Sekarang menampilkan katalog kategori dulu (lihat
+    QA_SCRIPT["ingin_donasi"] di admin_scripts.py)."""
     assert klasifikasi_pesan("ingin berdonasi") == "ingin_donasi"
     hasil = susun_balasan("ingin berdonasi", nama_pengirim="Tester")
+    assert "7099400409" not in hasil["reply"]
+    assert "Zakat Mal" in hasil["reply"]
+
+
+def test_ingin_donasi_dengan_kategori_spesifik_langsung_ke_rekening():
+    """Kalau kategori SUDAH disebutkan eksplisit di kalimat yang sama, tidak
+    perlu ditanya ulang lewat katalog - langsung beri nomor rekening,
+    sekaligus melacak kode_program_donasi ke sesi (dipakai upload_resi() di
+    public_web.py sebagai sinyal kategori, bukan tebakan OCR)."""
+    hasil = susun_balasan("saya ingin berdonasi zakat mal min", nama_pengirim="Tester")
+    assert "Zakat Mal" in hasil["reply"]
     assert "7099400409" in hasil["reply"]
+    assert hasil["kode_program_donasi"] == "ZKT-MAL"
 
 
 # =========================================================================

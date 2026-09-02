@@ -364,24 +364,50 @@ QA_SCRIPT = {
 # KAMUS_PENDAFTARAN (di susun_balasan/klasifikasi_pesan) bisa menghasilkan
 # intent "daftar_zakat_mal" / "daftar_zakat_penghasilan" / "daftar_peduli_
 # palestina" saat pengguna menyebut niat mendaftar/membayar secara spesifik
-# (mis. "zakat maal", "daftar donasi palestina") - sebelumnya QA_SCRIPT tidak
-# punya balasan untuk ketiganya sehingga ambil_balasan() diam-diam jatuh ke
-# "tidak_diketahui" padahal niat penggunanya sudah dikenali dengan benar.
-# Dipetakan ke jalur setor yang sama seperti kasus "bayar zakat" umum.
-QA_SCRIPT["daftar_zakat_mal"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
-QA_SCRIPT["daftar_zakat_penghasilan"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
-QA_SCRIPT["daftar_peduli_palestina"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
+# (mis. "zakat mal", "daftar donasi palestina"). Balasannya SENGAJA menyebut
+# nama kategori secara eksplisit (bukan cuma cara_donasi+info_rekening polos)
+# supaya donatur dapat konfirmasi kategori yang benar sebelum transfer, dan
+# supaya susun_balasan() bisa melacak kode_program_donasi ini ke sesi web
+# chat - dipakai sebagai sinyal kategori saat resi diunggah nanti (lihat
+# public_web.py upload_resi()), bukan cuma tebakan AI dari foto resi yang
+# jarang benar-benar menyebut kategori zakat/infak apa pun.
+QA_SCRIPT["daftar_zakat_mal"] = (
+    "Baik {sapaan_panggilan}, untuk *Zakat Mal* silakan transfer ke rekening resmi kami:\n\n"
+    + QA_SCRIPT["info_rekening"] +
+    "\n\nSetelah transfer, kirimkan foto bukti transfernya di sini ya - nanti Mimin catat untuk diverifikasi admin 🙏"
+)
+QA_SCRIPT["daftar_zakat_penghasilan"] = (
+    "Baik {sapaan_panggilan}, untuk *Zakat Penghasilan* silakan transfer ke rekening resmi kami:\n\n"
+    + QA_SCRIPT["info_rekening"] +
+    "\n\nSetelah transfer, kirimkan foto bukti transfernya di sini ya - nanti Mimin catat untuk diverifikasi admin 🙏"
+)
+QA_SCRIPT["daftar_peduli_palestina"] = (
+    "Baik {sapaan_panggilan}, untuk *OTA Palestina* silakan transfer ke rekening resmi kami:\n\n"
+    + QA_SCRIPT["info_rekening"] +
+    "\n\nSetelah transfer, kirimkan foto bukti transfernya di sini ya - nanti Mimin catat untuk diverifikasi admin 🙏"
+)
 
 # klasifikasi_pesan() bisa mengembalikan "handoff_admin" lewat pencocokan kata
 # kunci (pinjam/pintas/hubungi admin/dst) - sebelumnya tidak ada balasannya
 # sendiri di QA_SCRIPT, jatuh ke "tidak_diketahui".
 QA_SCRIPT["handoff_admin"] = QA_SCRIPT["handoff_admin_prompt"]
 
-# get_intent() (fallback klasifikasi via Gemini) bisa mengembalikan 3 intent
-# ini untuk kalimat bebas yang tidak kena kata kunci cepat manapun -
-# sebelumnya juga tidak ada balasannya, diam-diam ke-guard jadi
-# "tidak_diketahui" di klasifikasi_pesan() walau niatnya sudah benar dikenali.
-QA_SCRIPT["ingin_donasi"] = QA_SCRIPT["cara_donasi"] + "\n\n" + QA_SCRIPT["info_rekening"]
+# "ingin_donasi" HANYA muncul saat user menyatakan niat donasi TANPA
+# menyebut kategori spesifik apa pun (lihat urutan pengecekan di
+# klasifikasi_pesan() - kategori spesifik dicek LEBIH DULU dan diambil-alih
+# oleh QA_SCRIPT["daftar_zakat_mal"] dkk di atas). Balasannya menampilkan
+# katalog kategori dulu, BUKAN langsung nomor rekening - tanpa kategori yang
+# jelas, resi yang diunggah setelahnya cuma bisa ditebak asal oleh AI baca
+# gambar (seringkali salah/default ke kategori yang tidak dimaksud user).
+QA_SCRIPT["ingin_donasi"] = (
+    "Baik {sapaan_panggilan}, Mimin bantu ya! Silakan pilih dulu mau menyalurkan untuk kategori apa:\n\n"
+    "1. Zakat Mal\n"
+    "2. Zakat Penghasilan\n"
+    "3. Infak Rutin\n"
+    "4. Donasi (Bantuan Kemanusiaan)\n"
+    "5. OTA Palestina\n\n"
+    "Balas dengan salah satu nama kategorinya ya, nanti Mimin kirimkan nomor rekening resminya sekalian 🙏"
+)
 QA_SCRIPT["minta_bantuan_pintas"] = QA_SCRIPT["handoff_admin_prompt"]
 # "konfirmasi_donasi" sengaja TIDAK memakai template "sudah tercatat" seperti
 # doa_infak/doa_zakat_* - intent ini cuma hasil klasifikasi teks bebas tanpa
@@ -543,10 +569,50 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         return "info_qris"
     if _ada_salah_satu(teks, ["rekening", "nomor rekening", "norek", "transfer ke mana", "transfer kemana"]):
         return "info_rekening"
-    # Frasa niat LANGSUNG ("ingin/mau ...") dipisah dari frasa bertanya "cara ..."
-    # - donatur yang sudah menyatakan niat pantas langsung dikasih nomor rekening
-    # (intent "ingin_donasi" = cara_donasi + info_rekening), bukan cuma penjelasan
-    # umum tanpa nomor rekening yang memaksa mereka bertanya ulang.
+
+    # =================================================================
+    # 1. Cek niat MENDAFTAR kategori SPESIFIK (KAMUS PENDAFTARAN) DULU,
+    # sebelum frasa niat donasi generik di bawah ("ingin berdonasi", dst).
+    #
+    # BUG LAMA: urutan sebaliknya (generik dicek duluan) membuat kalimat
+    # seperti "saya ingin berdonasi zakat mal" ke-tangkap oleh pola generik
+    # "ingin berdonasi" saja dan langsung `return` sebelum sempat mengecek
+    # kata "zakat mal" - kategori yang sudah eksplisit disebutkan user jadi
+    # hilang begitu saja, balasannya cuma nomor rekening polos tanpa kategori.
+    # Akibatnya: saat resi diunggah setelahnya, tidak ada kategori tersimpan
+    # di sesi untuk dipakai sebagai sinyal (lihat kode_program_donasi di
+    # susun_balasan() & public_web.py upload_resi()), jadi kategori transaksi
+    # cuma ditebak asal oleh AI baca gambar resi - yang jarang benar-benar
+    # menyebut "zakat mal"/dst di kwitansi transfer bank, hasilnya sering
+    # default ke kategori yang salah (mis. "Infak Rutin").
+    # =================================================================
+    KAMUS_PENDAFTARAN = {
+        "daftar_infak_rutin": ["daftar infak rutin", "mendaftar infak rutin", "komunitas infak rutin", "bayar infak rutin"],
+        "daftar_zakat_mal": ["daftar zakat mal", "bayar zakat mal", "tunaikan zakat mal", "zakat harta", "zakat maal", "zakat mal"],
+        "daftar_zakat_penghasilan": ["daftar zakat penghasilan", "bayar zakat profesi", "zakat gaji", "zakat profesi", "zakat penghasilan"],
+        "daftar_peduli_palestina": ["daftar donasi palestina", "bantu palestina", "donasi palestina", "ota palestina"]
+    }
+
+    for intent_program, kata_kunci in KAMUS_PENDAFTARAN.items():
+        if _ada_salah_satu(teks, kata_kunci):
+            return intent_program
+
+    # "Infak Rutin" sengaja TIDAK dicek bare (tanpa frasa niat) di kamus di
+    # atas - bare "infak rutin" saja akan menabrak pertanyaan info seperti
+    # "apa itu infak rutin". Jadi baru dianggap niat mendaftar kalau memang
+    # disertai frasa niat donasi eksplisit di kalimat yang sama.
+    _ADA_NIAT_DONASI_AWAL = [
+        "ingin berdonasi", "ingin donasi", "mau donasi", "mau berdonasi", "mau bayar zakat",
+        "bayar zakat", "membayar zakat", "menunaikan zakat", "cara donasi", "cara zakat", "cara infak", "cara sedekah",
+    ]
+    if _ada_salah_satu(teks, _ADA_NIAT_DONASI_AWAL) and _ada_salah_satu(teks, ["infak rutin", "infaq rutin"]):
+        return "daftar_infak_rutin"
+
+    # Frasa niat LANGSUNG ("ingin/mau ...") - HANYA sampai di sini kalau tidak
+    # ada kategori spesifik yang ke-deteksi di atas. Donatur yang sudah
+    # menyatakan niat tapi belum pilih kategori pantas dikasih katalog dulu
+    # (lihat QA_SCRIPT["ingin_donasi"]), bukan cuma nomor rekening polos yang
+    # bikin kategorinya tidak jelas saat resi diunggah nanti.
     if _ada_salah_satu(
         teks,
         [
@@ -575,21 +641,7 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         return "cara_donasi"
     if _ada_salah_satu(teks, ["laporan penyaluran", "laporan donasi", "laporan rutin", "transparan"]):
         return "laporan_penyaluran"
-        
-    # =================================================================
-    # 1. Cek niat MENDAFTAR (Lebih Spesifik) dengan KAMUS PENDAFTARAN
-    # =================================================================
-    KAMUS_PENDAFTARAN = {
-        "daftar_infak_rutin": ["daftar infak rutin", "mendaftar infak rutin", "komunitas infak rutin", "bayar infak rutin"],
-        "daftar_zakat_mal": ["daftar zakat mal", "bayar zakat mal", "tunaikan zakat mal", "zakat harta", "zakat maal"],
-        "daftar_zakat_penghasilan": ["daftar zakat penghasilan", "bayar zakat profesi", "zakat gaji", "zakat profesi", "zakat penghasilan"],
-        "daftar_peduli_palestina": ["daftar donasi palestina", "bantu palestina", "donasi palestina", "ota palestina"]
-    }
 
-    for intent_program, kata_kunci in KAMUS_PENDAFTARAN.items():
-        if _ada_salah_satu(teks, kata_kunci):
-            return intent_program
-            
     # =================================================================
     # 2. Baru cek niat BERTANYA INFO (Lebih Umum)
     # =================================================================
@@ -854,7 +906,18 @@ def susun_balasan(
     intents: list[str] = []
     responses: list[str] = []
     detected_program_key = None
+    detected_kode_donasi = None
     should_wait_admin = False
+
+    # Intent spesifik-kategori dari klasifikasi_pesan() -> kode_program ZIS
+    # asli (dipakai state_manager.simpan_transaksi_final di web chat) - lihat
+    # QA_SCRIPT["daftar_zakat_mal"] dkk. di atas untuk konteks lengkapnya.
+    _INTENT_KE_KODE_DONASI = {
+        "daftar_zakat_mal": "ZKT-MAL",
+        "daftar_zakat_penghasilan": "ZKT-PENGHASILAN",
+        "daftar_infak_rutin": "INF-RUTIN",
+        "daftar_peduli_palestina": "DON-PALESTINA",
+    }
 
     for index, potong in enumerate(potongan):
         potong = potong.strip()
@@ -951,6 +1014,8 @@ def susun_balasan(
             continue
 
         intent = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
+        if intent in _INTENT_KE_KODE_DONASI:
+            detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent]
         # Jika sudah ada jawaban lain dan potongan ini hanya jatuh ke "tidak_diketahui",
         # jangan ganggu user dengan fallback yang terasa kaku.
         if intent == "tidak_diketahui" and responses and _skip_fallback_if_minor_followup(teks_norm, context_dinamis):
@@ -976,6 +1041,7 @@ def susun_balasan(
         "intents": intents,
         "reply": reply_statis,
         "last_program_key": detected_program_key or context.get("last_program_key"),
+        "kode_program_donasi": detected_kode_donasi or context.get("last_donation_category"),
         "should_wait_admin": should_wait_admin,
         "normalized_model_output": normalisasi_output_model(" | ".join(intents)),
     }

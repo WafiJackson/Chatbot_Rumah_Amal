@@ -73,7 +73,7 @@ def _get_session(request: Request) -> tuple[str, dict, bool]:
         result = (token, WEB_SESSIONS[token], False)
     else:
         token = secrets.token_urlsafe(16)
-        WEB_SESSIONS[token] = {"last_program_key": None}
+        WEB_SESSIONS[token] = {"last_program_key": None, "last_donation_category": None}
         result = (token, WEB_SESSIONS[token], True)
 
     request.state.web_session = result
@@ -194,10 +194,20 @@ async def web_chat(request: Request, payload: dict):
 
     hasil = susun_balasan(
         pesan,
-        context={"last_program_key": session.get("last_program_key")},
+        context={
+            "last_program_key": session.get("last_program_key"),
+            "last_donation_category": session.get("last_donation_category"),
+        },
         nama_pengirim="",
     )
     session["last_program_key"] = hasil.get("last_program_key")
+    # Kategori ZIS (Zakat Mal/Penghasilan/Infak Rutin/dst) yang baru saja
+    # disebutkan user secara eksplisit - dipakai upload_resi() di bawah
+    # sebagai sinyal kategori utama saat resi diunggah, MENGGANTIKAN tebakan
+    # AI baca gambar yang jarang benar-benar menyebut kategori zakat/infak
+    # apa pun di kwitansi transfer bank (lihat catatan panjang di
+    # admin_scripts.py klasifikasi_pesan() untuk kronologi bug ini).
+    session["last_donation_category"] = hasil.get("kode_program_donasi")
 
     if "tidak_diketahui" in hasil.get("intents", []):
         reply = _WEB_FALLBACK_REPLY
@@ -298,23 +308,38 @@ async def upload_resi(
     data = ekstrak_resi_vision(image_bytes, caption=caption)
     nama_terbaca = data.get("nama") or "(nama tidak terbaca)"
     nominal_terbaca = data.get("nominal")  # sudah divalidasi >= Rp 1.000 di ekstrak_resi_vision
-    program_terbaca = data.get("program") or "UMUM"
 
-    token, _session, _is_new = _get_session(request)
+    token, session, _is_new = _get_session(request)
+    # Kategori yang sudah disebutkan eksplisit di chat sebelumnya (mis. "saya
+    # ingin berdonasi zakat mal") lebih dipercaya daripada tebakan AI baca
+    # gambar resi - kwitansi transfer bank jarang benar-benar mencantumkan
+    # kategori zakat/infak apa pun, jadi ekstrak_resi_vision() hampir selalu
+    # cuma menebak/default ke "UMUM" walau user sudah menyatakan niatnya
+    # dengan jelas. Dipakai sekali lalu dibersihkan supaya tidak "bocor" ke
+    # donasi lain yang tidak terkait di sesi web yang sama.
+    program_dari_sesi = session.get("last_donation_category")
+    session["last_donation_category"] = None
+    program_terbaca = program_dari_sesi or data.get("program") or "UMUM"
+
     state_manager.catat_pesan("web", token, "user", (caption or "") + "\n📷 (kiriman bukti transfer)")
 
-    if nominal_terbaca:
-        # Tersimpan sebagai 'pending' - identitas pengunjung web belum terverifikasi
-        # OTP saat upload, jadi admin yang memvalidasi manual lewat dashboard
-        # sebelum dianggap donasi sah (beda dari WhatsApp yang auto-'validated'
-        # karena identitasnya sudah pasti dari sesi WA).
-        state_manager.simpan_transaksi_final(
-            no_wa, nama_terbaca, nominal_terbaca, kode_program=program_terbaca,
-            status_verifikasi="pending", sumber="web", resi_bytes=image_bytes,
-        )
-        status_teks = "menunggu validasi admin di dashboard"
-    else:
-        status_teks = "nominal tidak terbaca otomatis, mohon dicek manual"
+    # Tersimpan sebagai 'pending' - identitas pengunjung web belum terverifikasi
+    # OTP saat upload, jadi admin yang memvalidasi manual lewat dashboard
+    # sebelum dianggap donasi sah (beda dari WhatsApp yang auto-'validated'
+    # karena identitasnya sudah pasti dari sesi WA).
+    #
+    # SELALU disimpan walau nominal gagal terbaca (nominal_terbaca falsy) -
+    # sebelumnya baris ini ada di dalam `if nominal_terbaca:` saja, jadi kalau
+    # OCR gagal baca nominal, TIDAK ADA transaksi tersimpan sama sekali walau
+    # pesan notifikasi ke admin di bawah tetap bilang "Cek & validasi di Admin
+    # Dashboard" - resi & gambarnya lenyap begitu saja, admin tidak punya apa
+    # pun untuk dicek/dikoreksi manual. Nominal 0 di sini murni placeholder
+    # yang wajib dikoreksi admin sebelum divalidasi (bukan klaim "0 rupiah").
+    state_manager.simpan_transaksi_final(
+        no_wa, nama_terbaca, nominal_terbaca or 0, kode_program=program_terbaca,
+        status_verifikasi="pending", sumber="web", resi_bytes=image_bytes,
+    )
+    status_teks = "menunggu validasi admin di dashboard" if nominal_terbaca else "nominal tidak terbaca otomatis, mohon dicek & isi manual di dashboard"
 
     pesan_admin = (
         f"🌐 [RESI DARI WEB CHAT] Ada bukti transfer diunggah lewat website:\n"

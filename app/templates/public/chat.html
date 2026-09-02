@@ -79,9 +79,11 @@
         @media (prefers-reduced-motion: reduce) { .bot-avatar, .bot-eyes { animation: none; } }
     </style>
 </head>
-<body class="app-shell-height bg-gradient-to-br from-amal-50 via-white to-gold-50/60 dark:from-amal-950 dark:via-amal-900 dark:to-amal-950 text-slate-800 dark:text-amal-50 antialiased overflow-hidden flex items-center justify-center p-0 md:p-6">
+<body class="app-shell-height bg-gradient-to-br from-amal-50 via-white to-gold-50/60 dark:from-amal-950 dark:via-amal-900 dark:to-amal-950 text-slate-800 dark:text-amal-50 antialiased overflow-hidden">
 
-    <div class="w-full max-w-6xl h-full md:h-[90vh] bg-white dark:bg-amal-900 md:border border-amal-100 dark:border-amal-800 md:shadow-2xl md:shadow-amal-900/10 md:rounded-3xl flex flex-col md:flex-row overflow-hidden">
+    <!-- Fullscreen: tidak lagi kartu mengambang (max-w/border/shadow/rounded)
+         di tengah halaman - header & konten memenuhi seluruh viewport. -->
+    <div class="w-full h-full bg-white dark:bg-amal-900 flex flex-col md:flex-row overflow-hidden">
 
         <!-- LEFT: BRAND / EDUCATION PANEL -->
         <aside id="sidebar" class="fixed md:static inset-0 z-40 w-full md:w-[380px] bg-white dark:bg-amal-900 border-b md:border-b-0 md:border-r border-amal-100 dark:border-amal-800 overflow-y-auto shrink-0 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
@@ -178,16 +180,18 @@
                         </div>
                     </div>
                 </div>
-                <div class="hidden md:flex items-center gap-1.5 bg-gold-50 dark:bg-amal-800 border border-gold-200 dark:border-gold-700/40 text-gold-700 dark:text-gold-300 text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
-                    &#11088; Lembaga Amil Zakat Terverifikasi
+                <div class="flex items-center gap-2.5 shrink-0">
+                    <div class="hidden md:flex items-center gap-1.5 bg-gold-50 dark:bg-amal-800 border border-gold-200 dark:border-gold-700/40 text-gold-700 dark:text-gold-300 text-[11px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap">
+                        &#11088; Lembaga Amil Zakat Terverifikasi
+                    </div>
+                    <button type="button" onclick="toggleTheme()" class="w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 dark:text-gold-400 hover:bg-amal-50 dark:hover:bg-amal-800 transition-colors shrink-0" aria-label="Ubah tema terang/gelap">
+                        <svg class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"></path></svg>
+                        <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"></path></svg>
+                    </button>
+                    <button type="button" onclick="openSidebar()" class="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 dark:text-amal-300 hover:bg-amal-50 dark:hover:bg-amal-800 transition-colors shrink-0" aria-label="Buka menu">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
                 </div>
-                <button type="button" onclick="toggleTheme()" class="w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 dark:text-gold-400 hover:bg-amal-50 dark:hover:bg-amal-800 transition-colors shrink-0" aria-label="Ubah tema terang/gelap">
-                    <svg class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"></path></svg>
-                    <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"></path></svg>
-                </button>
-                <button type="button" onclick="openSidebar()" class="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 dark:text-amal-300 hover:bg-amal-50 dark:hover:bg-amal-800 transition-colors shrink-0" aria-label="Buka menu">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                </button>
             </header>
 
             <div id="messages" class="flex-1 overflow-y-auto p-7 flex flex-col gap-5 scroll-smooth bg-gradient-to-b from-white to-amal-50/40 dark:from-amal-900 dark:to-amal-950">
