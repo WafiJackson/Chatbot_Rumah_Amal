@@ -58,6 +58,19 @@
            100dvh saat keyboard on-screen terbuka (mis. Samsung Internet) -
            kalau JS/API itu tidak tersedia, otomatis jatuh ke 100dvh biasa. */
         .app-shell-height { height: 100vh; height: 100dvh; height: var(--app-vh, 100dvh); }
+        /* min-h-0 pada elemen section (area chat) dan #messages (lihat body di
+           bawah) SENGAJA wajib ada - default browser untuk flex item adalah min-height:auto
+           (BUKAN 0), jadi tanpanya elemen flex-1+overflow-y-auto TIDAK akan
+           benar-benar menyusut untuk scroll internal saat isinya (mis. balasan
+           katalog program yang panjang) melebihi tinggi yang dialokasikan -
+           dia malah IKUT TUMBUH lebih tinggi dari alokasinya, mendorong area
+           ketik pesan "shrink-0" di bawahnya sampai keluar dari viewport yang
+           benar-benar terlihat. Karena body & wrapper terluar overflow-hidden,
+           area yang terdorong keluar itu jadi TIDAK BISA dijangkau sama sekali
+           (tidak ada scrollbar untuk mencapainya) - persis gejala yang
+           dilaporkan: "baru kirim 1 pesan (balasan panjang), area ketik
+           langsung hilang". Bug klasik flexbox, ditemukan 3 Sep 2026 lewat
+           laporan+screenshot HP asli setelah balasan katalog program masuk. */
         @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         .msg-enter { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         ::-webkit-scrollbar { width: 6px; }
@@ -121,7 +134,7 @@
                         <span class="w-8 h-8 rounded-full bg-amal-50 dark:bg-amal-900 flex items-center justify-center text-amal-700 dark:text-amal-300 group-hover:bg-amal-600 group-hover:text-white transition-colors shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                         </span>
-                        <span class="text-slate-700 dark:text-amal-100 group-hover:text-amal-700 dark:group-hover:text-white">Lihat Program Donasi</span>
+                        <span class="text-slate-700 dark:text-amal-100 group-hover:text-amal-700 dark:group-hover:text-white">Lihat Program</span>
                     </button>
                     <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
                             class="group flex items-center gap-3.5 text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 dark:hover:border-amal-500 transition-all duration-300 transform hover:-translate-y-0.5">
@@ -166,7 +179,7 @@
         </aside>
 
         <!-- RIGHT: CHAT AREA -->
-        <section class="flex flex-col flex-1 min-w-0 bg-white dark:bg-amal-900">
+        <section class="flex flex-col flex-1 min-w-0 min-h-0 bg-white dark:bg-amal-900">
             <header class="flex items-center justify-between gap-3 px-7 py-5 bg-white dark:bg-amal-900 border-b border-amal-100 dark:border-amal-800 shrink-0 shadow-sm z-10">
                 <div class="flex items-center gap-3.5 min-w-0">
                     <div class="relative w-11 h-11 rounded-full bg-gradient-to-tr from-amal-700 to-amal-500 flex items-center justify-center shadow-md ring-2 ring-gold-300/40 shrink-0">
@@ -194,7 +207,7 @@
                 </div>
             </header>
 
-            <div id="messages" class="flex-1 overflow-y-auto p-7 flex flex-col gap-5 scroll-smooth bg-gradient-to-b from-white to-amal-50/40 dark:from-amal-900 dark:to-amal-950">
+            <div id="messages" class="flex-1 min-h-0 overflow-y-auto p-7 flex flex-col gap-5 scroll-smooth bg-gradient-to-b from-white to-amal-50/40 dark:from-amal-900 dark:to-amal-950">
                 <div class="flex gap-3 max-w-[85%] msg-enter">
                     <svg viewBox="0 0 36 36" class="bot-avatar mt-1">
                         <path d="M11 9 Q11 2 18 2 Q25 2 25 9 Z" fill="#1A1A1A"/>

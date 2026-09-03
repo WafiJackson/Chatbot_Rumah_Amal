@@ -22,6 +22,15 @@ def _ada_salah_satu(teks: str, daftar_kata: list[str]) -> bool:
     return any(kata in teks for kata in daftar_kata)
 
 
+def _balasan_diawali_kata(teks: str, daftar_kata: list[str]) -> bool:
+    # Substring-containment biasa ("kata in teks") terlalu longgar untuk
+    # kata pendek seperti "ya"/"ga"/"y": "ga" ada di dalam "juga"/"harga",
+    # dan "ya" sebagai partikel penutup kalimat ("gimana ya") ikut kematch
+    # walau bukan jawaban konfirmasi. Untuk balasan pendek Ya/Batal, cek
+    # kata itu ada di AWAL balasan sebagai kata utuh saja.
+    return any(teks == kata or teks.startswith(kata + " ") for kata in daftar_kata)
+
+
 def _ada_semua(teks: str, daftar_kata: list[str]) -> bool:
     return all(kata in teks for kata in daftar_kata)
 
@@ -119,6 +128,16 @@ QA_SCRIPT = {
     ),
     "handoff_admin_prompt": (
         "Untuk pengajuan bantuan dana atau program PINTAS, proses validasi harus dilakukan langsung bersama admin.\n\n"
+        "Apakah Anda ingin disambungkan ke admin sekarang? (Balas *Ya* atau *Batal*)"
+    ),
+    # Beda dari "handoff_admin_prompt" di atas - dipakai kalau user cuma ingin
+    # bicara dengan admin secara UMUM (bukan soal PINTAS/pengajuan bantuan
+    # dana). Sebelumnya keduanya salah dipetakan ke intent yang SAMA
+    # ("handoff_admin"), jadi balasan "hubungi admin" biasa ikut menyebut
+    # PINTAS walau user tidak pernah menyinggungnya sama sekali - membingungkan
+    # (bug dilaporkan 3 Sep 2026).
+    "handoff_admin_umum_prompt": (
+        "Baik {sapaan_panggilan}, Mimin sambungkan ke Admin Rumah Amal USK ya.\n\n"
         "Apakah Anda ingin disambungkan ke admin sekarang? (Balas *Ya* atau *Batal*)"
     ),
     "handoff_admin_waiting": "Silakan balas *Ya* jika ingin disambungkan ke admin, atau *Batal* jika tidak jadi.",
@@ -386,11 +405,17 @@ QA_SCRIPT["daftar_peduli_palestina"] = (
     + QA_SCRIPT["info_rekening"] +
     "\n\nSetelah transfer, kirimkan foto bukti transfernya di sini ya - nanti Mimin catat untuk diverifikasi admin 🙏"
 )
+QA_SCRIPT["daftar_donasi_kemanusiaan"] = (
+    "Baik {sapaan_panggilan}, untuk *Donasi (Bantuan Kemanusiaan)* silakan transfer ke rekening resmi kami:\n\n"
+    + QA_SCRIPT["info_rekening"] +
+    "\n\nSetelah transfer, kirimkan foto bukti transfernya di sini ya - nanti Mimin catat untuk diverifikasi admin 🙏"
+)
 
 # klasifikasi_pesan() bisa mengembalikan "handoff_admin" lewat pencocokan kata
 # kunci (pinjam/pintas/hubungi admin/dst) - sebelumnya tidak ada balasannya
 # sendiri di QA_SCRIPT, jatuh ke "tidak_diketahui".
 QA_SCRIPT["handoff_admin"] = QA_SCRIPT["handoff_admin_prompt"]
+QA_SCRIPT["handoff_admin_umum"] = QA_SCRIPT["handoff_admin_umum_prompt"]
 
 # "ingin_donasi" HANYA muncul saat user menyatakan niat donasi TANPA
 # menyebut kategori spesifik apa pun (lihat urutan pengecekan di
@@ -516,7 +541,25 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
             return "doa_zakat_penghasilan"
         return "doa_infak"
 
-    # 2. Human handoff wajib untuk PINTAS/pengajuan bantuan
+    # 2. Human handoff wajib untuk PINTAS/pengajuan bantuan dana SECARA
+    # SPESIFIK - dipisah dari niat "hubungi admin" yang umum/tidak menyebut
+    # apa pun soal PINTAS (lihat blok "handoff_admin_umum" tepat di bawah ini,
+    # dicek DULUAN supaya "hubungi admin" polos tidak ikut ke-tangkap sebagai
+    # niat PINTAS hanya karena sama-sama ujung-ujungnya butuh admin manusia).
+    if _ada_salah_satu(
+        teks,
+        [
+            "ingin dibantu admin",
+            "bicara admin",
+            "bicara dengan admin",
+            "bicara sama admin",
+            "hubungi admin",
+            "cs",
+            "customer service",
+            "staf admin",
+        ],
+    ):
+        return "handoff_admin_umum"
     if _ada_salah_satu(
         teks,
         [
@@ -530,12 +573,6 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
             "minta bantuan dana",
             "butuh bantuan dana",
             "permohonan bantuan",
-            "ingin dibantu admin",
-            "bicara admin",
-            "hubungi admin",
-            "cs",
-            "customer service",
-            "staf admin",
         ],
     ):
         return "handoff_admin"
@@ -590,7 +627,17 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         "daftar_infak_rutin": ["daftar infak rutin", "mendaftar infak rutin", "komunitas infak rutin", "bayar infak rutin"],
         "daftar_zakat_mal": ["daftar zakat mal", "bayar zakat mal", "tunaikan zakat mal", "zakat harta", "zakat maal", "zakat mal"],
         "daftar_zakat_penghasilan": ["daftar zakat penghasilan", "bayar zakat profesi", "zakat gaji", "zakat profesi", "zakat penghasilan"],
-        "daftar_peduli_palestina": ["daftar donasi palestina", "bantu palestina", "donasi palestina", "ota palestina"]
+        "daftar_peduli_palestina": ["daftar donasi palestina", "bantu palestina", "donasi palestina", "ota palestina"],
+        # Kategori ke-5 di katalog QA_SCRIPT["ingin_donasi"] ("Donasi (Bantuan
+        # Kemanusiaan)") - sebelumnya TIDAK PUNYA keyword sama sekali di sini,
+        # jadi memilihnya dari katalog (mis. ketik ulang "Donasi (Bantuan
+        # Kemanusiaan)" persis seperti tertulis) jatuh ke "ingin_donasi" lagi
+        # (mengulang katalog, bukan konfirmasi kategori), dan variasi seperti
+        # "bantuan kemanusiaan" malah nyasar ke fallback LLM yang menjawab
+        # info galang dana bencana ("posko_bencana"), bukan konfirmasi
+        # kategori + nomor rekening. Ditemukan lewat user test menyeluruh
+        # seluruh jenis penyaluran, 3 Sep 2026.
+        "daftar_donasi_kemanusiaan": ["donasi bantuan kemanusiaan", "donasi kemanusiaan", "bantuan kemanusiaan"],
     }
 
     for intent_program, kata_kunci in KAMUS_PENDAFTARAN.items():
@@ -917,6 +964,7 @@ def susun_balasan(
         "daftar_zakat_penghasilan": "ZKT-PENGHASILAN",
         "daftar_infak_rutin": "INF-RUTIN",
         "daftar_peduli_palestina": "DON-PALESTINA",
+        "daftar_donasi_kemanusiaan": "DONASI",
     }
 
     # True kalau balasan TURN SEBELUMNYA adalah katalog kategori donasi
@@ -931,6 +979,19 @@ def susun_balasan(
     # beasiswa, bukan konfirmasi kategori + nomor rekening seperti seharusnya.
     menunggu_pilihan_kategori = bool(context.get("menunggu_pilihan_kategori"))
 
+    # True kalau balasan TURN SEBELUMNYA menanyakan "Balas *Ya* atau *Batal*"
+    # untuk hubungi admin (PINTAS ATAU umum). Web chat TIDAK punya FSM seperti
+    # WhatsApp (MENUNGGU_ADMIN + FAST-PATH konfirmasi Ya/Batal), jadi tanpa
+    # pelacakan ini balasan "Batal"/"Ya" yang polos tidak pernah dikenali sama
+    # sekali - jatuh ke fallback "Mimin kurang paham" walau bot sendiri yang
+    # baru saja menanyakannya (bug dilaporkan 3 Sep 2026 lewat screenshot).
+    menunggu_konfirmasi_admin = bool(context.get("menunggu_konfirmasi_admin"))
+    admin_handoff_dikonfirmasi = False
+    output_menunggu_konfirmasi_admin = False
+
+    KATA_YA_KONFIRMASI = ["ya", "iya", "y", "boleh", "oke", "ok", "baik", "silakan", "lanjut", "setuju", "mau"]
+    KATA_BATAL_KONFIRMASI = ["batal", "tidak jadi", "gak jadi", "ga jadi", "nggak jadi", "tidak", "gak", "nggak", "ga", "cancel", "no"]
+
     for index, potong in enumerate(potongan):
         potong = potong.strip()
         if not potong and not has_media:
@@ -941,6 +1002,28 @@ def susun_balasan(
             intent = "doa_infak"
             _tambah_hasil(intents, intent)
             _tambah_hasil(responses, ambil_balasan(intent))
+            continue
+
+        if menunggu_konfirmasi_admin:
+            if _balasan_diawali_kata(teks_norm, KATA_YA_KONFIRMASI):
+                menunggu_konfirmasi_admin = False
+                admin_handoff_dikonfirmasi = True
+                _tambah_hasil(intents, "handoff_admin_success")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_success", nama_pengirim=nama_pengirim))
+                continue
+            if _balasan_diawali_kata(teks_norm, KATA_BATAL_KONFIRMASI):
+                menunggu_konfirmasi_admin = False
+                _tambah_hasil(intents, "handoff_admin_cancel")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_cancel", nama_pengirim=nama_pengirim))
+                continue
+            # Bukan Ya/Batal yang jelas - tanya ulang dengan tegas, JANGAN
+            # lanjut menebak-nebak niat dari jawaban yang ambigu (beda dari
+            # menunggu_pilihan_kategori di atas yang boleh lanjut ke alur
+            # normal kalau tidak dikenali - konfirmasi hubungi admin manusia
+            # sengaja lebih ketat).
+            output_menunggu_konfirmasi_admin = True
+            _tambah_hasil(intents, "handoff_admin_waiting")
+            _tambah_hasil(responses, ambil_balasan("handoff_admin_waiting", nama_pengirim=nama_pengirim))
             continue
 
         if menunggu_pilihan_kategori:
@@ -979,6 +1062,29 @@ def susun_balasan(
                 _tambah_hasil(intents, "info_qris")
                 _tambah_hasil(responses, ambil_balasan("info_qris"))
             continue
+
+        # Niat donasi EKSPLISIT ("ingin berdonasi ota palestina min") dalam SATU
+        # kalimat yang sama harus menang atas pencarian program_key di bawah -
+        # tanpa ini, kata kunci yang overlap antara kategori donasi ZIS dan
+        # program beasiswa (mis. "ota palestina"/"palestina" dikenali JUGA oleh
+        # extract_program_keyword() sebagai program_manager.py) selalu dibaca
+        # sebagai permintaan INFO PROGRAM, bukan konfirmasi kategori + nomor
+        # rekening - beda dari bug yang sudah diperbaiki sebelumnya
+        # (menunggu_pilihan_kategori, hanya berlaku SETELAH katalog tampil),
+        # ini kasus baru: niat + kategori disebut sekaligus di PESAN PERTAMA,
+        # tanpa pernah melihat katalog. Sengaja digerbang oleh niat eksplisit
+        # (bukan cek KAMUS_PENDAFTARAN tanpa syarat) supaya pertanyaan info
+        # murni seperti "apa itu OTA Palestina?" TETAP dijawab sebagai info
+        # program seperti biasa (lihat test_tanya_info_program_palestina_
+        # tanpa_konteks_katalog_tetap_info). Ditemukan lewat user test
+        # menyeluruh seluruh jenis penyaluran, 3 Sep 2026.
+        if _ada_salah_satu(teks_norm, ["ingin berdonasi", "ingin donasi", "mau donasi", "mau berdonasi", "mau bayar zakat"]):
+            intent_kategori_eksplisit = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
+            if intent_kategori_eksplisit in _INTENT_KE_KODE_DONASI:
+                detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent_kategori_eksplisit]
+                _tambah_hasil(intents, intent_kategori_eksplisit)
+                _tambah_hasil(responses, ambil_balasan(intent_kategori_eksplisit, nama_pengirim=nama_pengirim))
+                continue
 
         # context dinamis selama 1 pesan: jika di potongan sebelumnya sudah ketemu program,
         # potongan berikutnya boleh menganggap itu sebagai konteks.
@@ -1041,6 +1147,8 @@ def susun_balasan(
         intent = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
         if intent in _INTENT_KE_KODE_DONASI:
             detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent]
+        if intent in ("handoff_admin", "handoff_admin_umum"):
+            output_menunggu_konfirmasi_admin = True
         # Jika sudah ada jawaban lain dan potongan ini hanya jatuh ke "tidak_diketahui",
         # jangan ganggu user dengan fallback yang terasa kaku.
         if intent == "tidak_diketahui" and responses and _skip_fallback_if_minor_followup(teks_norm, context_dinamis):
@@ -1068,6 +1176,8 @@ def susun_balasan(
         "last_program_key": detected_program_key or context.get("last_program_key"),
         "kode_program_donasi": detected_kode_donasi or context.get("last_donation_category"),
         "menunggu_pilihan_kategori": "ingin_donasi" in intents,
+        "menunggu_konfirmasi_admin": output_menunggu_konfirmasi_admin,
+        "admin_handoff_dikonfirmasi": admin_handoff_dikonfirmasi,
         "should_wait_admin": should_wait_admin,
         "normalized_model_output": normalisasi_output_model(" | ".join(intents)),
     }

@@ -73,7 +73,12 @@ def _get_session(request: Request) -> tuple[str, dict, bool]:
         result = (token, WEB_SESSIONS[token], False)
     else:
         token = secrets.token_urlsafe(16)
-        WEB_SESSIONS[token] = {"last_program_key": None, "last_donation_category": None, "menunggu_pilihan_kategori": False}
+        WEB_SESSIONS[token] = {
+            "last_program_key": None,
+            "last_donation_category": None,
+            "menunggu_pilihan_kategori": False,
+            "menunggu_konfirmasi_admin": False,
+        }
         result = (token, WEB_SESSIONS[token], True)
 
     request.state.web_session = result
@@ -198,6 +203,7 @@ async def web_chat(request: Request, payload: dict):
             "last_program_key": session.get("last_program_key"),
             "last_donation_category": session.get("last_donation_category"),
             "menunggu_pilihan_kategori": session.get("menunggu_pilihan_kategori", False),
+            "menunggu_konfirmasi_admin": session.get("menunggu_konfirmasi_admin", False),
         },
         nama_pengirim="",
     )
@@ -216,11 +222,27 @@ async def web_chat(request: Request, payload: dict):
     # "OTA Palestina" di program_manager.py - tanpa ini, balasan user
     # MEMILIH kategori dari katalog malah disangka pertanyaan info program).
     session["menunggu_pilihan_kategori"] = hasil.get("menunggu_pilihan_kategori", False)
+    # Sama seperti last_donation_category di atas, tapi untuk alur konfirmasi
+    # "Balas *Ya* atau *Batal*" hubungi admin - web chat tidak punya FSM
+    # seperti WhatsApp (MENUNGGU_ADMIN), jadi status "sedang menunggu jawaban
+    # Ya/Batal" harus dilacak manual lewat sesi di sini (lihat catatan
+    # panjang di admin_scripts.py susun_balasan() untuk kronologi bug ini).
+    session["menunggu_konfirmasi_admin"] = hasil.get("menunggu_konfirmasi_admin", False)
 
     if "tidak_diketahui" in hasil.get("intents", []):
         reply = _WEB_FALLBACK_REPLY
     else:
         reply = _bersihkan_navigasi_wa(hasil["reply"])
+
+    # Jangan cuma BILANG "pesan Anda sedang diteruskan ke admin" tanpa benar-
+    # benar melakukannya - klaim kosong seperti itu justru menyesatkan
+    # pengunjung yang mengira staf sungguhan sudah diberi tahu.
+    if hasil.get("admin_handoff_dikonfirmasi"):
+        try:
+            notify_admin(f"🌐 [WEB CHAT] Pengunjung web meminta disambungkan ke admin (sesi #{token[:8]}).")
+        except Exception as e:
+            print(f"[Warning Web Handoff Notify Admin] {e}")
+
     state_manager.catat_pesan("web", token, "bot", reply)
     return _json_with_session(request, {"reply": reply, "requires_otp": False})
 

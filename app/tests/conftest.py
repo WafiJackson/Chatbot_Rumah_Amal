@@ -47,6 +47,15 @@ bot_webhook.send_whatsapp_reply = _fake_send_whatsapp_reply
 
 @pytest.fixture
 def client():
+    # _RATE_BUCKETS (routes/public_web.py) itu dict MODULE-LEVEL, bertahan
+    # sepanjang proses pytest (bukan per-TestClient) - dan TestClient selalu
+    # memakai IP palsu yang SAMA ("testclient") untuk semua test, jadi tanpa
+    # reset ini, jumlah request /api/web-chat yang menumpuk lintas FILE test
+    # (bukan cuma dalam satu test) bisa kena limiter produksi sungguhan
+    # (maks 20 pesan/menit per IP) dan membuat test gagal karena alasan yang
+    # sama sekali tidak terkait logika yang sedang diuji.
+    import routes.public_web as public_web
+    public_web._RATE_BUCKETS.clear()
     return TestClient(main_module.app)
 
 

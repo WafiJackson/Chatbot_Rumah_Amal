@@ -10,7 +10,17 @@
     var resendSecondsLeft = 0;
 
     function scrollToBottom() {
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        // requestAnimationFrame, BUKAN langsung sinkron - balasan panjang
+        // (mis. katalog 9 program) butuh waktu untuk browser selesai reflow
+        // sebelum scrollHeight yang benar bisa dibaca. Mengukur secara
+        // sinkron persis setelah appendChild() bisa membaca nilai basi
+        // (reflow belum selesai), memicu reflow kedua yang mendadak di
+        // tengah keyboard HP sedang terbuka - salah satu dugaan penyebab
+        // keyboard "tenggelam"/tertutup sendiri saat balasan bot kepanjangan
+        // (dilaporkan lewat HP asli, 3 Sep 2026).
+        requestAnimationFrame(function () {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        });
     }
 
     // Fallback tambahan untuk browser yang belum kenal meta
@@ -39,6 +49,29 @@
         var div = document.createElement("div");
         div.textContent = s;
         return div.innerHTML;
+    }
+
+    // Ubah URL/domain polos (mis. "Website Resmi: rumahamal.usk.ac.id", tanpa
+    // "https://" sama sekali - begitulah bot menuliskannya di balasan asli)
+    // jadi tautan yang bisa ditekan. HARUS dipanggil SETELAH escapeHtml(),
+    // bukan sebelumnya - beroperasi di atas teks yang sudah di-escape supaya
+    // tetap aman dari XSS. Domain-polos butuh TLD alfabet (bukan cuma digit)
+    // supaya angka seperti "Rp1.000.000" tidak ikut kesangkut jadi "link".
+    function linkify(escapedHtml) {
+        return escapedHtml.replace(
+            /(https?:\/\/[^\s<]+)|(?<![\w@])(\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\.[a-z]{2,})*\b)/gi,
+            function (cocokUtuh, urlPenuh, domainPolos) {
+                var url = urlPenuh || domainPolos;
+                var trailing = "";
+                var potongTrailing = url.match(/[.,;:!?)\]]+$/);
+                if (potongTrailing) {
+                    trailing = potongTrailing[0];
+                    url = url.slice(0, url.length - trailing.length);
+                }
+                var href = urlPenuh ? url : "https://" + url;
+                return '<a href="' + href + '" target="_blank" rel="noopener noreferrer" class="underline">' + url + "</a>" + trailing;
+            }
+        );
     }
 
     // Avatar bot Mimin (badan bulat + peci), warnanya ikut tema lewat CSS
@@ -86,7 +119,7 @@
 
         row.innerHTML =
             avatarHtml +
-            '<div><div class="' + bubbleClass + '">' + escapeHtml(text) + "</div>" +
+            '<div><div class="' + bubbleClass + '">' + linkify(escapeHtml(text)) + "</div>" +
             '<div class="' + timeClass + '">' + nowTime() + "</div></div>";
         messagesEl.appendChild(row);
         scrollToBottom();
@@ -112,6 +145,21 @@
         if (el) el.remove();
     }
 
+    // Kalau input sedang fokus (keyboard HP terbuka) SEBELUM balasan bot
+    // masuk, minta browser fokus ulang SETELAH DOM balasan (yang bisa saja
+    // panjang, mis. katalog program) selesai dirender. Beberapa browser HP
+    // menutup keyboard sendiri saat konten di sekitar elemen yang fokus
+    // berubah drastis - reassert fokus adalah mitigasi standar dipakai
+    // widget chat produksi untuk kasus ini, dan aman dipanggil walau
+    // keyboard sebenarnya tidak sempat tertutup (fokus ulang ke elemen yang
+    // sudah fokus adalah no-op).
+    function pertahankanFokusInput(sudahFokusSebelumnya) {
+        if (!sudahFokusSebelumnya) return;
+        requestAnimationFrame(function () {
+            if (document.activeElement !== inputEl) inputEl.focus();
+        });
+    }
+
     async function sendMessage() {
         var text = inputEl.value.trim();
         if (!text && !pendingFile) return;
@@ -121,6 +169,7 @@
             return;
         }
 
+        var sudahFokus = document.activeElement === inputEl;
         addMessage("user", text);
         inputEl.value = "";
         autoExpand(inputEl);
@@ -142,6 +191,7 @@
             hideTyping();
             addMessage("bot", "Maaf, Mimin sedang gangguan koneksi. Coba lagi sebentar ya 🙏");
         }
+        pertahankanFokusInput(sudahFokus);
     }
 
     async function sendResiUpload(caption) {
@@ -152,6 +202,7 @@
             localStorage.setItem("ra_wa_number", waNumberForOtp);
         }
 
+        var sudahFokus = document.activeElement === inputEl;
         addMessage("user", (caption || "(mengirim bukti transfer)") + "\n📷 " + pendingFile.name);
         inputEl.value = "";
         autoExpand(inputEl);
@@ -173,6 +224,7 @@
             hideTyping();
             addMessage("bot", "Maaf, gagal mengunggah bukti transfernya. Coba lagi ya 🙏");
         }
+        pertahankanFokusInput(sudahFokus);
     }
 
     function quickPrompt(text) {
