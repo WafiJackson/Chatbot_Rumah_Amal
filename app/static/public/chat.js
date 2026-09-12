@@ -51,6 +51,17 @@
         return div.innerHTML;
     }
 
+    // Balasan bot pakai sintaks gaya WhatsApp (*teks*) untuk bold - WA
+    // client-nya sendiri yang menerjemahkan itu jadi tebal, tapi halaman web
+    // biasa tidak kenal sintaks itu sama sekali, jadi tanda bintangnya cuma
+    // ikut tercetak apa adanya. Dipanggil SETELAH escapeHtml() (prinsip sama
+    // seperti linkify()) supaya isi di antara bintang tetap teks yang sudah
+    // aman, cuma dibungkus tag <strong> yang aman. Tidak menyeberang baris
+    // ([^\n*]) supaya bintang di baris berbeda tidak salah berpasangan.
+    function boldify(escapedHtml) {
+        return escapedHtml.replace(/\*([^\n*]+)\*/g, "<strong>$1</strong>");
+    }
+
     // Ubah URL/domain polos (mis. "Website Resmi: rumahamal.usk.ac.id", tanpa
     // "https://" sama sekali - begitulah bot menuliskannya di balasan asli)
     // jadi tautan yang bisa ditekan. HARUS dipanggil SETELAH escapeHtml(),
@@ -119,7 +130,7 @@
 
         row.innerHTML =
             avatarHtml +
-            '<div><div class="' + bubbleClass + '">' + linkify(escapeHtml(text)) + "</div>" +
+            '<div><div class="' + bubbleClass + '">' + linkify(boldify(escapeHtml(text))) + "</div>" +
             '<div class="' + timeClass + '">' + nowTime() + "</div></div>";
         messagesEl.appendChild(row);
         scrollToBottom();

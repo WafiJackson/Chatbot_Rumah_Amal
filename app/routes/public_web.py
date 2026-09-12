@@ -78,6 +78,7 @@ def _get_session(request: Request) -> tuple[str, dict, bool]:
             "last_donation_category": None,
             "menunggu_pilihan_kategori": False,
             "menunggu_konfirmasi_admin": False,
+            "menunggu_nomor_wa_handoff": False,
         }
         result = (token, WEB_SESSIONS[token], True)
 
@@ -204,6 +205,7 @@ async def web_chat(request: Request, payload: dict):
             "last_donation_category": session.get("last_donation_category"),
             "menunggu_pilihan_kategori": session.get("menunggu_pilihan_kategori", False),
             "menunggu_konfirmasi_admin": session.get("menunggu_konfirmasi_admin", False),
+            "menunggu_nomor_wa_handoff": session.get("menunggu_nomor_wa_handoff", False),
         },
         nama_pengirim="",
     )
@@ -228,18 +230,28 @@ async def web_chat(request: Request, payload: dict):
     # Ya/Batal" harus dilacak manual lewat sesi di sini (lihat catatan
     # panjang di admin_scripts.py susun_balasan() untuk kronologi bug ini).
     session["menunggu_konfirmasi_admin"] = hasil.get("menunggu_konfirmasi_admin", False)
+    # Sama pola-nya, untuk langkah "minta nomor WA" SETELAH user bilang "Ya" -
+    # lihat catatan di admin_scripts.py susun_balasan() untuk alasan kenapa
+    # ini perlu (web chat anonim, notifikasi admin sebelumnya tidak
+    # menyertakan cara apa pun untuk benar-benar dihubungi balik).
+    session["menunggu_nomor_wa_handoff"] = hasil.get("menunggu_nomor_wa_handoff", False)
 
     if "tidak_diketahui" in hasil.get("intents", []):
         reply = _WEB_FALLBACK_REPLY
     else:
         reply = _bersihkan_navigasi_wa(hasil["reply"])
 
-    # Jangan cuma BILANG "pesan Anda sedang diteruskan ke admin" tanpa benar-
-    # benar melakukannya - klaim kosong seperti itu justru menyesatkan
-    # pengunjung yang mengira staf sungguhan sudah diberi tahu.
-    if hasil.get("admin_handoff_dikonfirmasi"):
+    # Cuma notify admin begitu nomor WA-nya BENAR-BENAR ada - jangan lagi
+    # cuma bilang "pesan Anda sedang diteruskan ke admin" tanpa cara apa pun
+    # bagi admin membalas (klaim kosong yang menyesatkan pengunjung).
+    nomor_handoff = hasil.get("admin_handoff_nomor_wa")
+    if nomor_handoff:
         try:
-            notify_admin(f"🌐 [WEB CHAT] Pengunjung web meminta disambungkan ke admin (sesi #{token[:8]}).")
+            notify_admin(
+                f"🌐 [WEB CHAT] Pengunjung web minta disambungkan ke admin.\n"
+                f"Nomor WA: {nomor_handoff}\n"
+                f"(sesi #{token[:8]})"
+            )
         except Exception as e:
             print(f"[Warning Web Handoff Notify Admin] {e}")
 

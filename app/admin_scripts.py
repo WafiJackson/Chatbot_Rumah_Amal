@@ -141,7 +141,14 @@ QA_SCRIPT = {
         "Apakah Anda ingin disambungkan ke admin sekarang? (Balas *Ya* atau *Batal*)"
     ),
     "handoff_admin_waiting": "Silakan balas *Ya* jika ingin disambungkan ke admin, atau *Batal* jika tidak jadi.",
-    "handoff_admin_success": "Tunggu sebentar ya, pesan Anda sedang diteruskan ke admin. Staf kami akan segera membalas chat ini.",
+    # Web chat tidak punya identitas donatur sama sekali (beda dari WhatsApp
+    # yang otomatis tahu nomor pengirim) - notifikasi ke admin sebelumnya
+    # cuma menyebut ID sesi anonim yang tidak bisa dihubungi balik. Sekarang
+    # minta nomor WA dulu SEBELUM benar-benar mengirim notifikasi, supaya
+    # admin punya cara nyata membalas.
+    "handoff_admin_minta_nomor": "Baik {sapaan_panggilan}, boleh Mimin minta nomor WhatsApp yang aktif? Nanti admin akan langsung menghubungi ke nomor tersebut.",
+    "handoff_admin_nomor_tidak_valid": "Sepertinya itu bukan format nomor WhatsApp yang valid. Coba kirim lagi ya, contoh: 081234567890.",
+    "handoff_admin_success": "Terima kasih, pesan Anda sudah diteruskan ke admin. Staf kami akan segera menghubungi nomor WhatsApp yang Anda berikan.",
     "handoff_admin_cancel": "Penyambungan ke admin dibatalkan. Silakan kirim pertanyaan lain jika masih ada yang ingin ditanyakan.",
 
     # Bagian I: Profil dan informasi umum
@@ -986,8 +993,16 @@ def susun_balasan(
     # sekali - jatuh ke fallback "Mimin kurang paham" walau bot sendiri yang
     # baru saja menanyakannya (bug dilaporkan 3 Sep 2026 lewat screenshot).
     menunggu_konfirmasi_admin = bool(context.get("menunggu_konfirmasi_admin"))
-    admin_handoff_dikonfirmasi = False
     output_menunggu_konfirmasi_admin = False
+
+    # Web chat itu ANONIM - beda dari WhatsApp yang otomatis tahu nomor
+    # pengirim, jadi begitu user bilang "Ya" ingin disambungkan admin, tidak
+    # ada cara nyata bagi admin membalas kalau cuma diberi ID sesi cookie.
+    # Setelah "Ya" dikonfirmasi, alih-alih langsung notify admin (janji
+    # kosong - lihat diskusi 12 Sep 2026), minta dulu nomor WA yang aktif.
+    menunggu_nomor_wa_handoff = bool(context.get("menunggu_nomor_wa_handoff"))
+    output_menunggu_nomor_wa_handoff = False
+    admin_handoff_nomor_wa = None
 
     KATA_YA_KONFIRMASI = ["ya", "iya", "y", "boleh", "oke", "ok", "baik", "silakan", "lanjut", "setuju", "mau"]
     KATA_BATAL_KONFIRMASI = ["batal", "tidak jadi", "gak jadi", "ga jadi", "nggak jadi", "tidak", "gak", "nggak", "ga", "cancel", "no"]
@@ -1007,9 +1022,9 @@ def susun_balasan(
         if menunggu_konfirmasi_admin:
             if _balasan_diawali_kata(teks_norm, KATA_YA_KONFIRMASI):
                 menunggu_konfirmasi_admin = False
-                admin_handoff_dikonfirmasi = True
-                _tambah_hasil(intents, "handoff_admin_success")
-                _tambah_hasil(responses, ambil_balasan("handoff_admin_success", nama_pengirim=nama_pengirim))
+                output_menunggu_nomor_wa_handoff = True
+                _tambah_hasil(intents, "handoff_admin_minta_nomor")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_minta_nomor", nama_pengirim=nama_pengirim))
                 continue
             if _balasan_diawali_kata(teks_norm, KATA_BATAL_KONFIRMASI):
                 menunggu_konfirmasi_admin = False
@@ -1024,6 +1039,21 @@ def susun_balasan(
             output_menunggu_konfirmasi_admin = True
             _tambah_hasil(intents, "handoff_admin_waiting")
             _tambah_hasil(responses, ambil_balasan("handoff_admin_waiting", nama_pengirim=nama_pengirim))
+            continue
+
+        if menunggu_nomor_wa_handoff:
+            nomor_bersih = re.sub(r"[^\d]", "", potong)
+            if len(nomor_bersih) >= 9 and len(nomor_bersih) <= 15:
+                admin_handoff_nomor_wa = nomor_bersih
+                _tambah_hasil(intents, "handoff_admin_success")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_success", nama_pengirim=nama_pengirim))
+                continue
+            # Bukan format nomor yang masuk akal - tanya ulang, jangan
+            # lanjut ke alur normal (sama seperti menunggu_konfirmasi_admin,
+            # supaya tidak diam-diam melewatkan langkah ini).
+            output_menunggu_nomor_wa_handoff = True
+            _tambah_hasil(intents, "handoff_admin_nomor_tidak_valid")
+            _tambah_hasil(responses, ambil_balasan("handoff_admin_nomor_tidak_valid", nama_pengirim=nama_pengirim))
             continue
 
         if menunggu_pilihan_kategori:
@@ -1177,7 +1207,8 @@ def susun_balasan(
         "kode_program_donasi": detected_kode_donasi or context.get("last_donation_category"),
         "menunggu_pilihan_kategori": "ingin_donasi" in intents,
         "menunggu_konfirmasi_admin": output_menunggu_konfirmasi_admin,
-        "admin_handoff_dikonfirmasi": admin_handoff_dikonfirmasi,
+        "menunggu_nomor_wa_handoff": output_menunggu_nomor_wa_handoff,
+        "admin_handoff_nomor_wa": admin_handoff_nomor_wa,
         "should_wait_admin": should_wait_admin,
         "normalized_model_output": normalisasi_output_model(" | ".join(intents)),
     }

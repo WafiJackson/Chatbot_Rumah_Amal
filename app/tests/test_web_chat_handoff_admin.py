@@ -36,16 +36,39 @@ def test_balasan_batal_setelah_hubungi_admin_dipahami(client):
     assert "kurang paham" not in reply2.lower()
 
 
-def test_balasan_ya_setelah_hubungi_admin_memicu_notify_admin(client, monkeypatch):
+def test_balasan_ya_diikuti_nomor_wa_memicu_notify_admin(client, monkeypatch):
+    """Web chat anonim - begitu user bilang "Ya", bot HARUS minta nomor WA
+    dulu (bukan langsung notify admin dengan cuma ID sesi cookie yang tidak
+    bisa dihubungi balik). Baru setelah nomor diberikan, admin benar-benar
+    diberi tahu, DENGAN nomor itu disertakan supaya bisa ditindaklanjuti."""
     dipanggil = []
     monkeypatch.setattr(public_web, "notify_admin", lambda pesan: dipanggil.append(pesan))
 
     client.post("/api/web-chat", json={"message": "saya mau bicara dengan admin"})
     resp2 = client.post("/api/web-chat", json={"message": "Ya"})
     reply2 = resp2.json()["reply"]
+    assert "nomor" in reply2.lower() and "whatsapp" in reply2.lower()
+    assert len(dipanggil) == 0  # belum notify admin sebelum nomor diberikan
 
-    assert "diteruskan ke admin" in reply2.lower() or "membalas chat" in reply2.lower()
+    resp3 = client.post("/api/web-chat", json={"message": "081234567890"})
+    reply3 = resp3.json()["reply"]
+
+    assert "diteruskan ke admin" in reply3.lower()
     assert len(dipanggil) == 1  # admin BENAR-BENAR diberi tahu, bukan cuma klaim kosong
+    assert "081234567890" in dipanggil[0]  # nomornya ikut disertakan, bukan cuma ID sesi
+
+
+def test_balasan_ya_lalu_nomor_tidak_valid_ditanya_ulang(client, monkeypatch):
+    dipanggil = []
+    monkeypatch.setattr(public_web, "notify_admin", lambda pesan: dipanggil.append(pesan))
+
+    client.post("/api/web-chat", json={"message": "hubungi admin"})
+    client.post("/api/web-chat", json={"message": "Ya"})
+    resp3 = client.post("/api/web-chat", json={"message": "entahlah"})
+    reply3 = resp3.json()["reply"]
+
+    assert "bukan format nomor" in reply3.lower()
+    assert len(dipanggil) == 0
 
 
 def test_balasan_ambigu_saat_menunggu_konfirmasi_tetap_ditanya_ulang(client):
