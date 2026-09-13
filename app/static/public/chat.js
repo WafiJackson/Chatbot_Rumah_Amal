@@ -85,24 +85,11 @@
         );
     }
 
-    // Avatar bot Mimin (badan bulat + peci), warnanya ikut tema lewat CSS
-    // custom property --bot-body/--bot-body-stroke/--bot-face (lihat chat.html)
-    // supaya markup yang sama otomatis benar di mode terang maupun gelap.
-    function botAvatarSvg() {
-        return (
-            '<svg viewBox="0 0 36 36" class="bot-avatar mt-1">' +
-            '<path d="M11 9 Q11 2 18 2 Q25 2 25 9 Z" fill="#1A1A1A"/>' +
-            '<rect x="10.5" y="7.8" width="15" height="1.4" rx="0.7" fill="#000" opacity="0.35"/>' +
-            '<ellipse cx="15" cy="4.5" rx="2.3" ry="1" fill="#3D3D3D" opacity="0.7"/>' +
-            '<rect x="5" y="9" width="26" height="22" rx="8" fill="var(--bot-body)" stroke="var(--bot-body-stroke)" stroke-width="1"/>' +
-            '<rect x="9" y="13" width="18" height="10" rx="4" fill="var(--bot-face)"/>' +
-            '<g class="bot-eyes">' +
-            '<circle cx="14" cy="18" r="2" fill="#fff"/>' +
-            '<circle cx="22" cy="18" r="2" fill="#fff"/>' +
-            '<circle cx="14.6" cy="17.3" r="0.6" fill="#F6C445"/>' +
-            '<circle cx="22.6" cy="17.3" r="0.6" fill="#F6C445"/>' +
-            "</g></svg>"
-        );
+    // Avatar bot Mimin: ikon resmi (icon bot RA.png) - line-art hitam di atas
+    // latar transparan, dibalik warnanya (invert) khusus mode gelap lewat
+    // kelas Tailwind "dark:invert" supaya tetap kontras di latar gelap.
+    function botAvatarHtml() {
+        return '<img src="/static/public/bot-icon.png" alt="Mimin AI" class="bot-avatar mt-1 dark:invert">';
     }
 
     // Avatar user: siluet tamu netral (bukan huruf inisial "K") - identitas
@@ -122,7 +109,7 @@
         var isUser = sender === "user";
         row.className = "flex gap-3 max-w-[85%] msg-enter" + (isUser ? " self-end flex-row-reverse" : "");
 
-        var avatarHtml = isUser ? guestAvatarSvg() : botAvatarSvg();
+        var avatarHtml = isUser ? guestAvatarSvg() : botAvatarHtml();
         var bubbleClass = isUser
             ? "px-4 py-3 rounded-2xl rounded-tr-sm bg-gradient-to-tr from-amal-700 to-amal-600 text-white text-[14px] leading-relaxed whitespace-pre-wrap shadow-sm"
             : "px-4 py-3 rounded-2xl rounded-tl-sm bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 shadow-sm text-slate-700 dark:text-amal-50 text-[14px] leading-relaxed whitespace-pre-wrap";
@@ -141,7 +128,7 @@
         row.className = "flex gap-3 max-w-[85%] msg-enter";
         row.id = "typing-row";
         row.innerHTML =
-            botAvatarSvg() +
+            botAvatarHtml() +
             '<div class="flex gap-1 px-4 py-3.5 bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl rounded-tl-sm shadow-sm">' +
             '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:0ms"></span>' +
             '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:150ms"></span>' +

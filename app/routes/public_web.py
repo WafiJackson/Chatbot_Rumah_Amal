@@ -1,6 +1,7 @@
 import re
 import secrets
 import time
+from urllib.parse import quote as _url_quote
 
 from fastapi import APIRouter, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
@@ -17,6 +18,13 @@ router = APIRouter(tags=["public-web"])
 templates = Jinja2Templates(directory="templates/public")
 
 SESSION_COOKIE = "web_chat_session"
+
+# Nomor WhatsApp resmi Rumah Amal - SAMA dengan yang tertulis di
+# QA_SCRIPT["info_kontak"] (admin_scripts.py), sudah dikonfirmasi staf valid
+# & aktif (lihat CATATAN_KEKURANGAN_PROYEK.txt bagian 9C). Dipakai halaman
+# "Pilih Channel" untuk tombol "Chat via WhatsApp".
+NOMOR_WA_RESMI = "628116888123"
+_PESAN_PEMBUKA_WA = "Assalamu'alaikum, saya ingin bertanya seputar zakat/infak di Rumah Amal USK."
 
 # Konteks percakapan per-pengunjung web (pola sama dengan user_sessions di
 # bot_webhook.py) - hanya menyimpan last_program_key & nomor WA yang sudah
@@ -173,6 +181,21 @@ def _format_riwayat(no_wa: str, sapaan: str) -> str:
 @router.get("/")
 def chat_page(request: Request):
     return templates.TemplateResponse(request, "chat.html", {})
+
+
+@router.get("/pilih-channel")
+def pilih_channel_page(request: Request):
+    """Halaman perantara sebelum masuk ke Web Chat - dituju dari widget
+    "robot-toast" yang akan dipasang tim web di beranda situs resmi.
+    Pengunjung memilih mau lanjut lewat WhatsApp atau Chat di Website."""
+    return templates.TemplateResponse(
+        request,
+        "pilih_channel.html",
+        {
+            "nomor_wa_resmi": NOMOR_WA_RESMI,
+            "pesan_pembuka_wa": _url_quote(_PESAN_PEMBUKA_WA),
+        },
+    )
 
 
 # =====================================================================
