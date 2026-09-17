@@ -553,18 +553,21 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
     # apa pun soal PINTAS (lihat blok "handoff_admin_umum" tepat di bawah ini,
     # dicek DULUAN supaya "hubungi admin" polos tidak ikut ke-tangkap sebagai
     # niat PINTAS hanya karena sama-sama ujung-ujungnya butuh admin manusia).
-    if _ada_salah_satu(
-        teks,
-        [
-            "ingin dibantu admin",
-            "bicara admin",
-            "bicara dengan admin",
-            "bicara sama admin",
-            "hubungi admin",
-            "cs",
-            "customer service",
-            "staf admin",
-        ],
+    # Dicek pakai kombinasi "admin" + kata akar "hubung"/"sambung" (bukan
+    # daftar frasa persis) supaya tahan variasi imbuhan alami bahasa
+    # Indonesia ("dihubungkan ke admin", "dapatkah saya disambungkan ke
+    # admin", "hubungkan saya ke admin", dst) - sebelumnya daftar frasa
+    # persis ("hubungi admin" dkk) gagal mengenali variasi berimbuhan ini,
+    # jatuh ke fallback LLM yang salah tebak jadi "info_kontak" (cuma
+    # dikasih nomor hotline, bukan alur konfirmasi hubungkan ke admin yang
+    # benar) - dilaporkan lewat screenshot 17 Sep 2026.
+    if (
+        _ada_salah_satu(
+            teks,
+            ["ingin dibantu admin", "bicara admin", "bicara dengan admin", "bicara sama admin", "cs", "customer service", "staf admin"],
+        )
+        or _ada_semua(teks, ["admin", "hubung"])
+        or _ada_semua(teks, ["admin", "sambung"])
     ):
         return "handoff_admin_umum"
     if _ada_salah_satu(

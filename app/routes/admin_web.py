@@ -173,10 +173,18 @@ def _format_transaksi_tampilan(rows: list[dict]) -> list[dict]:
     hasil = []
     for r in rows:
         waktu_raw = r.get("waktu_transaksi") or ""
+        no_wa_asli = r.get("no_wa") or "-"
         hasil.append({
             "id": r.get("id"),
             "id_tampil": f"TRX-{int(r['id']):04d}" if r.get("id") is not None else "TRX-????",
-            "no_wa": r.get("no_wa") or "-",
+            "no_wa": no_wa_asli,
+            # True kalau digitnya lebih panjang dari nomor telepon asli mana
+            # pun yang wajar (13 digit, mis. "6281269666776") - biasanya
+            # berarti ini ID WhatsApp mentah (@lid) yang gagal diterjemahkan
+            # jadi nomor asli (lihat _dapatkan_nomor_hp_asli() di
+            # bot_webhook.py), BUKAN nomor yang salah baca. Ditandai di
+            # dashboard supaya admin tidak bingung mengira ini bug tampilan.
+            "no_wa_lid": len(re.sub(r"[^\d]", "", no_wa_asli)) > 13,
             "nama_donatur": r.get("nama_donatur") or "-",
             "kode_program": PETA_NAMA.get(r.get("kode_program"), r.get("kode_program") or "Donasi"),
             "kode_program_raw": r.get("kode_program") or "",
@@ -352,5 +360,21 @@ def update_transaksi_status(transaksi_id: int, request: Request, status: str = F
     ok = state_manager.update_status_verifikasi(transaksi_id, status, kode_program_baru=kode_program)
     if not ok:
         return JSONResponse({"status": "gagal", "pesan": "Transaksi tidak ditemukan atau status tidak valid."}, status_code=400)
+
+    return JSONResponse({"status": "sukses"})
+
+
+@router.post("/transactions/{transaksi_id}/delete")
+def delete_transaksi(transaksi_id: int, request: Request):
+    """Hapus permanen satu transaksi - sengaja TIDAK dibatasi hanya untuk
+    status 'pending', admin boleh menghapus transaksi berstatus apa pun
+    (termasuk yang sudah tervalidasi) kalau ternyata salah/perlu dihapus
+    karena ketentuan lain. Diminta 17 Sep 2026."""
+    if not _is_authenticated(request):
+        return JSONResponse({"status": "gagal", "pesan": "Sesi login sudah berakhir."}, status_code=401)
+
+    ok = state_manager.hapus_transaksi(transaksi_id)
+    if not ok:
+        return JSONResponse({"status": "gagal", "pesan": "Transaksi tidak ditemukan."}, status_code=404)
 
     return JSONResponse({"status": "sukses"})

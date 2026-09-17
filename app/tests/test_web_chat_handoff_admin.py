@@ -20,6 +20,28 @@ def test_hubungi_admin_polos_tidak_menyebut_pintas(client):
     assert "Ya" in reply and "Batal" in reply
 
 
+import pytest
+
+
+@pytest.mark.parametrize(
+    "pesan",
+    [
+        "saya ingin dihubungkan ke admin",
+        "tolong sambungkan ke admin",
+        "saya ingin disambungkan ke admin",
+        "hubungkan saya ke admin",
+    ],
+)
+def test_variasi_imbuhan_hubung_sambung_admin_dikenali(client, pesan):
+    """Bug dilaporkan 17 Sep 2026: variasi berimbuhan ("dihubungkan",
+    "disambungkan", dst) tidak dikenali daftar frasa persis lama, jatuh ke
+    fallback LLM yang salah tebak jadi "info_kontak" (cuma dikasih nomor
+    hotline, bukan alur konfirmasi Ya/Batal yang benar)."""
+    resp = client.post("/api/web-chat", json={"message": pesan})
+    reply = resp.json()["reply"]
+    assert "Ya" in reply and "Batal" in reply
+
+
 def test_niat_pintas_tetap_menyebut_pintas(client):
     resp = client.post("/api/web-chat", json={"message": "saya mau ajukan pinjaman PINTAS"})
     reply = resp.json()["reply"]

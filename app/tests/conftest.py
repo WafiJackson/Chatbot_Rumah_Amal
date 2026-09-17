@@ -59,6 +59,25 @@ def client():
     return TestClient(main_module.app)
 
 
+@pytest.fixture
+def admin_login(client):
+    """Buat sesi admin yang SUDAH login, tanpa perlu mengisi env var
+    ADMIN_DASHBOARD_USERNAME/PASSWORD (konstanta module-level admin_web.py
+    sudah dibaca sekali saat import, tidak bisa diubah lagi mid-test) -
+    langsung sisipkan token ke ADMIN_SESSIONS & pasang cookie yang sama,
+    melewati form login sungguhan. Cukup untuk menguji endpoint yang butuh
+    login, bukan alur login itu sendiri."""
+    import secrets as _secrets
+    import time as _time
+    import routes.admin_web as admin_web
+
+    token = _secrets.token_urlsafe(32)
+    admin_web.ADMIN_SESSIONS[token] = _time.time()
+    client.cookies.set(admin_web.SESSION_COOKIE, token)
+    yield client
+    admin_web.ADMIN_SESSIONS.pop(token, None)
+
+
 import base64
 
 _JPEG_PALSU = b"\xff\xd8\xff" + b"\x00" * 6000

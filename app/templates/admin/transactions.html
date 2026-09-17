@@ -87,8 +87,7 @@
             <div class="flex items-center justify-between"><span class="text-slate-500">Nomor WA</span><span id="resi-wa" class="font-mono font-bold text-amal-900"></span></div>
             <div class="flex items-center justify-between gap-3">
                 <span class="text-slate-500 shrink-0">Kategori</span>
-                <span id="resi-kategori" class="font-bold text-amal-900 text-right"></span>
-                <select id="resi-kategori-select" class="hidden flex-1 max-w-[220px] text-right pl-2 pr-1 py-1.5 rounded-lg border border-gold-300 bg-gold-50 text-[13px] font-bold text-amal-900 outline-none focus:ring-2 focus:ring-gold-400/40"></select>
+                <select id="resi-kategori-select" class="flex-1 max-w-[220px] text-right pl-2 pr-1 py-1.5 rounded-lg border border-gold-300 bg-gold-50 text-[13px] font-bold text-amal-900 outline-none focus:ring-2 focus:ring-gold-400/40"></select>
             </div>
             <div class="flex items-center justify-between"><span class="text-slate-500">Nominal</span><span id="resi-nominal" class="font-mono font-extrabold text-gold-600"></span></div>
             <div class="flex items-center justify-between"><span class="text-slate-500">Waktu</span><span id="resi-waktu" class="font-bold text-amal-900"></span></div>
@@ -192,7 +191,9 @@
             tbody.innerHTML = pageItems.map(function (t) {
                 return '<tr class="hover:bg-amal-50/50 transition-colors group">' +
                     '<td class="px-7 py-4 text-[12.5px] font-mono font-bold text-slate-400">' + t.id_tampil + '</td>' +
-                    '<td class="px-7 py-4 text-[13.5px] font-bold text-amal-900">' + t.no_wa + '</td>' +
+                    '<td class="px-7 py-4 text-[13.5px] font-bold text-amal-900">' + escapeHtml(t.no_wa) +
+                        (t.no_wa_lid ? ' <span title="ID WhatsApp internal (@lid) - gagal diterjemahkan jadi nomor telepon asli, bukan salah baca" class="ml-1 inline-flex px-1.5 py-0.5 rounded text-[9.5px] font-extrabold uppercase tracking-wide bg-amber-100 text-amber-700 align-middle cursor-help">ID WA</span>' : '') +
+                    '</td>' +
                     '<td class="px-7 py-4"><span class="inline-flex px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-amal-100 text-amal-700">' + escapeHtml(t.kode_program) + '</span></td>' +
                     '<td class="px-7 py-4 text-[14.5px] font-mono font-extrabold text-gold-600 tabular-nums">' + formatRupiah(t.nominal) + '</td>' +
                     '<td class="px-7 py-4 text-[13px] font-medium text-slate-500">' + t.waktu_transaksi + '</td>' +
@@ -231,28 +232,13 @@
         document.getElementById("resi-waktu").textContent = t.waktu_transaksi;
         document.getElementById("resi-sumber").textContent = SUMBER_LABEL[t.sumber] || t.sumber;
 
-        const kategoriLabel = document.getElementById("resi-kategori");
+        // Kategori SELALU bisa diedit, apa pun statusnya - staf mungkin perlu
+        // mengoreksi kategori bahkan pada transaksi yang sudah tervalidasi
+        // (bot/admin bisa saja pernah keliru). Diminta 17 Sep 2026.
         const kategoriSelect = document.getElementById("resi-kategori-select");
-        const actions = document.getElementById("resi-actions");
-        if (t.status === "pending") {
-            // Kategori transaksi pending seringkali cuma tebakan sistem
-            // (mis. resi tanpa keterangan program apa pun) - beri dropdown
-            // supaya admin bisa mengoreksinya sekalian saat memvalidasi,
-            // bukan cuma menerima tebakan itu mentah-mentah.
-            kategoriLabel.classList.add("hidden");
-            kategoriSelect.classList.remove("hidden");
-            kategoriSelect.value = KATEGORI_DONASI_VALID[t.kode_program_raw] ? t.kode_program_raw : "INF-RUTIN";
+        kategoriSelect.value = KATEGORI_DONASI_VALID[t.kode_program_raw] ? t.kode_program_raw : "INF-RUTIN";
 
-            actions.innerHTML =
-                '<button type="button" onclick="setStatus(' + t.id + ',\'rejected\')" class="flex-1 py-3 rounded-2xl border border-rose-200 text-rose-600 font-extrabold text-[13.5px] hover:bg-rose-50 transition-all">Tolak</button>' +
-                '<button type="button" onclick="setStatus(' + t.id + ',\'validated\')" class="flex-1 py-3 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[13.5px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Tandai Tervalidasi</button>';
-        } else {
-            kategoriLabel.classList.remove("hidden");
-            kategoriSelect.classList.add("hidden");
-            kategoriLabel.textContent = t.kode_program;
-
-            actions.innerHTML = '<button type="button" onclick="closeResiModal()" class="flex-1 py-3 rounded-2xl bg-amal-700 hover:bg-amal-800 text-white font-extrabold text-[13.5px] shadow-md shadow-amal-700/30 transition-all active:scale-[0.98]">Tutup</button>';
-        }
+        renderResiActions(t);
 
         const modal = document.getElementById("resi-modal");
         const backdrop = document.getElementById("resi-backdrop");
@@ -263,6 +249,64 @@
         });
     }
 
+    // Label & warna tombol transisi status - status TUJUAN yang tidak
+    // ditampilkan berarti itu status yang SEDANG aktif (tidak perlu tombol
+    // untuk "pindah" ke status yang sama).
+    const TOMBOL_STATUS = {
+        pending: { label: "Kembalikan ke Menunggu", kelas: "border border-gold-300 text-gold-700 hover:bg-gold-50" },
+        validated: { label: "Tandai Tervalidasi", kelas: "bg-amal-700 hover:bg-amal-800 text-white shadow-md shadow-amal-700/30" },
+        rejected: { label: "Tandai Ditolak", kelas: "border border-rose-200 text-rose-600 hover:bg-rose-50" }
+    };
+
+    function renderResiActions(t) {
+        const actions = document.getElementById("resi-actions");
+        const statusLain = ["pending", "validated", "rejected"].filter(function (s) { return s !== t.status; });
+
+        actions.innerHTML =
+            '<div class="flex flex-col gap-2.5 w-full">' +
+                '<div class="flex gap-2.5">' +
+                    statusLain.map(function (s) {
+                        return '<button type="button" onclick="setStatus(' + t.id + ',\'' + s + '\')" class="flex-1 py-3 rounded-2xl font-extrabold text-[13px] transition-all active:scale-[0.98] ' + TOMBOL_STATUS[s].kelas + '">' + TOMBOL_STATUS[s].label + '</button>';
+                    }).join("") +
+                '</div>' +
+                '<button type="button" onclick="setStatus(' + t.id + ',\'' + t.status + '\')" class="w-full py-2.5 rounded-2xl border border-amal-200 text-amal-700 font-bold text-[12.5px] hover:bg-amal-50 transition-all">Simpan Kategori (status tetap)</button>' +
+                '<button type="button" onclick="mintaKonfirmasiHapus(' + t.id + ')" class="w-full py-2.5 rounded-2xl border border-rose-100 text-rose-500 font-bold text-[12.5px] hover:bg-rose-50 transition-all">Hapus Transaksi Permanen</button>' +
+            '</div>';
+    }
+
+    function mintaKonfirmasiHapus(id) {
+        const t = TRANSAKSI.find(function (x) { return x.id === id; });
+        if (!t) return;
+        const actions = document.getElementById("resi-actions");
+        actions.innerHTML =
+            '<div class="flex flex-col gap-3 w-full p-4 bg-rose-50 border border-rose-200 rounded-2xl">' +
+                '<p class="text-[12.5px] text-rose-700 font-semibold leading-relaxed">Yakin hapus ' + t.id_tampil + ' secara permanen? Foto resi ikut terhapus. Tindakan ini TIDAK BISA dibatalkan.</p>' +
+                '<div class="flex gap-2.5">' +
+                    '<button type="button" onclick="renderResiActions(TRANSAKSI.find(function(x){return x.id===' + id + ';}))" class="flex-1 py-2.5 rounded-xl border border-amal-200 text-amal-700 font-bold text-[13px] hover:bg-white transition-all">Batal</button>' +
+                    '<button type="button" onclick="hapusTransaksi(' + id + ')" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[13px] shadow-md shadow-rose-600/30 transition-all active:scale-[0.98]">Ya, Hapus Permanen</button>' +
+                '</div>' +
+            '</div>';
+    }
+
+    async function hapusTransaksi(id) {
+        try {
+            const res = await fetch("/admin/transactions/" + id + "/delete", { method: "POST" });
+            const data = await res.json();
+            if (data.status !== "sukses") {
+                showToast(data.pesan || "Gagal menghapus transaksi.", "&#10060;");
+                return;
+            }
+            const idx = TRANSAKSI.findIndex(function (x) { return x.id === id; });
+            const idTampil = idx >= 0 ? TRANSAKSI[idx].id_tampil : "Transaksi";
+            if (idx >= 0) TRANSAKSI.splice(idx, 1);
+            closeResiModal();
+            renderTable();
+            showToast(idTampil + " berhasil dihapus permanen", "&#128465;");
+        } catch (err) {
+            showToast("Gagal menghubungi server.", "&#10060;");
+        }
+    }
+
     function closeResiModal() {
         const modal = document.getElementById("resi-modal");
         const backdrop = document.getElementById("resi-backdrop");
@@ -271,17 +315,22 @@
         setTimeout(function () { backdrop.classList.add("hidden"); }, 300);
     }
 
+    const TOAST_ICON_STATUS = { validated: "&#9989;", pending: "&#8987;", rejected: "&#128683;" };
+
     async function setStatus(id, status) {
         try {
+            const t = TRANSAKSI.find(function (x) { return x.id === id; });
+            const statusSebelumnya = t ? t.status : null;
             const form = new URLSearchParams();
             form.set("status", status);
-            // Saat validasi, sertakan kategori yang dipilih admin di dropdown
-            // (bisa berbeda dari tebakan sistem sebelumnya kalau dikoreksi).
-            if (status === "validated") {
-                const kategoriSelect = document.getElementById("resi-kategori-select");
-                if (kategoriSelect && !kategoriSelect.classList.contains("hidden")) {
-                    form.set("kode_program", kategoriSelect.value);
-                }
+            // Kategori dropdown SELALU dikirim sekarang (dulu cuma saat
+            // status==='validated') - dropdown sekarang selalu bisa diedit
+            // apa pun statusnya, jadi perubahan kategori harus tersimpan
+            // di transisi status APA PUN, termasuk "Simpan Kategori" yang
+            // sengaja mengirim status semula supaya statusnya tidak berubah.
+            const kategoriSelect = document.getElementById("resi-kategori-select");
+            if (kategoriSelect) {
+                form.set("kode_program", kategoriSelect.value);
             }
             const res = await fetch("/admin/transactions/" + id + "/status", { method: "POST", body: form });
             const data = await res.json();
@@ -289,7 +338,6 @@
                 showToast(data.pesan || "Gagal memperbarui status.", "&#10060;");
                 return;
             }
-            const t = TRANSAKSI.find(function (x) { return x.id === id; });
             if (t) {
                 t.status = status;
                 const kategoriBaru = form.get("kode_program");
@@ -300,7 +348,10 @@
             }
             closeResiModal();
             renderTable();
-            showToast(status === "validated" ? (t.id_tampil + " ditandai tervalidasi") : (t.id_tampil + " ditolak"), status === "validated" ? "&#9989;" : "&#128683;");
+            const pesanToast = status === statusSebelumnya
+                ? (t.id_tampil + " diperbarui")
+                : (t.id_tampil + " -> " + STATUS_LABEL[status]);
+            showToast(pesanToast, TOAST_ICON_STATUS[status]);
         } catch (err) {
             showToast("Gagal menghubungi server.", "&#10060;");
         }

@@ -278,6 +278,19 @@ def simpan_transaksi_final(
     if not no_wa:
         return None
 
+    # Validasi bahwa no_wa BENAR-BENAR menyerupai nomor telepon (mayoritas
+    # digit) sebelum disimpan - normalisasi_no_wa() sebelumnya cuma menukar
+    # awalan "628"->"0" tanpa pernah memvalidasi isinya sama sekali, jadi
+    # nilai apa pun (termasuk string non-angka seperti "status") lolos
+    # tersimpan apa adanya ke kolom no_wa. Dashboard admin sempat menampilkan
+    # baris dengan no_wa="status" akibat ini - ditemukan & diperbaiki 17 Sep
+    # 2026. Ambang 8 digit dipilih sama seperti validasi yang sudah ada di
+    # public_web.py upload_resi() untuk konsistensi.
+    digit_no_wa = re.sub(r"[^\d]", "", str(no_wa))
+    if len(digit_no_wa) < 8:
+        print(f"[Warning simpan_transaksi_final] no_wa tidak menyerupai nomor telepon, transaksi DIBATALKAN: {no_wa!r}")
+        return None
+
     if not kode_program or kode_program in {"UMUM", "Donasi"}:
         session = get_session(no_wa)
         kode_program = session.get("target_program") or "INF-RUTIN"
@@ -363,6 +376,41 @@ def update_status_verifikasi(transaksi_id: int, status_baru: str, kode_program_b
             )
         conn.commit()
         return cursor.rowcount > 0
+
+
+def hapus_transaksi(transaksi_id: int) -> bool:
+    """Menghapus permanen satu baris transaksi dari SQLite (sumber otoritatif),
+    termasuk file foto resi terkait kalau ada (supaya tidak jadi file
+    yatim/orphan di RESI_DIR). Sengaja tetap bisa dipanggil untuk transaksi
+    berstatus APA PUN (termasuk yang sudah 'validated') - staf lembaga bisa
+    saja perlu menghapus catatan yang ternyata salah/tidak sah walau sempat
+    tervalidasi, atau karena ketentuan lain (permintaan penghapusan data,
+    dst). Diminta 17 Sep 2026.
+
+    CATATAN JUJUR: TIDAK ikut menghapus dari Supabase - tidak ada fungsi
+    hapus di supabase_client.py, dan baris Supabase tidak disimpan dengan
+    id yang sama persis dengan SQLite (dikunci dengan kombinasi no_wa/waktu
+    sendiri), jadi tidak ada cara aman mencocokkan baris yang tepat untuk
+    dihapus di sana tanpa risiko salah hapus. Kalau Supabase dipakai
+    production, baris yang dihapus di sini akan tetap ada di Supabase -
+    perlu dihapus manual di sana kalau memang diperlukan."""
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT resi_path FROM transaksi_donasi WHERE id = ?", (transaksi_id,)).fetchone()
+        if row is None:
+            return False
+        cursor = conn.execute("DELETE FROM transaksi_donasi WHERE id = ?", (transaksi_id,))
+        conn.commit()
+        dihapus = cursor.rowcount > 0
+
+    if dihapus and row["resi_path"]:
+        try:
+            path_resi = os.path.join(RESI_DIR, row["resi_path"])
+            if os.path.isfile(path_resi):
+                os.remove(path_resi)
+        except Exception as e:
+            print(f"[Warning hapus_transaksi] Gagal hapus file resi: {e}")
+
+    return dihapus
 
 
 def ambil_riwayat_donasi(no_wa: str) -> list[dict]:
