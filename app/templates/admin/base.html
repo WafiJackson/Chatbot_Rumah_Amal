@@ -27,6 +27,25 @@
         ::-webkit-scrollbar-thumb { background: #B9DFC4; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #8CC79E; }
         @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Sorotan tepi mengikuti kursor (specular rim) - dipinjam dari teknik
+           dock-nav (komponen.html), pola identik dengan chat.html dan
+           pilih_channel.html supaya konsisten di seluruh sistem. Dinyalakan
+           lewat script di bawah (pointermove) yang menyetel
+           --spec-angle/--spec-bright. Latar halaman TETAP polos tanpa
+           animasi berat - dashboard dibaca terus-menerus, legibilitas
+           menang atas atmosfer. */
+        [data-spec] { --spec-angle: 2.4rad; --spec-bright: 0; position: relative; }
+        [data-spec]::after {
+            content: ""; position: absolute; inset: -1px; z-index: 1; padding: 1.5px; border-radius: inherit; pointer-events: none;
+            opacity: var(--spec-bright);
+            background: conic-gradient(from var(--spec-angle) at 50% 50%,
+                rgba(255,255,255,0) 0deg, rgba(255,255,255,.2) 12deg, rgba(255,255,255,.95) 26deg,
+                rgba(255,255,255,.22) 42deg, rgba(255,255,255,0) 64deg, rgba(255,255,255,0) 360deg);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+                    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
     </style>
     {% block head %}{% endblock %}
 </head>
@@ -52,17 +71,17 @@
             </div>
 
             <nav class="flex flex-col gap-1">
-                <a href="/admin/dashboard" class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'dashboard' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
+                <a href="/admin/dashboard" data-spec class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'dashboard' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
                     {% if active_page == 'dashboard' %}<span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gold-500"></span>{% endif %}
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"></path></svg>
                     Dashboard
                 </a>
-                <a href="/admin/transactions" class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'transaksi' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
+                <a href="/admin/transactions" data-spec class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'transaksi' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
                     {% if active_page == 'transaksi' %}<span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gold-500"></span>{% endif %}
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
                     Data Transaksi
                 </a>
-                <a href="/admin/log-bot" class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'log_bot' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
+                <a href="/admin/log-bot" data-spec class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'log_bot' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
                     {% if active_page == 'log_bot' %}<span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gold-500"></span>{% endif %}
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"></path></svg>
                     Log Bot
@@ -171,6 +190,49 @@
                 setTimeout(function () { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 300);
             }, 2500);
         }
+
+        // Sorotan tepi mengikuti kursor (specular rim) pada nav sidebar +
+        // elemen [data-spec] apa pun di halaman (termasuk kartu KPI dari
+        // dashboard.html, karena block content sudah dirender sebelum
+        // script ini jalan) - pola identik dengan chat.html/pilih_channel.html.
+        function initSpecularHover() {
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const fineHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+            if (reduceMotion || !fineHover) return;
+            const targets = Array.prototype.slice.call(document.querySelectorAll('[data-spec]')).map(function (el) {
+                return { el: el, ang: 2.4, tAng: 2.4, br: 0, tBr: 0 };
+            });
+            if (!targets.length) return;
+            let mx = 0, my = 0, seen = false;
+            window.addEventListener('pointermove', function (e) { mx = e.clientX; my = e.clientY; seen = true; }, { passive: true });
+            window.addEventListener('pointerleave', function () { targets.forEach(function (t) { t.tBr = 0; }); });
+
+            function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+            let last = performance.now();
+            function loop(now) {
+                const dt = Math.min(0.05, (now - last) / 1000); last = now;
+                if (seen) {
+                    targets.forEach(function (t) {
+                        const r = t.el.getBoundingClientRect();
+                        const dx = Math.max(r.left - mx, 0, mx - r.right), dy = Math.max(r.top - my, 0, my - r.bottom);
+                        const d = Math.sqrt(dx * dx + dy * dy);
+                        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                        t.tAng = d === 0 ? t.tAng : Math.atan2(my - cy, mx - cx);
+                        t.tBr = clamp01(1 - d / 200);
+                    });
+                }
+                targets.forEach(function (t) {
+                    const diff = ((t.tAng - t.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+                    t.ang += diff * (1 - Math.exp(-dt * 8));
+                    t.br += (t.tBr - t.br) * (1 - Math.exp(-dt * 9));
+                    t.el.style.setProperty('--spec-angle', t.ang.toFixed(4) + 'rad');
+                    t.el.style.setProperty('--spec-bright', (clamp01(t.br) * 0.9).toFixed(3));
+                });
+                requestAnimationFrame(loop);
+            }
+            requestAnimationFrame(loop);
+        }
+        initSpecularHover();
     </script>
     {% block scripts %}{% endblock %}
 </body>

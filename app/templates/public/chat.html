@@ -87,6 +87,24 @@
         @keyframes botFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
         .bot-avatar { width: 32px; height: 32px; flex-shrink: 0; object-fit: contain; animation: botFloat 3s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .bot-avatar { animation: none; } }
+
+        /* Sorotan tepi mengikuti kursor (specular rim) pada tombol pintasan
+           sidebar - dipinjam dari teknik dock-nav (komponen.html), dinyalakan
+           lewat chat.js (pointermove) yang menyetel --spec-angle/--spec-bright.
+           Sengaja HANYA di tombol pintasan (nav-like), TIDAK di seluruh
+           halaman - area pesan dipakai lama untuk baca/ketik jadi dibiarkan
+           tenang tanpa animasi latar. */
+        [data-spec] { --spec-angle: 2.4rad; --spec-bright: 0; position: relative; }
+        [data-spec]::after {
+            content: ""; position: absolute; inset: -1px; z-index: 1; padding: 1.5px; border-radius: inherit; pointer-events: none;
+            opacity: var(--spec-bright);
+            background: conic-gradient(from var(--spec-angle) at 50% 50%,
+                rgba(255,255,255,0) 0deg, rgba(255,255,255,.2) 12deg, rgba(255,255,255,.95) 26deg,
+                rgba(255,255,255,.22) 42deg, rgba(255,255,255,0) 64deg, rgba(255,255,255,0) 360deg);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+                    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
     </style>
 </head>
 <body class="app-shell-height bg-gradient-to-br from-amal-50 via-white to-gold-50/60 dark:from-amal-950 dark:via-amal-900 dark:to-amal-950 text-slate-800 dark:text-amal-50 antialiased overflow-hidden">
@@ -119,21 +137,21 @@
             <div class="p-6 flex flex-col flex-1">
                 <p class="text-[11px] font-bold uppercase tracking-widest text-amal-600 dark:text-amal-300 mb-3 ml-1">Pintasan Cepat</p>
                 <div class="flex flex-col gap-2.5 mb-5">
-                    <button type="button" onclick="quickPrompt('Bagaimana cara berdonasi zakat?')"
+                    <button type="button" onclick="quickPrompt('Bagaimana cara berdonasi zakat?')" data-spec
                             class="group flex items-center gap-3.5 text-left bg-gradient-to-r from-amal-700 to-amal-600 hover:from-amal-800 hover:to-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] shadow-md shadow-amal-700/25 transition-all duration-300 transform hover:-translate-y-0.5">
                         <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
                             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-4-8.5c0-1.38 1.79-2.5 4-2.5s4 1.12 4 2.5-1.79 2.5-4 2.5-4 1.12-4 2.5 1.79 2.5 4 2.5 4-1.12 4-2.5"></path></svg>
                         </span>
                         <span class="text-white font-bold">Cara Berdonasi Zakat</span>
                     </button>
-                    <button type="button" onclick="quickPrompt('Program apa saja yang tersedia di Rumah Amal?')"
+                    <button type="button" onclick="quickPrompt('Program apa saja yang tersedia di Rumah Amal?')" data-spec
                             class="group flex items-center gap-3.5 text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 dark:hover:border-amal-500 transition-all duration-300 transform hover:-translate-y-0.5">
                         <span class="w-8 h-8 rounded-full bg-amal-50 dark:bg-amal-900 flex items-center justify-center text-amal-700 dark:text-amal-300 group-hover:bg-amal-600 group-hover:text-white transition-colors shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                         </span>
                         <span class="text-slate-700 dark:text-amal-100 group-hover:text-amal-700 dark:group-hover:text-white">Lihat Program</span>
                     </button>
-                    <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')"
+                    <button type="button" onclick="quickPrompt('Saya mau cek riwayat transaksi saya')" data-spec
                             class="group flex items-center gap-3.5 text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl px-4 py-3.5 text-[13.5px] font-semibold shadow-sm hover:shadow-md hover:border-amal-300 dark:hover:border-amal-500 transition-all duration-300 transform hover:-translate-y-0.5">
                         <span class="w-8 h-8 rounded-full bg-gold-50 dark:bg-amal-900 flex items-center justify-center text-gold-600 dark:text-gold-400 group-hover:bg-gold-400 group-hover:text-amal-900 transition-colors shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
@@ -148,17 +166,17 @@
                         <span class="text-[11px] font-bold uppercase tracking-widest text-amal-600 dark:text-amal-300">Konsultasi Zakat</span>
                     </div>
                     <div class="flex flex-col gap-2 pl-2 border-l-2 border-amal-100 dark:border-amal-700">
-                        <button type="button" onclick="openExternalLink('https://rumahamal.usk.ac.id/donasi-zakat', 'Kalkulator Zakat')"
+                        <button type="button" onclick="openExternalLink('https://rumahamal.usk.ac.id/donasi-zakat', 'Kalkulator Zakat')" data-spec
                                 class="flex items-center justify-between text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 dark:text-amal-100 shadow-sm hover:border-amal-300 dark:hover:border-amal-500 hover:text-amal-700 dark:hover:text-gold-400 transition-all">
                             <span>Kalkulator Zakat</span>
                             <span class="text-[10px] text-slate-400 dark:text-amal-400 font-bold">&#8599; Website</span>
                         </button>
-                        <button type="button" onclick="openGoogleSearch('harta yang wajib dizakati dalam islam')"
+                        <button type="button" onclick="openGoogleSearch('harta yang wajib dizakati dalam islam')" data-spec
                                 class="flex items-center justify-between text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 dark:text-amal-100 shadow-sm hover:border-amal-300 dark:hover:border-amal-500 hover:text-amal-700 dark:hover:text-gold-400 transition-all">
                             <span>Harta yang Wajib Dizakati</span>
                             <span class="text-[10px] text-slate-400 dark:text-amal-400 font-bold">&#8599; Google</span>
                         </button>
-                        <button type="button" onclick="openGoogleSearch('syarat wajib zakat dalam islam')"
+                        <button type="button" onclick="openGoogleSearch('syarat wajib zakat dalam islam')" data-spec
                                 class="flex items-center justify-between text-left bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 dark:text-amal-100 shadow-sm hover:border-amal-300 dark:hover:border-amal-500 hover:text-amal-700 dark:hover:text-gold-400 transition-all">
                             <span>Syarat Wajib Zakat</span>
                             <span class="text-[10px] text-slate-400 dark:text-amal-400 font-bold">&#8599; Google</span>

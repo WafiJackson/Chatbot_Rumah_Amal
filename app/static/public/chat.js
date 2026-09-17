@@ -404,6 +404,49 @@
         return getOtpDigitInputs().map(function (el) { return el.value; }).join("");
     }
 
+    // Sorotan tepi mengikuti kursor (specular rim) pada tombol pintasan
+    // sidebar (data-spec, lihat CSS di chat.html) - dipinjam dari teknik
+    // dock-nav (komponen.html), pola sama persis dengan pilih_channel.html
+    // supaya konsisten. Sengaja HANYA elemen nav-like ini yang dapat efek
+    // ini, bukan seluruh halaman - area pesan dipakai lama untuk baca/ketik.
+    function initSpecularHover() {
+        var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var fineHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+        if (reduceMotion || !fineHover) return;
+        var targets = Array.prototype.slice.call(document.querySelectorAll("[data-spec]")).map(function (el) {
+            return { el: el, ang: 2.4, tAng: 2.4, br: 0, tBr: 0 };
+        });
+        if (!targets.length) return;
+        var mx = 0, my = 0, seen = false;
+        window.addEventListener("pointermove", function (e) { mx = e.clientX; my = e.clientY; seen = true; }, { passive: true });
+        window.addEventListener("pointerleave", function () { targets.forEach(function (t) { t.tBr = 0; }); });
+
+        function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+        var last = performance.now();
+        function loop(now) {
+            var dt = Math.min(0.05, (now - last) / 1000); last = now;
+            if (seen) {
+                targets.forEach(function (t) {
+                    var r = t.el.getBoundingClientRect();
+                    var dx = Math.max(r.left - mx, 0, mx - r.right), dy = Math.max(r.top - my, 0, my - r.bottom);
+                    var d = Math.sqrt(dx * dx + dy * dy);
+                    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                    t.tAng = d === 0 ? t.tAng : Math.atan2(my - cy, mx - cx);
+                    t.tBr = clamp01(1 - d / 200);
+                });
+            }
+            targets.forEach(function (t) {
+                var diff = ((t.tAng - t.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+                t.ang += diff * (1 - Math.exp(-dt * 8));
+                t.br += (t.tBr - t.br) * (1 - Math.exp(-dt * 9));
+                t.el.style.setProperty("--spec-angle", t.ang.toFixed(4) + "rad");
+                t.el.style.setProperty("--spec-bright", (clamp01(t.br) * 0.9).toFixed(3));
+            });
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+    }
+
     function setupOtpDigitInputs() {
         var inputs = getOtpDigitInputs();
         inputs.forEach(function (el, idx) {
@@ -534,6 +577,7 @@
     });
 
     setupOtpDigitInputs();
+    initSpecularHover();
 
     // expose handlers used by inline onclick/onkeydown attributes in chat.html
     window.sendMessage = sendMessage;
