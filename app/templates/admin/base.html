@@ -4,17 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Pusat Kendali{% endblock %} &middot; Rumah Amal USK</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230F452A'/%3E%3Cpath d='M12 3.2l2.05 4.16 4.59.67-3.32 3.24.78 4.57L12 13.62l-4.1 2.16.78-4.57-3.32-3.24 4.59-.67z' fill='%23F6C445'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        amal: { 50: '#F0F9F3', 100: '#DCEFE1', 200: '#B9DFC4', 300: '#8CC79E', 400: '#59AB74', 500: '#2F8C52', 600: '#1F7A46', 700: '#155C36', 800: '#0F452A', 900: '#0A301D', 950: '#051B10' },
-                        gold: { 50: '#FFFBEB', 100: '#FEF3C7', 200: '#FDE7A0', 300: '#FBD86B', 400: '#F6C445', 500: '#E8AC1F', 600: '#C98F13', 700: '#A5720E' }
+                        amal: {
+                            50: '#F0F9F3', 100: '#DCEFE1', 200: '#B9DFC4', 300: '#8CC79E',
+                            400: '#59AB74', 500: '#2F8C52', 600: '#136B3B', 700: '#0F542E',
+                            800: '#0A3F22', 900: '#062C17', 950: '#03170C'
+                        },
+                        gold: {
+                            50: '#FFFDF5', 100: '#FEF8E2', 200: '#FDE7A0', 300: '#FBD86B',
+                            400: '#F6C445', 500: '#E8AC1F', 600: '#C98F13', 700: '#A5720E'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['"Space Grotesk"', 'monospace']
+                    },
+                    boxShadow: {
+                        'floating-bar': '0 8px 30px -4px rgba(10, 63, 34, 0.14), 0 0 0 1px rgba(19, 107, 59, 0.08)'
                     }
                 }
             }
@@ -27,62 +42,83 @@
         ::-webkit-scrollbar-thumb { background: #B9DFC4; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #8CC79E; }
         @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        #topo-canvas { display: block; }
 
-        /* Sorotan tepi mengikuti kursor (specular rim) - dipinjam dari teknik
-           dock-nav (komponen.html), pola identik dengan chat.html dan
-           pilih_channel.html supaya konsisten di seluruh sistem. Dinyalakan
-           lewat script di bawah (pointermove) yang menyetel
-           --spec-angle/--spec-bright. Latar halaman TETAP polos tanpa
-           animasi berat - dashboard dibaca terus-menerus, legibilitas
-           menang atas atmosfer. */
-        [data-spec] { --spec-angle: 2.4rad; --spec-bright: 0; position: relative; }
-        [data-spec]::after {
-            content: ""; position: absolute; inset: -1px; z-index: 1; padding: 1.5px; border-radius: inherit; pointer-events: none;
+        .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .reveal.in { opacity: 1; transform: translateY(0); }
+        @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+        /* Tombol nav sidebar: magnet magnify + specular rim - transform-only
+           (translateY+scale, bukan width/height), digerakkan GPU tanpa reflow. */
+        [data-navfx] {
+            position: relative;
+            --spec-angle: 2.4rad;
+            --spec-bright: 0;
+            transform: translateY(0) scale(1);
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+        }
+        [data-navfx]::after {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            z-index: 1;
+            padding: 1px;
+            border-radius: inherit;
+            pointer-events: none;
             opacity: var(--spec-bright);
             background: conic-gradient(from var(--spec-angle) at 50% 50%,
-                rgba(255,255,255,0) 0deg, rgba(255,255,255,.2) 12deg, rgba(255,255,255,.95) 26deg,
-                rgba(255,255,255,.22) 42deg, rgba(255,255,255,0) 64deg, rgba(255,255,255,0) 360deg);
+                rgba(246,196,69,0) 0deg, rgba(246,196,69,.4) 14deg, rgba(246,196,69,1) 28deg,
+                rgba(246,196,69,.45) 46deg, rgba(246,196,69,0) 68deg, rgba(246,196,69,0) 180deg,
+                rgba(246,196,69,.4) 194deg, rgba(246,196,69,1) 208deg, rgba(246,196,69,.45) 226deg,
+                rgba(246,196,69,0) 248deg, rgba(246,196,69,0) 360deg);
             -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
                     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             -webkit-mask-composite: xor; mask-composite: exclude;
         }
+        @media (prefers-reduced-motion: reduce) {
+            [data-navfx] { transition: none; }
+            [data-navfx]::after { display: none; }
+        }
     </style>
     {% block head %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-amal-50 via-white to-gold-50/60 text-slate-800 antialiased selection:bg-amal-200 selection:text-amal-900 overflow-hidden">
+<body class="text-slate-800 antialiased selection:bg-amal-200 selection:text-amal-900 overflow-hidden" style="background: radial-gradient(circle at 12% 15%, rgba(19,107,59,0.45), transparent 48%), radial-gradient(circle at 88% 15%, rgba(246,196,69,0.5), transparent 48%), radial-gradient(circle at 20% 90%, rgba(246,196,69,0.32), transparent 55%), radial-gradient(circle at 85% 90%, rgba(19,107,59,0.36), transparent 55%), #F0F9F3;">
+
+    <!-- Latar shader topografi WebGL - identik dengan chat.html & pilih_channel.html. -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <canvas id="topo-canvas" class="w-full h-full"></canvas>
+    </div>
 
     <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 md:hidden"></div>
 
-    <div class="flex h-screen w-full">
+    <div class="reveal relative z-10 flex h-screen w-full p-0 md:p-4 gap-0 md:gap-4">
 
-        <!-- SIDEBAR -->
-        <aside id="sidebar" class="fixed md:static top-0 left-0 h-full z-40 w-72 md:w-64 shrink-0 bg-amal-950 flex flex-col p-4 shadow-2xl transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
+        <!-- SIDEBAR (drawer di mobile, mengambang kaca di desktop) -->
+        <aside id="sidebar" class="fixed md:static top-0 left-0 h-full md:h-auto z-40 w-72 md:w-64 shrink-0 bg-white/90 md:bg-white/40 backdrop-blur-xl border-r md:border border-amal-100 md:rounded-2xl flex flex-col p-4 shadow-2xl md:shadow-floating-bar transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
             <div class="flex items-center gap-3 px-2 pb-8 pt-2">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amal-700 to-amal-500 flex items-center justify-center shadow-md ring-2 ring-gold-300/30 shrink-0">
                     <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gold-400"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                 </div>
                 <div class="min-w-0">
-                    <div class="text-white text-[15px] font-extrabold tracking-tight truncate">Pusat Kendali</div>
-                    <div class="text-amal-400 text-[11px] font-bold tracking-wider uppercase truncate">Rumah Amal USK</div>
+                    <div class="text-amal-900 text-[15px] font-extrabold tracking-tight truncate">Pusat Kendali</div>
+                    <div class="text-amal-600 text-[11px] font-bold tracking-wider uppercase truncate">Rumah Amal USK</div>
                 </div>
-                <button type="button" onclick="closeSidebar()" class="md:hidden ml-auto w-8 h-8 rounded-full flex items-center justify-center text-amal-400 hover:bg-amal-800 hover:text-white transition-colors shrink-0" aria-label="Tutup menu">
+                <button type="button" onclick="closeSidebar()" class="md:hidden ml-auto w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0" aria-label="Tutup menu">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
 
-            <nav class="flex flex-col gap-1">
-                <a href="/admin/dashboard" data-spec class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'dashboard' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
-                    {% if active_page == 'dashboard' %}<span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gold-500"></span>{% endif %}
+            <nav class="flex flex-col gap-2">
+                <a href="/admin/dashboard" data-navfx class="relative flex items-center gap-3 px-4 py-3 rounded-2xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'dashboard' %}bg-gradient-to-r from-amal-700 to-amal-600 text-white shadow-md shadow-amal-700/25{% else %}text-slate-500 hover:bg-amal-50 hover:text-amal-700 border border-transparent hover:border-amal-100{% endif %}">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"></path></svg>
                     Dashboard
                 </a>
-                <a href="/admin/transactions" data-spec class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'transaksi' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
-                    {% if active_page == 'transaksi' %}<span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gold-500"></span>{% endif %}
+                <a href="/admin/transactions" data-navfx class="relative flex items-center gap-3 px-4 py-3 rounded-2xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'transaksi' %}bg-gradient-to-r from-amal-700 to-amal-600 text-white shadow-md shadow-amal-700/25{% else %}text-slate-500 hover:bg-amal-50 hover:text-amal-700 border border-transparent hover:border-amal-100{% endif %}">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
                     Data Transaksi
                 </a>
-                <a href="/admin/log-bot" data-spec class="relative flex items-center gap-3 px-4 py-3 rounded-xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'log_bot' %}bg-amal-800 text-white{% else %}text-amal-300 hover:bg-amal-900 hover:text-white{% endif %}">
-                    {% if active_page == 'log_bot' %}<span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gold-500"></span>{% endif %}
+                <a href="/admin/log-bot" data-navfx class="relative flex items-center gap-3 px-4 py-3 rounded-2xl text-[13.5px] font-bold transition-colors duration-200 {% if active_page == 'log_bot' %}bg-gradient-to-r from-amal-700 to-amal-600 text-white shadow-md shadow-amal-700/25{% else %}text-slate-500 hover:bg-amal-50 hover:text-amal-700 border border-transparent hover:border-amal-100{% endif %}">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"></path></svg>
                     Log Bot
                 </a>
@@ -90,16 +126,16 @@
 
             <div class="flex-1"></div>
 
-            <div class="border-t border-amal-900 pt-4 mt-2">
-                <button onclick="openLogoutModal()" type="button" class="flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold text-amal-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors w-full text-left mb-3">
+            <div class="border-t border-amal-100 pt-4 mt-2">
+                <button onclick="openLogoutModal()" type="button" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors w-full text-left mb-3">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"></path></svg>
                     Keluar
                 </button>
-                <div class="flex items-center gap-3 px-3 py-2 bg-amal-900 rounded-xl border border-amal-800">
+                <div class="flex items-center gap-3 px-3 py-2 bg-amal-50/50 rounded-2xl border border-amal-100">
                     <div class="w-9 h-9 rounded-full bg-gold-100 text-gold-700 flex items-center justify-center text-xs font-bold shrink-0">{{ (admin_username or "AD")[:2] | upper }}</div>
                     <div class="min-w-0">
-                        <div class="text-white text-[13px] font-bold truncate">{{ admin_username or "Admin" }}</div>
-                        <div class="text-amal-400 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1">
+                        <div class="text-amal-900 text-[13px] font-bold truncate">{{ admin_username or "Admin" }}</div>
+                        <div class="text-amal-600 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0"></span> Online
                         </div>
                     </div>
@@ -107,9 +143,9 @@
             </div>
         </aside>
 
-        <!-- MAIN COLUMN -->
-        <main class="flex-1 flex flex-col min-w-0 h-screen">
-            <header class="flex items-center justify-between gap-3 px-5 md:px-10 py-5 bg-white/80 backdrop-blur-md border-b border-amal-100 sticky top-0 z-10 shrink-0">
+        <!-- MAIN COLUMN (mengambang kaca di desktop, tetap fullscreen di mobile) -->
+        <main class="flex-1 flex flex-col min-w-0 h-screen md:h-auto md:rounded-2xl md:border border-amal-100 md:shadow-floating-bar overflow-hidden bg-white/15 backdrop-blur-xl">
+            <header class="flex items-center justify-between gap-3 px-5 md:px-10 py-5 bg-white/40 backdrop-blur-lg border-b border-amal-100 sticky top-0 z-10 shrink-0">
                 <div class="flex items-center gap-3 min-w-0">
                     <button type="button" onclick="openSidebar()" class="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-amal-700 hover:bg-amal-50 transition-colors shrink-0" aria-label="Buka menu">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -120,7 +156,8 @@
                     </div>
                 </div>
                 <div class="hidden md:flex items-center gap-1.5 bg-gold-50 border border-gold-200 text-gold-700 text-[11.5px] font-bold px-3.5 py-1.5 rounded-full shrink-0 whitespace-nowrap">
-                    &#11088; Lembaga Amil Zakat Resmi
+                    <svg class="w-3.5 h-3.5 text-gold-500 fill-current shrink-0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    Lembaga Amil Zakat Resmi
                 </div>
             </header>
 
@@ -191,48 +228,164 @@
             }, 2500);
         }
 
-        // Sorotan tepi mengikuti kursor (specular rim) pada nav sidebar +
-        // elemen [data-spec] apa pun di halaman (termasuk kartu KPI dari
-        // dashboard.html, karena block content sudah dirender sebelum
-        // script ini jalan) - pola identik dengan chat.html/pilih_channel.html.
-        function initSpecularHover() {
-            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const fineHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-            if (reduceMotion || !fineHover) return;
-            const targets = Array.prototype.slice.call(document.querySelectorAll('[data-spec]')).map(function (el) {
-                return { el: el, ang: 2.4, tAng: 2.4, br: 0, tBr: 0 };
+        // Reveal fade-up saat halaman dimuat.
+        setTimeout(function () {
+            document.querySelectorAll('.reveal').forEach(function (el, i) {
+                setTimeout(function () { el.classList.add('in'); }, i * 120);
             });
-            if (!targets.length) return;
-            let mx = 0, my = 0, seen = false;
-            window.addEventListener('pointermove', function (e) { mx = e.clientX; my = e.clientY; seen = true; }, { passive: true });
-            window.addEventListener('pointerleave', function () { targets.forEach(function (t) { t.tBr = 0; }); });
+        }, 100);
 
-            function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
-            let last = performance.now();
-            function loop(now) {
-                const dt = Math.min(0.05, (now - last) / 1000); last = now;
-                if (seen) {
-                    targets.forEach(function (t) {
-                        const r = t.el.getBoundingClientRect();
-                        const dx = Math.max(r.left - mx, 0, mx - r.right), dy = Math.max(r.top - my, 0, my - r.bottom);
-                        const d = Math.sqrt(dx * dx + dy * dy);
-                        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-                        t.tAng = d === 0 ? t.tAng : Math.atan2(my - cy, mx - cx);
-                        t.tBr = clamp01(1 - d / 200);
-                    });
-                }
-                targets.forEach(function (t) {
-                    const diff = ((t.tAng - t.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-                    t.ang += diff * (1 - Math.exp(-dt * 8));
-                    t.br += (t.tBr - t.br) * (1 - Math.exp(-dt * 9));
-                    t.el.style.setProperty('--spec-angle', t.ang.toFixed(4) + 'rad');
-                    t.el.style.setProperty('--spec-bright', (clamp01(t.br) * 0.9).toFixed(3));
+        // Nav sidebar (+ elemen [data-navfx] lain, mis. kartu KPI dashboard.html
+        // yang sudah dirender sebelum script ini jalan): magnet magnify + specular rim.
+        (function () {
+            const navfxTargets = Array.prototype.slice.call(document.querySelectorAll('[data-navfx]'));
+            if (!navfxTargets.length) return;
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) return;
+
+            const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+            const RADIUS = 130;
+
+            function resetNavfx() {
+                navfxTargets.forEach((el) => {
+                    el.style.transform = 'translateY(0) scale(1)';
+                    el.style.setProperty('--spec-bright', '0');
                 });
-                requestAnimationFrame(loop);
             }
-            requestAnimationFrame(loop);
-        }
-        initSpecularHover();
+
+            window.addEventListener('pointermove', (e) => {
+                navfxTargets.forEach((el) => {
+                    const r = el.getBoundingClientRect();
+                    const dx = e.clientX - (r.left + r.width / 2);
+                    const dy = e.clientY - (r.top + r.height / 2);
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const v = clamp01(1 - dist / RADIUS);
+                    const eased = v * v * (3 - 2 * v);
+
+                    el.style.transform = `translateY(${(-3 * eased).toFixed(2)}px) scale(${(1 + 0.06 * eased).toFixed(3)})`;
+                    el.style.setProperty('--spec-angle', `${Math.atan2(dy, dx).toFixed(4)}rad`);
+                    el.style.setProperty('--spec-bright', (eased * 0.9).toFixed(3));
+                });
+            }, { passive: true });
+
+            window.addEventListener('pointerleave', resetNavfx);
+            document.addEventListener('mouseleave', resetNavfx);
+        })();
+
+        // Shader latar topografi - identik dengan chat.html & pilih_channel.html.
+        (function () {
+            const canvas = document.getElementById('topo-canvas');
+            const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
+            if (!gl) return;
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+            gl.clearColor(0, 0, 0, 0);
+
+            const vsSource = `
+                attribute vec2 a_position;
+                void main() { gl_Position = vec4(a_position, 0.0, 1.0); }
+            `;
+            const fsSource = `
+                precision highp float;
+                uniform vec2 u_resolution;
+                uniform float u_time;
+                uniform float u_dpr;
+
+                vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+                float snoise(vec2 v){
+                    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                    vec2 i  = floor(v + dot(v, C.yy) );
+                    vec2 x0 = v -   i + dot(i, C.xx);
+                    vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                    vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1;
+                    i = mod(i, 289.0);
+                    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+                    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                    m = m*m; m = m*m;
+                    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                    vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5);
+                    vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                    vec3 g; g.x  = a0.x  * x0.x  + h.x  * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                    return 130.0 * dot(m, g);
+                }
+
+                void main() {
+                    vec2 st = gl_FragCoord.xy / u_resolution.xy;
+                    st.x *= u_resolution.x / u_resolution.y;
+
+                    float gridSize = 46.0 * u_dpr;
+                    vec2 gridSt = gl_FragCoord.xy / gridSize;
+                    vec2 gridFract = fract(gridSt);
+                    float lineThickness = 1.0 / gridSize;
+                    float gridLines = step(1.0 - lineThickness, gridFract.x) + step(1.0 - lineThickness, gridFract.y);
+                    gridLines = clamp(gridLines, 0.0, 1.0) * 0.22;
+
+                    float noiseScale = 1.4;
+                    vec2 noisePos = st * noiseScale + vec2(u_time * 0.012, u_time * 0.02);
+                    float n = snoise(noisePos) * 0.5 + 0.5;
+                    float numBands = 9.0;
+                    float bandVal = n * numBands;
+                    float triangleWave = abs(fract(bandVal) - 0.5) * 2.0;
+                    float topoLines = smoothstep(0.09, 0.0, triangleWave) * 0.85;
+
+                    vec3 gridColor = vec3(0.075, 0.42, 0.231);
+                    vec3 topoColor = vec3(0.965, 0.769, 0.271);
+
+                    float lineAlpha = clamp(gridLines + topoLines, 0.0, 1.0);
+                    vec3 lineColor = mix(gridColor, topoColor, step(0.001, topoLines));
+
+                    gl_FragColor = vec4(lineColor * lineAlpha, lineAlpha);
+                }
+            `;
+
+            function createShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                return shader;
+            }
+
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            gl.useProgram(program);
+
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+            const positionLocation = gl.getAttribLocation(program, "a_position");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+            const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+            const timeLocation = gl.getUniformLocation(program, "u_time");
+            const dprLocation = gl.getUniformLocation(program, "u_dpr");
+
+            function resizeCanvas() {
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = canvas.clientWidth * dpr;
+                canvas.height = canvas.clientHeight * dpr;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+                gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+                gl.uniform1f(dprLocation, dpr);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            const reduceMotionShader = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const startTime = performance.now();
+            function render(time) {
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.uniform1f(timeLocation, (time - startTime) * 0.001);
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                if (!reduceMotionShader) requestAnimationFrame(render);
+            }
+            requestAnimationFrame(render);
+        })();
     </script>
     {% block scripts %}{% endblock %}
 </body>

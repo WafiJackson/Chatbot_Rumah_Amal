@@ -23,3 +23,14 @@ def test_pilih_channel_link_web_chat_ke_root(client):
     resp = client.get("/pilih-channel")
     body = resp.text
     assert 'href="/"' in body
+
+
+def test_pilih_channel_kembali_ke_beranda_rumah_amal(client):
+    """Diminta 20 Sep 2026: "Kembali ke Beranda" HARUS mengarah ke beranda
+    situs resmi Rumah Amal USK, bukan history.back() atau placeholder
+    mockup - pengunjung datang dari widget di beranda itu, jadi tombol
+    kembali harus benar-benar membawa balik ke sana."""
+    resp = client.get("/pilih-channel")
+    body = resp.text
+    assert 'href="https://rumahamal.usk.ac.id/"' in body
+    assert "Kembali ke Beranda" in body

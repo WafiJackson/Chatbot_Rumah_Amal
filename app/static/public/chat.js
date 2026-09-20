@@ -85,11 +85,34 @@
         );
     }
 
-    // Avatar bot Mimin: ikon resmi (icon bot RA.png) - line-art hitam di atas
-    // latar transparan, dibalik warnanya (invert) khusus mode gelap lewat
-    // kelas Tailwind "dark:invert" supaya tetap kontras di latar gelap.
+    // Avatar bot Mimin: maskot SVG beranimasi (antena berkedip, mata
+    // berkedip, badan gradasi hijau) - id gradient dibuat unik per pemanggilan
+    // (Date.now()+Math.random()) supaya beberapa instance SVG di halaman yang
+    // sama tidak berebut satu <linearGradient id="..."> global yang sama.
+    var _botMascotSeq = 0;
     function botAvatarHtml() {
-        return '<img src="/static/public/bot-icon.png" alt="Mimin AI" class="bot-avatar mt-1 dark:invert">';
+        var gradId = "botGradMsg" + (_botMascotSeq++);
+        return (
+            '<div class="w-10 h-10 shrink-0 mt-0.5 animate-bot-float">' +
+            '<svg viewBox="0 0 36 36" class="w-full h-full drop-shadow-sm overflow-visible">' +
+            '<line x1="18" y1="2" x2="18" y2="8" stroke="#F6C445" stroke-width="2" stroke-linecap="round"/>' +
+            '<circle cx="18" cy="2" r="2.5" fill="#F6C445" class="animate-antenna-glow"/>' +
+            '<rect x="2" y="14" width="3" height="8" rx="1.5" fill="#F6C445"/>' +
+            '<rect x="31" y="14" width="3" height="8" rx="1.5" fill="#F6C445"/>' +
+            '<rect x="4" y="8" width="28" height="24" rx="7" fill="url(#' + gradId + ')" stroke="#0F542E" stroke-width="1.5"/>' +
+            '<rect x="7.5" y="12" width="21" height="11" rx="4" fill="#041B0E" stroke="#136B3B" stroke-width="1"/>' +
+            '<g class="animate-bot-blink">' +
+            '<circle cx="13" cy="17.5" r="2.2" fill="#34D399"/>' +
+            '<circle cx="23" cy="17.5" r="2.2" fill="#34D399"/>' +
+            '<circle cx="13.7" cy="16.7" r="0.7" fill="#FFFFFF"/>' +
+            '<circle cx="23.7" cy="16.7" r="0.7" fill="#FFFFFF"/>' +
+            "</g>" +
+            '<path d="M15 27 Q18 29 21 27" stroke="#F6C445" stroke-width="1.5" stroke-linecap="round" fill="none"/>' +
+            "<defs><linearGradient id=\"" + gradId + "\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">" +
+            '<stop offset="0%" stop-color="#198249"/><stop offset="100%" stop-color="#0B4224"/>' +
+            "</linearGradient></defs>" +
+            "</svg></div>"
+        );
     }
 
     // Avatar user: siluet tamu netral (bukan huruf inisial "K") - identitas
@@ -97,8 +120,8 @@
     // avatar generik lebih jujur daripada seolah-olah sudah tahu namanya.
     function guestAvatarSvg() {
         return (
-            '<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-amal-800 flex items-center justify-center shrink-0 mt-1">' +
-            '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-slate-400 dark:text-amal-400">' +
+            '<div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-1.5">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-slate-400">' +
             '<path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd"/>' +
             "</svg></div>"
         );
@@ -107,32 +130,32 @@
     function addMessage(sender, text) {
         var row = document.createElement("div");
         var isUser = sender === "user";
-        row.className = "flex gap-3 max-w-[85%] msg-enter" + (isUser ? " self-end flex-row-reverse" : "");
+        row.className = "flex items-start gap-3.5 max-w-[92%] md:max-w-[80%] msg-spring" + (isUser ? " self-end flex-row-reverse" : "");
 
         var avatarHtml = isUser ? guestAvatarSvg() : botAvatarHtml();
         var bubbleClass = isUser
-            ? "px-4 py-3 rounded-2xl rounded-tr-sm bg-gradient-to-tr from-amal-700 to-amal-600 text-white text-[14px] leading-relaxed whitespace-pre-wrap shadow-sm"
-            : "px-4 py-3 rounded-2xl rounded-tl-sm bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 shadow-sm text-slate-700 dark:text-amal-50 text-[14px] leading-relaxed whitespace-pre-wrap";
-        var timeClass = "text-[11px] text-slate-400 dark:text-amal-500 mt-1.5" + (isUser ? " text-right mr-1" : " ml-1");
+            ? "p-3.5 md:p-4 rounded-2xl rounded-tr-none bg-amal-600 text-white text-[13.5px] leading-relaxed whitespace-pre-wrap shadow-sm font-medium"
+            : "p-5 rounded-2xl rounded-tl-none bg-white border border-slate-200/90 shadow-card-soft text-slate-800 text-[13.5px] leading-relaxed whitespace-pre-wrap";
+        var timeClass = "block text-[11px] text-slate-400 font-mono mt-1.5" + (isUser ? " text-right mr-1" : " ml-1");
 
         row.innerHTML =
             avatarHtml +
             '<div><div class="' + bubbleClass + '">' + linkify(boldify(escapeHtml(text))) + "</div>" +
-            '<div class="' + timeClass + '">' + nowTime() + "</div></div>";
+            '<span class="' + timeClass + '">' + nowTime() + "</span></div>";
         messagesEl.appendChild(row);
         scrollToBottom();
     }
 
     function showTyping() {
         var row = document.createElement("div");
-        row.className = "flex gap-3 max-w-[85%] msg-enter";
+        row.className = "flex items-start gap-3.5 msg-spring";
         row.id = "typing-row";
         row.innerHTML =
             botAvatarHtml() +
-            '<div class="flex gap-1 px-4 py-3.5 bg-white dark:bg-amal-800 border border-amal-100 dark:border-amal-700 rounded-2xl rounded-tl-sm shadow-sm">' +
-            '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:0ms"></span>' +
-            '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:150ms"></span>' +
-            '<span class="w-1.5 h-1.5 rounded-full bg-amal-300 animate-bounce" style="animation-delay:300ms"></span>' +
+            '<div class="px-4 py-3.5 bg-white rounded-2xl rounded-tl-none border border-slate-200/90 flex items-center gap-1.5 shadow-sm">' +
+            '<span class="w-2 h-2 rounded-full bg-amal-600 animate-bounce"></span>' +
+            '<span class="w-2 h-2 rounded-full bg-amal-600 animate-bounce" style="animation-delay:150ms"></span>' +
+            '<span class="w-2 h-2 rounded-full bg-amal-600 animate-bounce" style="animation-delay:300ms"></span>' +
             "</div>";
         messagesEl.appendChild(row);
         scrollToBottom();
@@ -276,23 +299,61 @@
         document.getElementById("file-input").value = "";
     }
 
-    // ---------- Toggle tema terang/gelap ----------
-    function toggleTheme() {
-        var isDark = document.documentElement.classList.toggle("dark");
-        localStorage.setItem("ra_theme", isDark ? "dark" : "light");
-    }
-
     // ---------- Mobile sidebar drawer ----------
     function openSidebar() {
         var sidebar = document.getElementById("sidebar");
         sidebar.classList.remove("-translate-x-full");
         sidebar.classList.add("translate-x-0");
+        var backdrop = document.getElementById("sidebar-backdrop");
+        if (backdrop) backdrop.classList.remove("hidden");
     }
 
     function closeSidebar() {
         var sidebar = document.getElementById("sidebar");
         sidebar.classList.add("-translate-x-full");
         sidebar.classList.remove("translate-x-0");
+        var backdrop = document.getElementById("sidebar-backdrop");
+        if (backdrop) backdrop.classList.add("hidden");
+    }
+
+    // ---------- Kalkulator Zakat Profesi & Maal ----------
+    function toggleCalculatorModal() {
+        var modal = document.getElementById("calculatorModal");
+        if (modal.classList.contains("hidden")) {
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            calculateZakat();
+        } else {
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+    }
+
+    function calculateZakat() {
+        var salary = parseFloat(document.getElementById("calcSalary").value) || 0;
+        var bonus = parseFloat(document.getElementById("calcBonus").value) || 0;
+        var expense = parseFloat(document.getElementById("calcExpense").value) || 0;
+        var net = (salary + bonus) - expense;
+        var nishab = 8202500;
+
+        if (net >= nishab) {
+            var zakat = net * 0.025;
+            document.getElementById("calcResultDisplay").innerHTML =
+                "Rp " + Math.round(zakat).toLocaleString("id-ID") + ' <span class="text-xs font-sans font-normal text-amal-700 font-semibold">(Wajib 2.5%)</span>';
+        } else {
+            document.getElementById("calcResultDisplay").innerHTML =
+                '<span class="text-sm font-sans font-bold text-amber-700">Belum mencapai nishab bulanan</span>';
+        }
+    }
+
+    // Kirim hasil hitungan sebagai pesan chat SUNGGUHAN (lewat quickPrompt ->
+    // sendMessage -> /api/web-chat) supaya nomor rekening yang diberikan
+    // adalah nomor RESMI dari backend (QA_SCRIPT), bukan angka contoh yang
+    // dikarang di sisi tampilan.
+    function transferZakatToChat() {
+        toggleCalculatorModal();
+        var salary = document.getElementById("calcSalary").value;
+        quickPrompt("Saya telah menghitung zakat penghasilan dengan gaji Rp " + parseInt(salary, 10).toLocaleString("id-ID") + ", saya ingin berdonasi zakat penghasilan.");
     }
 
     // ---------- OTP modal (3 langkah: nomor -> kode -> sukses) ----------
@@ -404,47 +465,122 @@
         return getOtpDigitInputs().map(function (el) { return el.value; }).join("");
     }
 
-    // Sorotan tepi mengikuti kursor (specular rim) pada tombol pintasan
-    // sidebar (data-spec, lihat CSS di chat.html) - dipinjam dari teknik
-    // dock-nav (komponen.html), pola sama persis dengan pilih_channel.html
-    // supaya konsisten. Sengaja HANYA elemen nav-like ini yang dapat efek
-    // ini, bukan seluruh halaman - area pesan dipakai lama untuk baca/ketik.
-    function initSpecularHover() {
+    // Tombol navbar/sidebar (data-navfx): magnet magnify + specular rim -
+    // transform-only (translateY+scale, BUKAN width/height), digerakkan GPU
+    // tanpa reflow. Sengaja HANYA elemen nav-like ini yang dapat efek ini,
+    // bukan seluruh halaman - area pesan dipakai lama untuk baca/ketik.
+    function initNavfx() {
+        var navfxTargets = Array.prototype.slice.call(document.querySelectorAll("[data-navfx]"));
+        if (!navfxTargets.length) return;
         var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        var fineHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-        if (reduceMotion || !fineHover) return;
-        var targets = Array.prototype.slice.call(document.querySelectorAll("[data-spec]")).map(function (el) {
-            return { el: el, ang: 2.4, tAng: 2.4, br: 0, tBr: 0 };
-        });
-        if (!targets.length) return;
-        var mx = 0, my = 0, seen = false;
-        window.addEventListener("pointermove", function (e) { mx = e.clientX; my = e.clientY; seen = true; }, { passive: true });
-        window.addEventListener("pointerleave", function () { targets.forEach(function (t) { t.tBr = 0; }); });
+        if (reduceMotion) return;
 
         function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
-        var last = performance.now();
-        function loop(now) {
-            var dt = Math.min(0.05, (now - last) / 1000); last = now;
-            if (seen) {
-                targets.forEach(function (t) {
-                    var r = t.el.getBoundingClientRect();
-                    var dx = Math.max(r.left - mx, 0, mx - r.right), dy = Math.max(r.top - my, 0, my - r.bottom);
-                    var d = Math.sqrt(dx * dx + dy * dy);
-                    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-                    t.tAng = d === 0 ? t.tAng : Math.atan2(my - cy, mx - cx);
-                    t.tBr = clamp01(1 - d / 200);
-                });
-            }
-            targets.forEach(function (t) {
-                var diff = ((t.tAng - t.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-                t.ang += diff * (1 - Math.exp(-dt * 8));
-                t.br += (t.tBr - t.br) * (1 - Math.exp(-dt * 9));
-                t.el.style.setProperty("--spec-angle", t.ang.toFixed(4) + "rad");
-                t.el.style.setProperty("--spec-bright", (clamp01(t.br) * 0.9).toFixed(3));
+        var RADIUS = 130;
+
+        function resetNavfx() {
+            navfxTargets.forEach(function (el) {
+                el.style.transform = "translateY(0) scale(1)";
+                el.style.setProperty("--spec-bright", "0");
             });
-            requestAnimationFrame(loop);
         }
-        requestAnimationFrame(loop);
+
+        // Pengecekan "(hover: hover) and (pointer: fine)" sengaja TIDAK
+        // dipakai di sini - di laptop layar sentuh, Chrome sering salah
+        // melaporkan hover tidak tersedia walau dipakai dengan mouse/trackpad
+        // biasa, sehingga efeknya mati total. pointermove sendiri sudah aman
+        // dipakai di perangkat sentuh (tap biasa tidak memicu event ini).
+        window.addEventListener("pointermove", function (e) {
+            navfxTargets.forEach(function (el) {
+                var r = el.getBoundingClientRect();
+                var dx = e.clientX - (r.left + r.width / 2);
+                var dy = e.clientY - (r.top + r.height / 2);
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                var v = clamp01(1 - dist / RADIUS);
+                var eased = v * v * (3 - 2 * v);
+
+                el.style.transform = "translateY(" + (-3 * eased).toFixed(2) + "px) scale(" + (1 + 0.06 * eased).toFixed(3) + ")";
+                el.style.setProperty("--spec-angle", Math.atan2(dy, dx).toFixed(4) + "rad");
+                el.style.setProperty("--spec-bright", (eased * 0.9).toFixed(3));
+            });
+        }, { passive: true });
+
+        window.addEventListener("pointerleave", resetNavfx);
+        document.addEventListener("mouseleave", resetNavfx);
+    }
+
+    // Latar shader topografi WebGL (murni, tanpa library) - identik dengan
+    // pilih_channel.html & admin/base.html supaya seluruh sistem konsisten.
+    function initTopoShader() {
+        var canvas = document.getElementById("topo-canvas");
+        var gl = canvas && canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
+        if (!gl) return;
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.clearColor(0, 0, 0, 0);
+
+        var vsSource = "attribute vec2 a_position; void main(){ gl_Position=vec4(a_position,0.0,1.0); }";
+        var fsSource = [
+            "precision highp float;", "uniform vec2 u_resolution;", "uniform float u_time;", "uniform float u_dpr;",
+            "vec3 permute(vec3 x){ return mod(((x*34.0)+1.0)*x, 289.0); }",
+            "float snoise(vec2 v){",
+            "  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);",
+            "  vec2 i = floor(v + dot(v, C.yy)); vec2 x0 = v - i + dot(i, C.xx);",
+            "  vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0,0.0) : vec2(0.0,1.0);",
+            "  vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod(i, 289.0);",
+            "  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));",
+            "  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);",
+            "  m = m*m; m = m*m;",
+            "  vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5);",
+            "  vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);",
+            "  vec3 g; g.x = a0.x*x0.x + h.x*x0.y; g.yz = a0.yz*x12.xz + h.yz*x12.yw;",
+            "  return 130.0 * dot(m, g);", "}",
+            "void main(){",
+            "  vec2 st = gl_FragCoord.xy / u_resolution.xy; st.x *= u_resolution.x / u_resolution.y;",
+            "  float gridSize = 46.0 * u_dpr; vec2 gridSt = gl_FragCoord.xy / gridSize; vec2 gridFract = fract(gridSt);",
+            "  float lineThickness = 1.0 / gridSize;",
+            "  float gridLines = step(1.0 - lineThickness, gridFract.x) + step(1.0 - lineThickness, gridFract.y);",
+            "  gridLines = clamp(gridLines, 0.0, 1.0) * 0.22;",
+            "  vec2 noisePos = st * 1.4 + vec2(u_time * 0.012, u_time * 0.02);",
+            "  float n = snoise(noisePos) * 0.5 + 0.5; float bandVal = n * 9.0;",
+            "  float triangleWave = abs(fract(bandVal) - 0.5) * 2.0;",
+            "  float topoLines = smoothstep(0.09, 0.0, triangleWave) * 0.85;",
+            "  vec3 gridColor = vec3(0.075, 0.42, 0.231);",
+            "  vec3 topoColor = vec3(0.965, 0.769, 0.271);",
+            "  float lineAlpha = clamp(gridLines + topoLines, 0.0, 1.0);",
+            "  vec3 lineColor = mix(gridColor, topoColor, step(0.001, topoLines));",
+            "  gl_FragColor = vec4(lineColor * lineAlpha, lineAlpha);", "}"
+        ].join("\n");
+        function createShader(type, source) { var s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); return s; }
+        var vertexShader = createShader(gl.VERTEX_SHADER, vsSource);
+        var fragmentShader = createShader(gl.FRAGMENT_SHADER, fsSource);
+        var program = gl.createProgram();
+        gl.attachShader(program, vertexShader); gl.attachShader(program, fragmentShader); gl.linkProgram(program); gl.useProgram(program);
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        var positionLocation = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+        var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+        var timeLocation = gl.getUniformLocation(program, "u_time");
+        var dprLocation = gl.getUniformLocation(program, "u_dpr");
+        function resizeCanvas() {
+            var dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height); gl.uniform1f(dprLocation, dpr);
+        }
+        window.addEventListener("resize", resizeCanvas); resizeCanvas();
+        var reduceMotionShader = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var startTime = performance.now();
+        function render(time) {
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.uniform1f(timeLocation, (time - startTime) * 0.001);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            if (!reduceMotionShader) requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
     }
 
     function setupOtpDigitInputs() {
@@ -577,7 +713,15 @@
     });
 
     setupOtpDigitInputs();
-    initSpecularHover();
+    initNavfx();
+    initTopoShader();
+
+    // Reveal fade-up saat halaman dimuat (pola sama seperti pilih_channel.html/admin).
+    setTimeout(function () {
+        document.querySelectorAll(".reveal").forEach(function (el, i) {
+            setTimeout(function () { el.classList.add("in"); }, i * 120);
+        });
+    }, 100);
 
     // expose handlers used by inline onclick/onkeydown attributes in chat.html
     window.sendMessage = sendMessage;
@@ -591,7 +735,9 @@
     window.clearResi = clearResi;
     window.openSidebar = openSidebar;
     window.closeSidebar = closeSidebar;
-    window.toggleTheme = toggleTheme;
+    window.toggleCalculatorModal = toggleCalculatorModal;
+    window.calculateZakat = calculateZakat;
+    window.transferZakatToChat = transferZakatToChat;
     window.closeOtpModal = closeOtpModal;
     window.submitPhone = submitPhone;
     window.submitOtp = submitOtp;

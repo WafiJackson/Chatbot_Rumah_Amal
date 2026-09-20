@@ -4,109 +4,135 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pilih Channel &middot; Mimin AI Rumah Amal USK</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230F452A'/%3E%3Cpath d='M12 3.2l2.05 4.16 4.59.67-3.32 3.24.78 4.57L12 13.62l-4.1 2.16.78-4.57-3.32-3.24 4.59-.67z' fill='%23F6C445'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #051B10; }
-        a { color: #F6C445; } a:hover { color: #FBD86B; }
-        ::selection { background: rgba(232,172,31,.35); color: #051B10; }
+        body { margin: 0; font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; color: #1e293b; overflow-x: hidden; position: relative; }
+        a { color: #0F542E; } a:hover { color: #062C17; }
+        ::selection { background: rgba(232,172,31,.35); color: #062C17; }
 
-        @keyframes botFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-9px) rotate(-2deg); } }
-        .bot-hero { animation: botFloat 3.2s ease-in-out infinite; }
-        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
-        @media (prefers-reduced-motion: reduce) { .bot-hero { animation: none; } }
+        #topo-canvas { display: block; }
 
-        .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); }
+        .reveal { opacity: 0; transform: translateY(16px); transition: opacity .8s cubic-bezier(0.16,1,0.3,1), transform .8s cubic-bezier(0.16,1,0.3,1); }
         .reveal.in { opacity: 1; transform: translateY(0); }
+        @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
-        /* Kartu channel: specular rim mengikuti kursor (dipinjam dari komponen
-           dock-nav, di-recolor hijau+emas) - lihat catatan panjang di app.js
-           inline di bawah untuk penjelasan mekanismenya. */
-        .card { position: relative; border-radius: 26px; padding: 1.5px; background: linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.02)); transition: transform .35s cubic-bezier(.16,1,.3,1); }
-        .card:hover { transform: translateY(-4px); }
-        .card-inner { position: relative; height: 100%; background: rgba(10,48,29,.72); backdrop-filter: blur(14px); border-radius: 24.5px; padding: 28px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-        .card[data-spec] { --spec-angle: 2.4rad; --spec-bright: 0; position: relative; }
-        .card[data-spec]::after {
-            content: ""; position: absolute; inset: -1px; z-index: 1; padding: 1.5px; border-radius: inherit; pointer-events: none;
+        @keyframes botBobIdle { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-6px) rotate(-3deg); } }
+        .bot-idle { animation: botBobIdle 2.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .bot-idle { animation: none; } }
+
+        .glow { position: relative; overflow: hidden; }
+        .glow::after {
+            content: ""; position: absolute; inset: -40% -40% auto auto; width: 70%; height: 70%;
+            background: radial-gradient(circle, var(--glow-color, rgba(19,107,59,.18)), transparent 70%);
+            opacity: 0; transition: opacity .35s ease; pointer-events: none;
+        }
+        .glow:hover::after { opacity: 1; }
+
+        /* Tombol/link: magnet magnify + specular rim - dipinjam dari komponen dock-nav,
+           transform-only (translateY+scale), bukan width/height, supaya animasinya
+           digerakkan GPU (transform+opacity) tanpa memicu reflow layout berulang. */
+        [data-navfx] {
+            position: relative;
+            --spec-angle: 2.4rad;
+            --spec-bright: 0;
+            transform: translateY(0) scale(1);
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+        }
+        [data-navfx]::after {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            z-index: 1;
+            padding: 1px;
+            border-radius: inherit;
+            pointer-events: none;
             opacity: var(--spec-bright);
             background: conic-gradient(from var(--spec-angle) at 50% 50%,
-                rgba(255,255,255,0) 0deg, rgba(255,255,255,.15) 12deg, rgba(255,235,180,.95) 26deg,
-                rgba(255,255,255,.18) 42deg, rgba(255,255,255,0) 64deg, rgba(255,255,255,0) 360deg);
+                rgba(246,196,69,0) 0deg, rgba(246,196,69,.4) 14deg, rgba(246,196,69,1) 28deg,
+                rgba(246,196,69,.45) 46deg, rgba(246,196,69,0) 68deg, rgba(246,196,69,0) 180deg,
+                rgba(246,196,69,.4) 194deg, rgba(246,196,69,1) 208deg, rgba(246,196,69,.45) 226deg,
+                rgba(246,196,69,0) 248deg, rgba(246,196,69,0) 360deg);
             -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
                     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            -webkit-mask-composite: xor; mask-composite: exclude;
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
         }
-        @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+        @media (prefers-reduced-motion: reduce) {
+            [data-navfx] { transition: none; }
+            [data-navfx]::after { display: none; }
+        }
     </style>
 </head>
-<body>
+<body style="min-height:100vh; background: radial-gradient(circle at 12% 15%, rgba(19,107,59,0.2), transparent 48%), radial-gradient(circle at 88% 15%, rgba(246,196,69,0.22), transparent 48%), radial-gradient(circle at 20% 90%, rgba(246,196,69,0.14), transparent 55%), radial-gradient(circle at 85% 90%, rgba(19,107,59,0.16), transparent 55%), #F0F9F3;">
 
-<!-- Latar: medan topo bertema amal (WebGL murni, tanpa library eksternal) -
-     dipinjam dari teknik noise-shader di komponen.html, di-recolor dari
-     oranye ke hijau+emas Rumah Amal dan diredam intensitasnya supaya tetap
-     terasa tenang/dapat dipercaya untuk lembaga amal, bukan ramai seperti
-     referensi aslinya. SENGAJA cuma dipasang di halaman ini (bukan di Web
-     Chat/Admin Dashboard) karena halaman ini cuma dilihat sekilas sebagai
-     keputusan awal, bukan dipakai lama untuk baca/kerja. -->
-<canvas id="topo-canvas" style="position:fixed; inset:0; z-index:0; width:100%; height:100%; pointer-events:none;"></canvas>
-<div style="position:fixed; inset:0; z-index:1; pointer-events:none; background: linear-gradient(180deg, rgba(5,27,16,.25), transparent 30%, transparent 70%, rgba(5,27,16,.7));"></div>
+<!-- Latar shader topografi WebGL (murni, tanpa library) - transparan, cuma garis
+     grid & kontur berwarna, jadi jadi lapisan tekstur tipis di ATAS gradient CSS
+     body, bukan dinding opaque yang menutupinya. -->
+<div style="position:fixed; inset:0; z-index:0; pointer-events:none;">
+    <canvas id="topo-canvas" style="width:100%; height:100%;"></canvas>
+</div>
 
 <div style="position:relative; z-index:10; min-height:100vh; display:flex; flex-direction:column;">
 
-    <div style="padding: 28px 40px;">
-        <button type="button" onclick="history.back()" class="reveal" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:rgba(255,255,255,.55); background:none; border:none; cursor:pointer; font-family:inherit; padding:0;">
+    <div style="padding: 20px 32px;">
+        <a data-navfx href="https://rumahamal.usk.ac.id/" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#475569; text-decoration:none; background:rgba(255,255,255,.6); backdrop-filter:blur(10px); padding:7px 14px; border-radius:999px; border:1px solid #DCEFE1;" class="reveal">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg>
-            Kembali
-        </button>
+            Kembali ke Beranda
+        </a>
     </div>
 
     <main style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 0 24px 96px; text-align:center;">
         <div style="max-width:640px; margin:0 auto; display:flex; flex-direction:column; align-items:center;">
 
-            <img src="/static/public/bot-icon.png" alt="Mimin AI" class="bot-hero reveal" style="width:96px; height:auto; margin-bottom:22px; filter: invert(1) drop-shadow(0 10px 24px rgba(0,0,0,.4));">
+            <img src="/static/public/bot-icon.png" alt="Mimin AI" class="bot-idle reveal" style="width:88px; height:auto; margin-bottom:22px; filter: drop-shadow(0 10px 24px rgba(6,44,23,.18));">
 
-            <div class="reveal" style="display:inline-flex; align-items:center; gap:8px; padding:7px 15px; border-radius:999px; border:1px solid rgba(232,172,31,.3); background:rgba(232,172,31,.08); margin-bottom:26px;">
+            <div class="reveal" style="display:inline-flex; align-items:center; gap:8px; padding:7px 15px; border-radius:999px; border:1px solid #B9DFC4; background:rgba(255,255,255,.7); backdrop-filter:blur(10px); margin-bottom:26px; box-shadow:0 1px 2px rgba(0,0,0,.03);">
                 <span style="position:relative; width:8px; height:8px;">
-                    <span style="position:absolute; inset:0; border-radius:999px; background:#8CC79E; opacity:.75; animation: ping 1.6s cubic-bezier(0,0,.2,1) infinite;"></span>
-                    <span style="position:relative; display:block; width:8px; height:8px; border-radius:999px; background:#8CC79E;"></span>
+                    <span style="position:absolute; inset:0; border-radius:999px; background:#136B3B; opacity:.75; animation: ping 1.6s cubic-bezier(0,0,.2,1) infinite;"></span>
+                    <span style="position:relative; display:block; width:8px; height:8px; border-radius:999px; background:#136B3B;"></span>
                 </span>
-                <span style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#F6C445;">Mimin AI Online Sekarang</span>
+                <span style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#0F542E;">Mimin AI Online Sekarang</span>
             </div>
 
-            <h1 class="reveal" style="font-size:32px; font-weight:800; color:#fff; letter-spacing:-0.02em; line-height:1.15; margin:0 0 14px;">Mau ngobrol lewat mana?</h1>
-            <p class="reveal" style="font-size:15px; color:rgba(255,255,255,.55); line-height:1.6; max-width:440px; margin:0 0 44px;">Pilih salah satu, Mimin AI siap bantu soal zakat, infak, dan program Rumah Amal Masjid Jamik USK di mana pun Anda nyaman.</p>
+            <h1 class="reveal" style="font-size:32px; font-weight:800; color:#062C17; letter-spacing:-0.02em; line-height:1.15; margin:0 0 14px;">Mau ngobrol lewat mana?</h1>
+            <p class="reveal" style="font-size:15px; color:#475569; line-height:1.6; max-width:440px; margin:0 0 44px;">Pilih salah satu, Mimin AI siap bantu soal zakat, infak, dan program Rumah Amal Masjid Jamik USK di mana pun Anda nyaman.</p>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; width:100%; text-align:left;">
 
                 <a href="https://wa.me/{{ nomor_wa_resmi }}?text={{ pesan_pembuka_wa }}"
-                   target="_blank" rel="noopener noreferrer"
-                   class="card reveal" data-spec style="text-decoration:none;">
-                    <div class="card-inner">
-                        <div style="width:46px; height:46px; border-radius:16px; background:rgba(37,211,102,.14); color:#3DDC7A; display:flex; align-items:center; justify-content:center;">
+                   target="_blank" rel="noopener noreferrer" data-navfx
+                   class="glow reveal"
+                   style="position:relative; text-decoration:none; border-radius:24px; padding:1.5px; background:linear-gradient(135deg, rgba(37,211,102,.5), rgba(19,107,59,.1), transparent); --glow-color: rgba(37,211,102,.22);">
+                    <div style="position:relative; height:100%; background:rgba(255,255,255,.9); backdrop-filter:blur(8px); border-radius:22.5px; padding:24px; display:flex; flex-direction:column; gap:12px; box-shadow:0 4px 20px -2px rgba(19,107,59,.05);">
+                        <div style="width:44px; height:44px; border-radius:16px; background:rgba(37,211,102,.1); color:#1DA851; display:flex; align-items:center; justify-content:center;">
                             <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.004 2.003c-5.514 0-9.997 4.483-9.997 9.997 0 1.762.464 3.484 1.346 5.001L2 22.003l5.14-1.347a9.96 9.96 0 004.864 1.24h.004c5.514 0 9.997-4.483 9.997-9.997 0-2.67-1.04-5.182-2.929-7.072a9.935 9.935 0 00-7.072-2.824zm0 18.187h-.003a8.19 8.19 0 01-4.175-1.144l-.3-.178-3.05.8.815-2.973-.195-.306a8.176 8.176 0 01-1.256-4.39c0-4.523 3.68-8.203 8.207-8.203a8.15 8.15 0 015.804 2.406 8.146 8.146 0 012.399 5.801c0 4.524-3.68 8.187-8.246 8.187z"/></svg>
                         </div>
                         <div>
-                            <h3 style="font-size:17px; font-weight:800; color:#fff; margin:0 0 6px;">Chat via WhatsApp</h3>
-                            <p style="font-size:13px; color:rgba(255,255,255,.5); line-height:1.6; margin:0;">Ngobrol langsung dengan Mimin AI di WhatsApp - cepat dan sudah familiar buat Anda.</p>
+                            <h3 style="font-size:16px; font-weight:800; color:#062C17; margin:0 0 5px;">Chat via WhatsApp</h3>
+                            <p style="font-size:12.5px; color:#64748b; line-height:1.6; margin:0;">Ngobrol langsung dengan Mimin AI di WhatsApp - cepat dan sudah familiar buat Anda.</p>
                         </div>
-                        <div style="margin-top:auto; padding-top:6px; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:800; color:#3DDC7A;">
+                        <div style="margin-top:auto; padding-top:4px; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:800; color:#1DA851;">
                             Buka WhatsApp
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                         </div>
                     </div>
                 </a>
 
-                <a href="/" class="card reveal" data-spec style="text-decoration:none;">
-                    <div class="card-inner">
-                        <div style="width:46px; height:46px; border-radius:16px; background:rgba(232,172,31,.14); color:#F6C445; display:flex; align-items:center; justify-content:center;">
+                <a href="/" data-navfx class="glow reveal"
+                   style="position:relative; text-decoration:none; border-radius:24px; padding:1.5px; background:linear-gradient(135deg, rgba(19,107,59,.6), rgba(246,196,69,.3), transparent); --glow-color: rgba(246,196,69,.28);">
+                    <div style="position:relative; height:100%; background:rgba(255,255,255,.9); backdrop-filter:blur(8px); border-radius:22.5px; padding:24px; display:flex; flex-direction:column; gap:12px; box-shadow:0 4px 20px -2px rgba(19,107,59,.05);">
+                        <div style="width:44px; height:44px; border-radius:16px; background:#F0F9F3; color:#0F542E; display:flex; align-items:center; justify-content:center;">
                             <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8-1.06 0-2.077-.163-3.02-.462L3 21l1.545-4.635C3.564 15.176 3 13.633 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                         </div>
                         <div>
-                            <h3 style="font-size:17px; font-weight:800; color:#fff; margin:0 0 6px;">Chat di Website</h3>
-                            <p style="font-size:13px; color:rgba(255,255,255,.5); line-height:1.6; margin:0;">Langsung mulai obrolan di sini juga bisa, tanpa perlu install apa pun.</p>
+                            <h3 style="font-size:16px; font-weight:800; color:#062C17; margin:0 0 5px;">Chat di Website</h3>
+                            <p style="font-size:12.5px; color:#64748b; line-height:1.6; margin:0;">Langsung mulai obrolan di sini juga bisa, tanpa perlu install apa pun.</p>
                         </div>
-                        <div style="margin-top:auto; padding-top:6px; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:800; color:#F6C445;">
+                        <div style="margin-top:auto; padding-top:4px; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:800; color:#0F542E;">
                             Mulai Chat
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                         </div>
@@ -118,55 +144,60 @@
     </main>
 </div>
 
+<style>@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }</style>
+
 <script>
 (function () {
     setTimeout(function () {
         document.querySelectorAll('.reveal').forEach(function (el, i) {
-            setTimeout(function () { el.classList.add('in'); }, i * 70);
+            setTimeout(function () { el.classList.add('in'); }, i * 80);
         });
-    }, 80);
+    }, 100);
 
-    // ---------- Specular rim pada kartu (mengikuti kursor, pola dock-nav) ----------
-    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var fineHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    if (!reduceMotion && fineHover) {
-        var cards = Array.prototype.slice.call(document.querySelectorAll('[data-spec]')).map(function (el) {
-            return { el: el, ang: 2.4, tAng: 2.4, br: 0, tBr: 0 };
-        });
-        var mx = 0, my = 0, seen = false;
-        window.addEventListener('pointermove', function (e) { mx = e.clientX; my = e.clientY; seen = true; }, { passive: true });
-        window.addEventListener('pointerleave', function () { cards.forEach(function (c) { c.tBr = 0; }); });
+    // ---------- Tombol/link: magnet magnify + specular rim ----------
+    (function () {
+        var navfxTargets = Array.prototype.slice.call(document.querySelectorAll('[data-navfx]'));
+        if (!navfxTargets.length) return;
+        var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduceMotion) return;
 
-        function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
-        var last = performance.now();
-        function loop(now) {
-            var dt = Math.min(0.05, (now - last) / 1000); last = now;
-            if (seen) {
-                cards.forEach(function (c) {
-                    var r = c.el.getBoundingClientRect();
-                    var dx = Math.max(r.left - mx, 0, mx - r.right), dy = Math.max(r.top - my, 0, my - r.bottom);
-                    var d = Math.sqrt(dx * dx + dy * dy);
-                    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-                    c.tAng = d === 0 ? c.tAng : Math.atan2(my - cy, mx - cx);
-                    c.tBr = clamp01(1 - d / 260);
-                });
-            }
-            cards.forEach(function (c) {
-                var diff = ((c.tAng - c.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-                c.ang += diff * (1 - Math.exp(-dt * 8));
-                c.br += (c.tBr - c.br) * (1 - Math.exp(-dt * 9));
-                c.el.style.setProperty('--spec-angle', c.ang.toFixed(4) + 'rad');
-                c.el.style.setProperty('--spec-bright', (clamp01(c.br) * 0.9).toFixed(3));
+        var clamp01 = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x; };
+        var RADIUS = 130;
+
+        function resetNavfx() {
+            navfxTargets.forEach(function (el) {
+                el.style.transform = 'translateY(0) scale(1)';
+                el.style.setProperty('--spec-bright', '0');
             });
-            requestAnimationFrame(loop);
         }
-        requestAnimationFrame(loop);
-    }
 
-    // ---------- Latar WebGL: medan topo (recolor hijau+emas) ----------
+        window.addEventListener('pointermove', function (e) {
+            navfxTargets.forEach(function (el) {
+                var r = el.getBoundingClientRect();
+                var dx = e.clientX - (r.left + r.width / 2);
+                var dy = e.clientY - (r.top + r.height / 2);
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                var v = clamp01(1 - dist / RADIUS);
+                var eased = v * v * (3 - 2 * v);
+
+                el.style.transform = 'translateY(' + (-3 * eased).toFixed(2) + 'px) scale(' + (1 + 0.06 * eased).toFixed(3) + ')';
+                el.style.setProperty('--spec-angle', Math.atan2(dy, dx).toFixed(4) + 'rad');
+                el.style.setProperty('--spec-bright', (eased * 0.9).toFixed(3));
+            });
+        }, { passive: true });
+
+        window.addEventListener('pointerleave', resetNavfx);
+        document.addEventListener('mouseleave', resetNavfx);
+    })();
+
+    // ---------- Latar WebGL: medan topo (transparan, tekstur tipis) ----------
     var canvas = document.getElementById('topo-canvas');
-    var gl = canvas && canvas.getContext('webgl', { alpha: false, antialias: false, depth: false });
-    if (gl && !reduceMotion) {
+    var gl = canvas && canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
+    if (gl) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.clearColor(0, 0, 0, 0);
+
         var vsSource = 'attribute vec2 a_position; void main(){ gl_Position=vec4(a_position,0.0,1.0); }';
         var fsSource = [
             'precision highp float;', 'uniform vec2 u_resolution;', 'uniform float u_time;', 'uniform float u_dpr;',
@@ -185,19 +216,19 @@
             '  return 130.0 * dot(m, g);', '}',
             'void main(){',
             '  vec2 st = gl_FragCoord.xy / u_resolution.xy; st.x *= u_resolution.x / u_resolution.y;',
-            '  float gridSize = 52.0 * u_dpr; vec2 gridSt = gl_FragCoord.xy / gridSize; vec2 gridFract = fract(gridSt);',
+            '  float gridSize = 46.0 * u_dpr; vec2 gridSt = gl_FragCoord.xy / gridSize; vec2 gridFract = fract(gridSt);',
             '  float lineThickness = 1.0 / gridSize;',
             '  float gridLines = step(1.0 - lineThickness, gridFract.x) + step(1.0 - lineThickness, gridFract.y);',
-            '  gridLines = clamp(gridLines, 0.0, 1.0) * 0.06;',
-            '  vec2 noisePos = st * 1.3 + vec2(u_time * 0.010, u_time * 0.016);',
+            '  gridLines = clamp(gridLines, 0.0, 1.0) * 0.09;',
+            '  vec2 noisePos = st * 1.4 + vec2(u_time * 0.012, u_time * 0.02);',
             '  float n = snoise(noisePos) * 0.5 + 0.5; float bandVal = n * 9.0;',
             '  float triangleWave = abs(fract(bandVal) - 0.5) * 2.0;',
-            '  float topoLines = smoothstep(0.045, 0.00, triangleWave) * 0.5;',
-            '  vec3 base = vec3(0.02, 0.106, 0.063);',
-            '  vec3 color = base;',
-            '  color += vec3(0.4,0.5,0.45) * gridLines;',
-            '  color += vec3(0.184, 0.549, 0.322) * topoLines;',
-            '  gl_FragColor = vec4(color, 1.0);', '}'
+            '  float topoLines = smoothstep(0.05, 0.0, triangleWave) * 0.4;',
+            '  vec3 gridColor = vec3(0.075, 0.42, 0.231);',
+            '  vec3 topoColor = vec3(0.965, 0.769, 0.271);',
+            '  float lineAlpha = clamp(gridLines + topoLines, 0.0, 1.0);',
+            '  vec3 lineColor = mix(gridColor, topoColor, step(0.001, topoLines));',
+            '  gl_FragColor = vec4(lineColor * lineAlpha, lineAlpha);', '}'
         ].join('\n');
         function createShader(type, source) { var s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); return s; }
         var vertexShader = createShader(gl.VERTEX_SHADER, vsSource);
@@ -214,18 +245,19 @@
         var timeLocation = gl.getUniformLocation(program, 'u_time');
         var dprLocation = gl.getUniformLocation(program, 'u_dpr');
         function resizeCanvas() {
-            var dpr = Math.min(window.devicePixelRatio || 1, 2);
-            var w = window.innerWidth, h = window.innerHeight;
-            canvas.width = w * dpr; canvas.height = h * dpr;
+            var dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
             gl.viewport(0, 0, canvas.width, canvas.height);
             gl.uniform2f(resolutionLocation, canvas.width, canvas.height); gl.uniform1f(dprLocation, dpr);
         }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
+        var reduceMotionShader = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         var startTime = performance.now();
         function render(time) {
+            gl.clear(gl.COLOR_BUFFER_BIT);
             gl.uniform1f(timeLocation, (time - startTime) * 0.001);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            requestAnimationFrame(render);
+            if (!reduceMotionShader) requestAnimationFrame(render);
         }
         requestAnimationFrame(render);
     }
