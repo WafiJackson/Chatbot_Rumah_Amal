@@ -70,12 +70,8 @@
         @keyframes popUp { 0% { opacity: 0; transform: translateY(12px) scale(0.99); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         .msg-spring { animation: popUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-        @keyframes botIdleFloat { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-2.5px); } }
-        .animate-bot-float { animation: botIdleFloat 3s ease-in-out infinite; }
-        @keyframes botBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
-        .animate-bot-blink { transform-origin: center; animation: botBlink 3.6s infinite; }
-        @keyframes antennaGlow { 0%, 100% { opacity: 0.7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); filter: drop-shadow(0 0 4px #F6C445); } }
-        .animate-antenna-glow { transform-origin: center; animation: antennaGlow 2s ease-in-out infinite; }
+        @keyframes botBobIdle { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-3deg); } }
+        .bot-idle { animation: botBobIdle 2.4s ease-in-out infinite; }
 
         .btn-tactile { transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease; }
         .btn-tactile:active { transform: scale(0.97) translateY(1px); }
@@ -87,7 +83,7 @@
         ::-webkit-scrollbar-thumb:hover { background: #136B3B; }
 
         @media (prefers-reduced-motion: reduce) {
-            .animate-bot-float, .animate-bot-blink, .animate-antenna-glow { animation: none !important; }
+            .bot-idle { animation: none !important; }
         }
 
         .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -165,26 +161,10 @@
                 </div>
 
                 <div class="flex items-center gap-2 px-2.5 md:px-3 py-1.5 rounded-full bg-amal-50 border border-amal-200 text-amal-800 text-xs font-semibold shadow-2xs">
-                    <div class="w-5 h-5 animate-bot-float shrink-0">
-                        <svg viewBox="0 0 36 36" class="w-full h-full">
-                            <line x1="18" y1="2" x2="18" y2="8" stroke="#F6C445" stroke-width="2"/>
-                            <circle cx="18" cy="2" r="2.5" fill="#F6C445" class="animate-antenna-glow"/>
-                            <rect x="4" y="8" width="28" height="24" rx="7" fill="#136B3B"/>
-                            <rect x="7.5" y="12" width="21" height="11" rx="4" fill="#041B0E"/>
-                            <g class="animate-bot-blink">
-                                <circle cx="13" cy="17.5" r="2.2" fill="#34D399"/>
-                                <circle cx="23" cy="17.5" r="2.2" fill="#34D399"/>
-                            </g>
-                        </svg>
-                    </div>
+                    <img src="/static/public/bot-icon.png" alt="Mimin AI" class="w-5 h-5 shrink-0 bot-idle">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                     <span class="hidden sm:inline">Mimin AI Online</span>
                 </div>
-
-                <button type="button" data-navfx onclick="toggleCalculatorModal()" class="btn-tactile px-3 py-1.5 rounded-xl bg-amal-600 hover:bg-amal-700 text-white text-xs font-bold shadow-sm hidden sm:flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 text-gold-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="7.5" x2="16" y2="7.5"/><line x1="8" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="10" y2="16"/><line x1="14" y1="16" x2="16" y2="16"/></svg>
-                    <span>Kalkulator Zakat</span>
-                </button>
             </div>
         </header>
 
@@ -259,9 +239,9 @@
                         </div>
 
                         <div class="space-y-1.5">
-                            <button type="button" onclick="toggleCalculatorModal()" class="btn-tactile w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-amal-50 border border-slate-200/80 text-left group">
+                            <button type="button" onclick="openExternalLink('https://rumahamal.usk.ac.id/donasi-zakat', 'Kalkulator Zakat')" class="btn-tactile w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-amal-50 border border-slate-200/80 text-left group">
                                 <span class="text-xs font-semibold text-slate-700 group-hover:text-amal-800">Kalkulator Zakat</span>
-                                <span class="text-[10.5px] font-mono text-slate-400 group-hover:text-amal-600">&#8599; Widget</span>
+                                <span class="text-[10.5px] font-mono text-slate-400 group-hover:text-amal-600">&#8599; Website</span>
                             </button>
                             <button type="button" onclick="openGoogleSearch('harta yang wajib dizakati dalam islam')" class="btn-tactile w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-amal-50 border border-slate-200/80 text-left group">
                                 <span class="text-xs font-semibold text-slate-700 group-hover:text-amal-800">Harta yang Wajib Dizakati</span>
@@ -289,29 +269,7 @@
 
                 <div id="messages" class="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 space-y-6 bg-transparent scroll-smooth">
                     <div class="flex items-start gap-3.5 max-w-[92%] md:max-w-[80%] msg-spring">
-                        <div class="w-10 h-10 shrink-0 mt-0.5 animate-bot-float">
-                            <svg viewBox="0 0 36 36" class="w-full h-full drop-shadow-sm overflow-visible">
-                                <line x1="18" y1="2" x2="18" y2="8" stroke="#F6C445" stroke-width="2" stroke-linecap="round"/>
-                                <circle cx="18" cy="2" r="2.5" fill="#F6C445" class="animate-antenna-glow"/>
-                                <rect x="2" y="14" width="3" height="8" rx="1.5" fill="#F6C445"/>
-                                <rect x="31" y="14" width="3" height="8" rx="1.5" fill="#F6C445"/>
-                                <rect x="4" y="8" width="28" height="24" rx="7" fill="url(#botGradHero)" stroke="#0F542E" stroke-width="1.5"/>
-                                <rect x="7.5" y="12" width="21" height="11" rx="4" fill="#041B0E" stroke="#136B3B" stroke-width="1"/>
-                                <g class="animate-bot-blink">
-                                    <circle cx="13" cy="17.5" r="2.2" fill="#34D399"/>
-                                    <circle cx="23" cy="17.5" r="2.2" fill="#34D399"/>
-                                    <circle cx="13.7" cy="16.7" r="0.7" fill="#FFFFFF"/>
-                                    <circle cx="23.7" cy="16.7" r="0.7" fill="#FFFFFF"/>
-                                </g>
-                                <path d="M15 27 Q18 29 21 27" stroke="#F6C445" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                                <defs>
-                                    <linearGradient id="botGradHero" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#198249"/>
-                                        <stop offset="100%" stop-color="#0B4224"/>
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                        </div>
+                        <img src="/static/public/bot-icon.png" alt="Mimin AI" class="w-10 h-10 shrink-0 mt-0.5 bot-idle">
                         <div>
                             <div class="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-card-soft text-[13.5px] text-slate-800 leading-relaxed space-y-2">
                                 <p class="font-bold text-amal-800">Assalamu'alaikum Warahmatullahi Wabarakatuh!</p>
@@ -340,7 +298,7 @@
                                   class="flex-1 bg-transparent border-none resize-none text-[14px] py-3 px-2 text-slate-800 outline-none max-h-[120px] placeholder:text-slate-400 font-medium"
                                   onkeydown="handleKeydown(event)" oninput="autoExpand(this)"></textarea>
                         <button type="button" onclick="sendMessage()" title="Kirim pesan" class="btn-tactile w-11 h-11 rounded-full bg-gold-400 hover:bg-gold-500 text-amal-950 flex items-center justify-center shrink-0 shadow-md transition-all">
-                            <svg class="w-4 h-4 fill-current transform rotate-45 -mr-0.5" viewBox="0 0 24 24"><polygon points="2 2 22 12 2 22 7 12 2 2"/></svg>
+                            <svg class="w-5 h-5 ml-0.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z"/></svg>
                         </button>
                     </div>
 
@@ -353,55 +311,6 @@
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
-
-    <!-- MODAL: KALKULATOR ZAKAT PROFESI & MAAL -->
-    <div id="calculatorModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center p-4">
-        <div class="bg-white w-full max-w-lg rounded-3xl border border-slate-200 shadow-2xl p-6 md:p-7 relative msg-spring">
-
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-amal-50 text-amal-600 flex items-center justify-center">
-                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="7.5" x2="16" y2="7.5"/><line x1="8" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="10" y2="16"/><line x1="14" y1="16" x2="16" y2="16"/></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-extrabold text-slate-900">Kalkulator Zakat Profesi &amp; Maal</h3>
-                        <p class="text-[11px] text-slate-500">Nishab Bulanan: Rp 8.202.500 (Ekuivalen 85g Emas / 12)</p>
-                    </div>
-                </div>
-                <button type="button" onclick="toggleCalculatorModal()" class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center" aria-label="Tutup">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-
-            <div class="space-y-3.5 my-5">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Penghasilan / Gaji Bersih per Bulan (Rp)</label>
-                    <input type="number" id="calcSalary" value="10000000" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-amal-600 font-mono font-bold text-slate-900">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Penghasilan Tambahan / Bonus (Rp)</label>
-                    <input type="number" id="calcBonus" value="0" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-amal-600 font-mono font-bold text-slate-900">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Pengeluaran Pokok &amp; Hutang Jatuh Tempo (Rp)</label>
-                    <input type="number" id="calcExpense" value="2000000" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-amal-600 font-mono font-bold text-slate-900">
-                </div>
-            </div>
-
-            <div class="bg-amal-50 border border-amal-200 rounded-2xl p-4 flex items-center justify-between mb-5">
-                <div>
-                    <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-amal-800">Kewajiban Zakat 2.5%</span>
-                    <div id="calcResultDisplay" class="text-xl font-extrabold text-amal-900 font-mono mt-0.5">Rp 0 <span class="text-xs font-sans font-normal text-amal-700">/bulan</span></div>
-                </div>
-                <button type="button" onclick="calculateZakat()" class="btn-tactile px-3.5 py-2 rounded-xl bg-amal-600 hover:bg-amal-700 text-white text-xs font-bold shadow-sm">Hitung</button>
-            </div>
-
-            <button type="button" onclick="transferZakatToChat()" class="btn-tactile w-full py-3.5 bg-amal-600 hover:bg-amal-700 text-white rounded-2xl text-xs font-bold shadow-md shadow-amal-600/20 flex items-center justify-center gap-2">
-                Lanjutkan ke Rekening Resmi
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.25" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </button>
         </div>
     </div>
 

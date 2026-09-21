@@ -38,15 +38,18 @@ def test_katalog_semua_program_lengkap(client):
     assert resp.status_code == 200
     reply = resp.json()["reply"]
     for nama_program in [
-        "PINTAS",
-        "BPRA-UKT",
         "Orang Tua Asuh",
-        "Muallaf",
-        "OTA Palestina",
-        "Green Qurban",
+        "OTA) Palestina",
+        "PINTAS",
+        "Senyum Ramadhan",
         "Nasi Bungkus",
-        "ECRA",
-        "P2EMD",
+        "Solidaritas Umat",
+        "Peduli Sigra",
+        "Peduli Yatim",
+        "Kolaborasi Kebaikan",
+        "Rumah Tahfizh",
+        "Tabungan Qurban",
+        "Infaq Bebas",
     ]:
         assert nama_program in reply, f"Program '{nama_program}' hilang dari katalog lengkap"
 
@@ -55,14 +58,14 @@ def test_katalog_semua_program_lengkap(client):
     "pesan,nama_diharapkan",
     [
         ("apa itu PINTAS?", "PINTAS"),
-        ("apa itu BPRA-UKT?", "BPRA-UKT"),
         ("apa itu program Orang Tua Asuh?", "ORANG TUA ASUH"),
-        ("apa itu beasiswa Muallaf?", "MUALLAF"),
-        ("apa itu OTA Palestina?", "OTA PALESTINA"),
-        ("apa itu Green Qurban?", "GREEN QURBAN"),
+        ("apa itu OTA Palestina?", "OTA) PALESTINA"),
         ("apa itu program Nasi Bungkus?", "NASI BUNGKUS"),
-        ("apa itu ECRA?", "ECRA"),
-        ("apa itu P2EMD?", "P2EMD"),
+        ("apa itu Tabungan Qurban?", "TABUNGAN QURBAN"),
+        ("apa itu Kolaborasi Kebaikan?", "KOLABORASI KEBAIKAN"),
+        ("apa itu Rumah Tahfizh?", "RUMAH TAHFIZH"),
+        ("apa itu Infaq Bebas?", "INFAQ BEBAS"),
+        ("apa itu Peduli Yatim?", "PEDULI YATIM"),
     ],
 )
 def test_detail_setiap_program_bisa_ditanya(client, pesan, nama_diharapkan):

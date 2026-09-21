@@ -85,34 +85,11 @@
         );
     }
 
-    // Avatar bot Mimin: maskot SVG beranimasi (antena berkedip, mata
-    // berkedip, badan gradasi hijau) - id gradient dibuat unik per pemanggilan
-    // (Date.now()+Math.random()) supaya beberapa instance SVG di halaman yang
-    // sama tidak berebut satu <linearGradient id="..."> global yang sama.
-    var _botMascotSeq = 0;
+    // Avatar bot Mimin: logo statis Rumah Amal (sama seperti halaman pilih
+    // channel), bukan maskot SVG - supaya identitas bot konsisten di semua
+    // halaman publik.
     function botAvatarHtml() {
-        var gradId = "botGradMsg" + (_botMascotSeq++);
-        return (
-            '<div class="w-10 h-10 shrink-0 mt-0.5 animate-bot-float">' +
-            '<svg viewBox="0 0 36 36" class="w-full h-full drop-shadow-sm overflow-visible">' +
-            '<line x1="18" y1="2" x2="18" y2="8" stroke="#F6C445" stroke-width="2" stroke-linecap="round"/>' +
-            '<circle cx="18" cy="2" r="2.5" fill="#F6C445" class="animate-antenna-glow"/>' +
-            '<rect x="2" y="14" width="3" height="8" rx="1.5" fill="#F6C445"/>' +
-            '<rect x="31" y="14" width="3" height="8" rx="1.5" fill="#F6C445"/>' +
-            '<rect x="4" y="8" width="28" height="24" rx="7" fill="url(#' + gradId + ')" stroke="#0F542E" stroke-width="1.5"/>' +
-            '<rect x="7.5" y="12" width="21" height="11" rx="4" fill="#041B0E" stroke="#136B3B" stroke-width="1"/>' +
-            '<g class="animate-bot-blink">' +
-            '<circle cx="13" cy="17.5" r="2.2" fill="#34D399"/>' +
-            '<circle cx="23" cy="17.5" r="2.2" fill="#34D399"/>' +
-            '<circle cx="13.7" cy="16.7" r="0.7" fill="#FFFFFF"/>' +
-            '<circle cx="23.7" cy="16.7" r="0.7" fill="#FFFFFF"/>' +
-            "</g>" +
-            '<path d="M15 27 Q18 29 21 27" stroke="#F6C445" stroke-width="1.5" stroke-linecap="round" fill="none"/>' +
-            "<defs><linearGradient id=\"" + gradId + "\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">" +
-            '<stop offset="0%" stop-color="#198249"/><stop offset="100%" stop-color="#0B4224"/>' +
-            "</linearGradient></defs>" +
-            "</svg></div>"
-        );
+        return '<img src="/static/public/bot-icon.png" alt="Mimin AI" class="w-10 h-10 shrink-0 mt-0.5 bot-idle">';
     }
 
     // Avatar user: siluet tamu netral (bukan huruf inisial "K") - identitas
@@ -314,46 +291,6 @@
         sidebar.classList.remove("translate-x-0");
         var backdrop = document.getElementById("sidebar-backdrop");
         if (backdrop) backdrop.classList.add("hidden");
-    }
-
-    // ---------- Kalkulator Zakat Profesi & Maal ----------
-    function toggleCalculatorModal() {
-        var modal = document.getElementById("calculatorModal");
-        if (modal.classList.contains("hidden")) {
-            modal.classList.remove("hidden");
-            modal.classList.add("flex");
-            calculateZakat();
-        } else {
-            modal.classList.add("hidden");
-            modal.classList.remove("flex");
-        }
-    }
-
-    function calculateZakat() {
-        var salary = parseFloat(document.getElementById("calcSalary").value) || 0;
-        var bonus = parseFloat(document.getElementById("calcBonus").value) || 0;
-        var expense = parseFloat(document.getElementById("calcExpense").value) || 0;
-        var net = (salary + bonus) - expense;
-        var nishab = 8202500;
-
-        if (net >= nishab) {
-            var zakat = net * 0.025;
-            document.getElementById("calcResultDisplay").innerHTML =
-                "Rp " + Math.round(zakat).toLocaleString("id-ID") + ' <span class="text-xs font-sans font-normal text-amal-700 font-semibold">(Wajib 2.5%)</span>';
-        } else {
-            document.getElementById("calcResultDisplay").innerHTML =
-                '<span class="text-sm font-sans font-bold text-amber-700">Belum mencapai nishab bulanan</span>';
-        }
-    }
-
-    // Kirim hasil hitungan sebagai pesan chat SUNGGUHAN (lewat quickPrompt ->
-    // sendMessage -> /api/web-chat) supaya nomor rekening yang diberikan
-    // adalah nomor RESMI dari backend (QA_SCRIPT), bukan angka contoh yang
-    // dikarang di sisi tampilan.
-    function transferZakatToChat() {
-        toggleCalculatorModal();
-        var salary = document.getElementById("calcSalary").value;
-        quickPrompt("Saya telah menghitung zakat penghasilan dengan gaji Rp " + parseInt(salary, 10).toLocaleString("id-ID") + ", saya ingin berdonasi zakat penghasilan.");
     }
 
     // ---------- OTP modal (3 langkah: nomor -> kode -> sukses) ----------
@@ -735,9 +672,6 @@
     window.clearResi = clearResi;
     window.openSidebar = openSidebar;
     window.closeSidebar = closeSidebar;
-    window.toggleCalculatorModal = toggleCalculatorModal;
-    window.calculateZakat = calculateZakat;
-    window.transferZakatToChat = transferZakatToChat;
     window.closeOtpModal = closeOtpModal;
     window.submitPhone = submitPhone;
     window.submitOtp = submitOtp;

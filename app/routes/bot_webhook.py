@@ -609,22 +609,14 @@ async def waha_webhook(request: Request):
                 status_fsm = "IDLE"
 
         # 1. Pertanyaan Spesifik UKT (Bantuan Biaya UKT) -> Prioritas Utama
+        # Catatan (20 Sep 2026): BPRA-UKT bukan lagi salah satu dari 13 Program
+        # Kebaikan resmi di buku saku terbaru, jadi tidak lagi ada di
+        # program_manager.PROGRAMS - balasannya sekarang memakai QA_SCRIPT
+        # ["info_bpra_ukt"] (admin_scripts.py) yang masih berlaku sebagai info
+        # umum, bukan format katalog program bernomor.
         is_tanya_ukt = bool(re.search(r"\b(ukt|bpra|bpra-ukt|bantuan ukt|bayar ukt|kurang dana ukt|biaya ukt)\b", pesan_clean)) or ("ukt" in pesan_clean and any(k in pesan_clean for k in ["bayar", "kurang", "dana", "bantuan", "biaya"]))
         if is_tanya_ukt and status_fsm == "IDLE":
-            prog_data = get_program_info("bpra_ukt")
-            balasan = (
-                f"*{prog_data['nama']}*\n\n"
-                f"{prog_data['deskripsi']}\n\n"
-                f"*Syarat & Ketentuan:*\n"
-                + "\n".join(f"{i}. {s}" for i, s in enumerate(prog_data['syarat'], 1)) +
-                f"\n\n🌐 *Website Resmi:* https://rumahamal.usk.ac.id\n\n"
-                f"----------------------------------------\n"
-                f"📌 *Pilihan Navigasi:*\n"
-                f"• Ketik *1* atau *Admin* jika {sapaan_donatur} ingin berkonsultasi / mengajukan permohonan UKT ke Admin\n"
-                f"• Ketik *11* untuk Kembali ke Daftar Program\n"
-                f"• Ketik *0* untuk Kembali ke Menu Utama"
-            )
-            state_manager.update_status(nomor_wa, "TANYA_PROGRAM_DETAIL", target_program="bpra_ukt")
+            balasan = ambil_balasan("info_bpra_ukt", nama_pengirim=nama_pengirim)
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "info_bpra_ukt"}
@@ -643,9 +635,9 @@ async def waha_webhook(request: Request):
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "info_pintas"}
 
-        # 3. Pertanyaan Katalog Generik 10 Program
+        # 3. Pertanyaan Katalog Generik 13 Program
         is_tanya_program = bool(re.search(
-            r"(program apa saja|apa saja program|list program|daftar program|katalog program|10 program|sebutkan program)",
+            r"(program apa saja|apa saja program|list program|daftar program|katalog program|13 program|sebutkan program)",
             pesan_clean
         )) or (pesan_clean in ["1", "1.", "program apa saja?", "program apa saja"])
 
@@ -668,15 +660,19 @@ async def waha_webhook(request: Request):
                 return {"status": "sukses", "intent": "sapaan"}
 
             PETA_INDEX_PROGRAM = {
-                "1": "pintas",
-                "2": "bpra_ukt",
-                "3": "ota_beasiswa",
-                "4": "muallaf",
-                "5": "ota_palestina",
-                "6": "green_qurban",
-                "7": "nasi_bungkus",
-                "8": "ecra",
-                "9": "p2emd"
+                "1": "ota_beasiswa",
+                "2": "ota_palestina",
+                "3": "pintas",
+                "4": "senyum_ramadhan",
+                "5": "nasi_bungkus",
+                "6": "dsu_umum",
+                "7": "dsu_palestina",
+                "8": "peduli_sigra",
+                "9": "peduli_yatim",
+                "10": "kolaborasi_kebaikan",
+                "11": "rumah_tahfizh",
+                "12": "tabungan_qurban",
+                "13": "infaq_bebas"
             }
             prog_key = PETA_INDEX_PROGRAM.get(pesan_clean) or pesan_clean
             prog_data = get_program_info(prog_key)
@@ -701,23 +697,27 @@ async def waha_webhook(request: Request):
             prog_data = get_program_info(current_prog_key)
             nama_prog_tag = (prog_data or {}).get("nama", "Program Rumah Amal")
 
-            # 1. Navigasi 11 -> Kembali ke Daftar 10 Program
+            # 1. Navigasi 11 -> Kembali ke Daftar 13 Program
             if pesan_clean in ["11", "11.", "kembali ke program", "menu program"]:
                 state_manager.update_status(nomor_wa, "TANYA_PROGRAM")
                 balasan = (
                     "Berikut pilihan program penyaluran yang tersedia di Rumah Amal USK:\n\n"
-                    "1. PINTAS (Pinjaman Tanpa Syarat)\n"
-                    "2. BPRA-UKT\n"
-                    "3. Beasiswa Orang Tua Asuh (OTA)\n"
-                    "4. Beasiswa Muallaf\n"
-                    "5. OTA Palestina (Orang Tua Asuh Mahasiswa Palestina)\n"
-                    "6. GREEN QURBAN\n"
-                    "7. Bantuan Nasi Bungkus\n"
-                    "8. ECRA (Entrepreneurship Club Rumah Amal)\n"
-                    "9. P2EMD\n\n"
+                    "1. Beasiswa Orang Tua Asuh (OTA)\n"
+                    "2. Beasiswa Orang Tua Asuh (OTA) Palestina\n"
+                    "3. PINTAS (Pinjaman Tanpa Syarat)\n"
+                    "4. Paket Senyum Ramadhan\n"
+                    "5. Bantuan Nasi Bungkus\n"
+                    "6. Dana Solidaritas Umat (DSU) Umum\n"
+                    "7. Dana Solidaritas Umat (DSU) Palestina\n"
+                    "8. Peduli Sigra\n"
+                    "9. Peduli Yatim\n"
+                    "10. Kolaborasi Kebaikan\n"
+                    "11. Rumah Tahfizh\n"
+                    "12. Tabungan Qurban\n"
+                    "13. Infaq Bebas\n\n"
                     "----------------------------------------\n"
                     "📌 *Pilihan Navigasi:*\n"
-                    f"• Ketik angka *1 s.d. 9* untuk melihat detail program di atas\n"
+                    f"• Ketik angka *1 s.d. 13* untuk melihat detail program di atas\n"
                     "• Ketik *0* untuk Kembali ke Menu Utama"
                 )
                 user_sessions[nomor_wa] = session_data
@@ -937,20 +937,7 @@ async def waha_webhook(request: Request):
 
         is_tanya_ukt = bool(re.search(r"\b(ukt|bpra|bpra-ukt|bantuan ukt|bayar ukt|kurang dana ukt|biaya ukt)\b", pesan_clean)) or ("ukt" in pesan_clean and any(k in pesan_clean for k in ["bayar", "kurang", "dana", "bantuan", "biaya"]))
         if is_tanya_ukt and status_fsm == "IDLE":
-            prog_data = get_program_info("bpra_ukt")
-            balasan = (
-                f"*{prog_data['nama']}*\n\n"
-                f"{prog_data['deskripsi']}\n\n"
-                f"*Syarat & Ketentuan:*\n"
-                + "\n".join(f"{i}. {s}" for i, s in enumerate(prog_data['syarat'], 1)) +
-                f"\n\n🌐 *Website Resmi:* https://rumahamal.usk.ac.id\n\n"
-                f"----------------------------------------\n"
-                f"📌 *Pilihan Navigasi:*\n"
-                f"• Ketik *1* atau *Admin* jika {sapaan_donatur} ingin berkonsultasi / mengajukan permohonan UKT ke Admin\n"
-                f"• Ketik *11* untuk Kembali ke Daftar Program\n"
-                f"• Ketik *0* untuk Kembali ke Menu Utama"
-            )
-            state_manager.update_status(nomor_wa, "TANYA_PROGRAM_DETAIL", target_program="bpra_ukt")
+            balasan = ambil_balasan("info_bpra_ukt", nama_pengirim=nama_pengirim)
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "info_bpra_ukt"}
@@ -991,22 +978,20 @@ async def waha_webhook(request: Request):
             state_manager.update_status(nomor_wa, "TANYA_BEASISWA")
             balasan = (
                 "Berikut program beasiswa resmi yang tersedia di Rumah Amal USK:\n\n"
-                "1. BPRA-UKT (Bantuan Biaya UKT Mahasiswa)\n"
-                "2. OTA PALESTINA (Beasiswa & Biaya Hidup Mahasiswa Palestina)\n"
-                "3. BEASISWA ORANG TUA ASUH (OTA) (Mahasiswa Dhuafa Berprestasi)\n"
-                "4. BEASISWA MUALLAF (Khusus Mahasiswa/Masyarakat Muallaf)\n\n"
+                "1. BEASISWA ORANG TUA ASUH (OTA) (Mahasiswa Dhuafa Berprestasi)\n"
+                "2. OTA PALESTINA (Beasiswa & Biaya Hidup Mahasiswa Palestina)\n\n"
                 "----------------------------------------\n"
                 "📌 *Pilihan Navigasi:*\n"
-                f"• Ketik angka *1 s.d. 4* untuk melihat detail program di atas\n"
-                f"• Ketik *Program apa saja* untuk melihat katalog 9 program lengkap\n"
+                f"• Ketik angka *1 s.d. 2* untuk melihat detail program di atas\n"
+                f"• Ketik *Program apa saja* untuk melihat katalog 13 program lengkap\n"
                 "• Ketik *0* untuk Kembali ke Menu Utama"
             )
             user_sessions[nomor_wa] = session_data
             send_message_to_waha(chat_id_asli, balasan, nama_sesi)
             return {"status": "sukses", "intent": "info_beasiswa"}
 
-        # Penanganan Pilihan 1-4 pada State TANYA_BEASISWA (menu beasiswa
-        # spesifik di atas - PUNYA NOMOR SENDIRI, beda dari katalog 9
+        # Penanganan Pilihan 1-2 pada State TANYA_BEASISWA (menu beasiswa
+        # spesifik di atas - PUNYA NOMOR SENDIRI, beda dari katalog 13
         # program utama, jadi butuh status FSM & pemetaan angka terpisah).
         if status_fsm == "TANYA_BEASISWA" and not has_media:
             if pesan_clean in ["0", "0.", "kembali ke menu utama", "menu utama"]:
@@ -1025,10 +1010,8 @@ async def waha_webhook(request: Request):
                 return {"status": "sukses", "intent": "tanya_program_prompt"}
 
             PETA_INDEX_BEASISWA = {
-                "1": "bpra_ukt",
+                "1": "ota_beasiswa",
                 "2": "ota_palestina",
-                "3": "ota_beasiswa",
-                "4": "muallaf",
             }
             beasiswa_key = PETA_INDEX_BEASISWA.get(pesan_clean)
             if beasiswa_key:

@@ -218,7 +218,9 @@ QA_SCRIPT = {
         "pengurang penghasilan kena pajak."
     ),
     "jenis_zakat": (
-        "Rumah Amal Masjid Jamik USK melayani Zakat Penghasilan (Profesi), Zakat Maal (Harta), Zakat Perdagangan, hingga Zakat Fitrah saat bulan Ramadan."
+        "Rumah Amal Masjid Jamik USK melayani 6 jenis zakat: Zakat Mal (emas 94gr/tahun), Zakat Profesi (penghasilan), "
+        "Zakat Perniagaan (156jt/tahun), Zakat Peternakan (mencapai 40 hewan/tahun), Zakat Perusahaan (156jt/tahun), "
+        "dan Zakat Pertanian (653kg/sekali panen)."
     ),
     "donatur_umum": (
         "Sangat diperbolehkan. Rumah Amal Masjid Jamik USK menerima titipan dana ZIS dari masyarakat umum, alumni, instansi swasta, maupun instansi pemerintah."
@@ -231,9 +233,9 @@ QA_SCRIPT = {
 
     # Bagian III: Program beasiswa dan bantuan mahasiswa
     "info_program": (
-        "Tersedia beberapa program bantuan atau beasiswa seperti Beasiswa Pendidikan Rumah Amal Uang Kuliah Tunggal (BPRA-UKT), "
-        "Beasiswa Biaya Hidup, Beasiswa Orang Tua Asuh, Beasiswa Palestina, Bantuan Peduli Sigra, Bantuan Nasi Bungkus, Pinjaman Tanpa Syarat, "
-        "serta bantuan lainnya. Untuk program lengkap dapat dilihat di situs resmi: rumahamal.usk.ac.id"
+        "Tersedia 13 Program Kebaikan seperti Beasiswa Orang Tua Asuh (OTA), OTA Palestina, PINTAS (Pinjaman Tanpa Syarat), "
+        "Paket Senyum Ramadhan, Bantuan Nasi Bungkus, Dana Solidaritas Umat (DSU), Peduli Sigra, Peduli Yatim, Kolaborasi Kebaikan, "
+        "Rumah Tahfizh, Tabungan Qurban, hingga Infaq Bebas. Untuk program lengkap dapat dilihat di situs resmi: rumahamal.usk.ac.id"
     ),
     "info_bpra_ukt": (
         "Program Beasiswa Pendidikan Rumah Amal untuk membiayai atau meringankan tagihan Uang Kuliah Tunggal (UKT) mahasiswa Universitas Syiah Kuala "
@@ -1152,7 +1154,7 @@ def susun_balasan(
                 # Untuk beberapa pertanyaan bercanda, berikan klarifikasi ringan tapi tetap aman.
                 if qna_cocok:
                     _tambah_hasil(responses, f"❓ *{qna_cocok['tanya']}*\n\n{qna_cocok['jawab']}")
-                elif program_key == "green_qurban" and _ada_salah_satu(teks_norm, ["warna", "berwarna", "green"]):
+                elif program_key == "tabungan_qurban" and _ada_salah_satu(teks_norm, ["warna", "berwarna", "green"]):
                     _tambah_hasil(
                         responses,
                         format_program_response(data_program)
@@ -1162,7 +1164,7 @@ def susun_balasan(
                     # Jika potongan ini hanya follow-up ke program yang sama dan kita sudah menjawab programnya,
                     # hindari duplikasi jawaban panjang.
                     if f"program:{program_key}" in intents and responses and _ada_salah_satu(teks_norm, ["apakah", "warnanya", "warna", "yang itu", "itu"]):
-                        if program_key == "green_qurban" and _ada_salah_satu(teks_norm, ["warna", "berwarna", "green"]):
+                        if program_key == "tabungan_qurban" and _ada_salah_satu(teks_norm, ["warna", "berwarna", "green"]):
                             _tambah_hasil(responses, "Catatan: kata \"Green\" di sini merujuk pada konsep ramah lingkungan (non-plastik), bukan warna hewannya.")
                         # selain itu: cukup abaikan follow-up kecil yang tidak punya jawaban eksplisit
                     else:
