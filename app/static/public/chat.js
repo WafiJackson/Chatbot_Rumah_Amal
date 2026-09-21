@@ -31,9 +31,23 @@
     // sendiri tidak ikut menyusut di browser tsb. --app-vh dipakai sebagai
     // prioritas utama lewat CSS var(--app-vh, 100dvh) - kalau API ini tidak
     // didukung sama sekali, otomatis jatuh ke 100dvh seperti sebelumnya.
+    //
+    // PENTING: hanya saat halaman TIDAK sedang di-zoom. Saat pengguna
+    // mencubit-zoom (pinch), tinggi visualViewport ikut mengecil sebanding
+    // faktor zoom - kalau tetap dipakai, seluruh layout aplikasi menyusut
+    // jadi sepotong kecil dan sisa layar kosong, area ketik pesan malah
+    // mendominasi (bug 21 Sep 2026: pengguna yang zoom untuk membaca -
+    // mis. mata rabun - mendapati layout ambruk, di HP maupun laptop
+    // layar sentuh). Saat di-zoom, kembalikan ke 100dvh dan biarkan
+    // browser menggeser tampilan seperti biasa.
     function syncVisualViewportHeight() {
-        if (!window.visualViewport) return;
-        document.documentElement.style.setProperty("--app-vh", window.visualViewport.height + "px");
+        var vv = window.visualViewport;
+        if (!vv) return;
+        if (vv.scale > 1.01) {
+            document.documentElement.style.removeProperty("--app-vh");
+            return;
+        }
+        document.documentElement.style.setProperty("--app-vh", vv.height + "px");
     }
     if (window.visualViewport) {
         syncVisualViewportHeight();
@@ -89,7 +103,7 @@
     // channel), bukan maskot SVG - supaya identitas bot konsisten di semua
     // halaman publik.
     function botAvatarHtml() {
-        return '<img src="/static/public/bot-icon.png" alt="Mimin AI" class="w-10 h-10 shrink-0 mt-0.5 bot-idle">';
+        return '<img src="/static/public/bot-icon.png" alt="Mimin AI" class="w-10 h-10 shrink-0 mt-0.5 bot-idle dark:invert">';
     }
 
     // Avatar user: siluet tamu netral (bukan huruf inisial "K") - identitas
@@ -97,8 +111,8 @@
     // avatar generik lebih jujur daripada seolah-olah sudah tahu namanya.
     function guestAvatarSvg() {
         return (
-            '<div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-1.5">' +
-            '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-slate-400">' +
+            '<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-amal-800 flex items-center justify-center shrink-0 mt-1.5">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-slate-400 dark:text-amal-400">' +
             '<path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd"/>' +
             "</svg></div>"
         );
@@ -112,8 +126,8 @@
         var avatarHtml = isUser ? guestAvatarSvg() : botAvatarHtml();
         var bubbleClass = isUser
             ? "p-3.5 md:p-4 rounded-2xl rounded-tr-none bg-amal-600 text-white text-[13.5px] leading-relaxed whitespace-pre-wrap shadow-sm font-medium"
-            : "p-5 rounded-2xl rounded-tl-none bg-white border border-slate-200/90 shadow-card-soft text-slate-800 text-[13.5px] leading-relaxed whitespace-pre-wrap";
-        var timeClass = "block text-[11px] text-slate-400 font-mono mt-1.5" + (isUser ? " text-right mr-1" : " ml-1");
+            : "p-5 rounded-2xl rounded-tl-none bg-white border border-slate-200/90 dark:bg-amal-900 dark:border-amal-800 shadow-card-soft text-slate-800 dark:text-amal-50 text-[13.5px] leading-relaxed whitespace-pre-wrap";
+        var timeClass = "block text-[11px] text-slate-400 dark:text-amal-500 font-mono mt-1.5" + (isUser ? " text-right mr-1" : " ml-1");
 
         row.innerHTML =
             avatarHtml +
@@ -129,10 +143,10 @@
         row.id = "typing-row";
         row.innerHTML =
             botAvatarHtml() +
-            '<div class="px-4 py-3.5 bg-white rounded-2xl rounded-tl-none border border-slate-200/90 flex items-center gap-1.5 shadow-sm">' +
-            '<span class="w-2 h-2 rounded-full bg-amal-600 animate-bounce"></span>' +
-            '<span class="w-2 h-2 rounded-full bg-amal-600 animate-bounce" style="animation-delay:150ms"></span>' +
-            '<span class="w-2 h-2 rounded-full bg-amal-600 animate-bounce" style="animation-delay:300ms"></span>' +
+            '<div class="px-4 py-3.5 bg-white dark:bg-amal-900 rounded-2xl rounded-tl-none border border-slate-200/90 dark:border-amal-800 flex items-center gap-1.5 shadow-sm">' +
+            '<span class="w-2 h-2 rounded-full bg-amal-600 dark:bg-amal-400 animate-bounce"></span>' +
+            '<span class="w-2 h-2 rounded-full bg-amal-600 dark:bg-amal-400 animate-bounce" style="animation-delay:150ms"></span>' +
+            '<span class="w-2 h-2 rounded-full bg-amal-600 dark:bg-amal-400 animate-bounce" style="animation-delay:300ms"></span>' +
             "</div>";
         messagesEl.appendChild(row);
         scrollToBottom();
@@ -291,6 +305,16 @@
         sidebar.classList.remove("translate-x-0");
         var backdrop = document.getElementById("sidebar-backdrop");
         if (backdrop) backdrop.classList.add("hidden");
+    }
+
+    // ---------- Mode siang/malam ----------
+    // Diset initTopoShader() supaya latar shader ikut berganti warna saat
+    // tema diganti, termasuk saat animasi dimatikan (prefers-reduced-motion).
+    var redrawTopo = null;
+    function toggleTheme() {
+        var isDark = document.documentElement.classList.toggle("dark");
+        try { localStorage.setItem("ra_theme", isDark ? "dark" : "light"); } catch (e) {}
+        if (redrawTopo) redrawTopo();
     }
 
     // ---------- OTP modal (3 langkah: nomor -> kode -> sukses) ----------
@@ -458,7 +482,7 @@
 
         var vsSource = "attribute vec2 a_position; void main(){ gl_Position=vec4(a_position,0.0,1.0); }";
         var fsSource = [
-            "precision highp float;", "uniform vec2 u_resolution;", "uniform float u_time;", "uniform float u_dpr;",
+            "precision highp float;", "uniform vec2 u_resolution;", "uniform float u_time;", "uniform float u_dpr;", "uniform float u_dark;",
             "vec3 permute(vec3 x){ return mod(((x*34.0)+1.0)*x, 289.0); }",
             "float snoise(vec2 v){",
             "  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);",
@@ -482,9 +506,9 @@
             "  float n = snoise(noisePos) * 0.5 + 0.5; float bandVal = n * 9.0;",
             "  float triangleWave = abs(fract(bandVal) - 0.5) * 2.0;",
             "  float topoLines = smoothstep(0.09, 0.0, triangleWave) * 0.85;",
-            "  vec3 gridColor = vec3(0.075, 0.42, 0.231);",
+            "  vec3 gridColor = mix(vec3(0.075, 0.42, 0.231), vec3(0.35, 0.67, 0.45), u_dark);",
             "  vec3 topoColor = vec3(0.965, 0.769, 0.271);",
-            "  float lineAlpha = clamp(gridLines + topoLines, 0.0, 1.0);",
+            "  float lineAlpha = clamp(gridLines + topoLines, 0.0, 1.0) * mix(1.0, 0.55, u_dark);",
             "  vec3 lineColor = mix(gridColor, topoColor, step(0.001, topoLines));",
             "  gl_FragColor = vec4(lineColor * lineAlpha, lineAlpha);", "}"
         ].join("\n");
@@ -502,6 +526,7 @@
         var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
         var timeLocation = gl.getUniformLocation(program, "u_time");
         var dprLocation = gl.getUniformLocation(program, "u_dpr");
+        var darkLocation = gl.getUniformLocation(program, "u_dark");
         function resizeCanvas() {
             var dpr = window.devicePixelRatio || 1;
             canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
@@ -514,10 +539,14 @@
         function render(time) {
             gl.clear(gl.COLOR_BUFFER_BIT);
             gl.uniform1f(timeLocation, (time - startTime) * 0.001);
+            gl.uniform1f(darkLocation, document.documentElement.classList.contains("dark") ? 1 : 0);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             if (!reduceMotionShader) requestAnimationFrame(render);
         }
         requestAnimationFrame(render);
+        // Loop animasi sudah membaca tema tiap frame; hanya saat animasi
+        // dimatikan perlu digambar ulang manual sekali.
+        redrawTopo = function () { if (reduceMotionShader) requestAnimationFrame(render); };
     }
 
     function setupOtpDigitInputs() {
@@ -653,6 +682,12 @@
     initNavfx();
     initTopoShader();
 
+    // Di HP font kolom ketik sengaja 16px (anti auto-zoom), jadi contoh
+    // pertanyaan yang panjang terpotong jadi dua baris - pakai versi pendek.
+    if (window.matchMedia("(max-width: 767px)").matches) {
+        inputEl.placeholder = "Ketik pesan Anda di sini...";
+    }
+
     // Reveal fade-up saat halaman dimuat (pola sama seperti pilih_channel.html/admin).
     setTimeout(function () {
         document.querySelectorAll(".reveal").forEach(function (el, i) {
@@ -671,6 +706,7 @@
     window.onFileChosen = onFileChosen;
     window.clearResi = clearResi;
     window.openSidebar = openSidebar;
+    window.toggleTheme = toggleTheme;
     window.closeSidebar = closeSidebar;
     window.closeOtpModal = closeOtpModal;
     window.submitPhone = submitPhone;

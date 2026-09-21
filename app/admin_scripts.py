@@ -6,6 +6,7 @@ from services.program_manager import (
     format_program_response,
     get_program_info,
     get_program_list,
+    normalisasi_ejaan,
 )
 from services import llm_agent
 
@@ -19,7 +20,21 @@ def _normalisasi_teks(teks: str) -> str:
 
 
 def _ada_salah_satu(teks: str, daftar_kata: list[str]) -> bool:
-    return any(kata in teks for kata in daftar_kata)
+    if any(kata in teks for kata in daftar_kata):
+        return True
+    # Lapisan kedua: samakan dulu variasi ejaan di KEDUA sisi, supaya
+    # "infaq"/"infak", "qurban"/"kurban", "tahfizh"/"tahfiz" dianggap sama.
+    # Murni menambah kecocokan - yang sudah cocok persis di atas tidak
+    # pernah berubah hasilnya (diminta 21 Sep 2026: donatur menulis apa
+    # adanya, satu huruf beda jangan bikin bot gagal paham).
+    teks_ejaan = normalisasi_ejaan(teks)
+    for kata in daftar_kata:
+        kata_ejaan = normalisasi_ejaan(kata)
+        # Kata kunci pendek (mis. "p!" -> "p") wajib cocok persis saja -
+        # setelah dinormalisasi dia bisa cocok dengan hampir semua teks.
+        if len(kata_ejaan) >= 3 and kata_ejaan in teks_ejaan:
+            return True
+    return False
 
 
 def _balasan_diawali_kata(teks: str, daftar_kata: list[str]) -> bool:
@@ -33,6 +48,58 @@ def _balasan_diawali_kata(teks: str, daftar_kata: list[str]) -> bool:
 
 def _ada_semua(teks: str, daftar_kata: list[str]) -> bool:
     return all(kata in teks for kata in daftar_kata)
+
+
+# Kata pelengkap yang tidak mengubah makna jawaban pendek ("iya MIN",
+# "boleh DONG", "gak USAH deh", "makasih BANYAK ya kak").
+_KATA_PENGISI = {
+    "min", "mimin", "admin", "kak", "pak", "bu", "bang", "mas", "mbak", "dek", "gan",
+    "dong", "deh", "sih", "nih", "lah", "kok", "yah", "aja", "saja", "ajah",
+    "sekarang", "dulu", "please", "usah", "perlu", "sekali", "banyak", "banget",
+}
+
+
+def _jawaban_konfirmasi_singkat(teks: str, daftar_kata: list[str]) -> bool:
+    """True kalau ISI jawabannya memang cuma konfirmasi ("iya min", "boleh
+    dong", "tidak jadi deh") - bukan kalimat baru yang kebetulan diawali
+    kata konfirmasi ("mau tanya zakat mal", "ya tapi syaratnya apa").
+    Dipakai untuk TAWARAN admin yang sifatnya opsional, supaya user yang
+    lanjut bertanya hal lain tidak ikut tersedot ke alur hubungi admin."""
+    tokens = teks.split()
+    if not tokens or len(tokens) > 4:
+        return False
+    kata_tunggal = {k for k in daftar_kata if " " not in k}
+    inti = [t for t in tokens if t in kata_tunggal or t not in _KATA_PENGISI]
+    if not inti:
+        return False
+    return " ".join(inti) in daftar_kata or all(t in kata_tunggal for t in inti)
+
+
+_UCAPAN_TERIMA_KASIH = [
+    "terima kasih", "terimakasih", "trimakasih", "trima kasih", "makasih", "makasi",
+    "mksh", "trims", "thanks", "thank you", "thankyou", "thx", "tq", "tengkyu",
+    "syukron", "syukran", "jazakallah", "jazakumullah", "jazakillah",
+    "hatur nuhun", "matur nuwun",
+]
+_PENGISI_TERIMA_KASIH = _KATA_PENGISI | {
+    "ya", "atas", "infonya", "informasinya", "bantuannya", "penjelasannya", "jawabannya",
+    "sudah", "udah", "dibantu", "membantu", "ok", "oke", "okey", "baik", "siap", "sip",
+    "alhamdulillah", "bot", "nya", "semua", "semuanya", "khairan", "khair", "katsiran",
+    "barakallah", "barakallahu", "fiik", "fiikum", "wa", "iyya", "kum", "jazakallahu",
+    "ilmunya", "responnya", "sangat", "sgt", "yaa", "yah",
+}
+
+
+def _is_ucapan_terima_kasih(teks: str) -> bool:
+    """Pesan yang ISINYA cuma ucapan terima kasih ("makasih banyak ya min").
+    Kalimat yang membawa hal lain ("terima kasih, saya sudah transfer")
+    sengaja TIDAK dianggap ucapan terima kasih - biar diproses alur aslinya."""
+    if not any(u in teks for u in _UCAPAN_TERIMA_KASIH):
+        return False
+    sisa = teks
+    for u in sorted(_UCAPAN_TERIMA_KASIH, key=len, reverse=True):
+        sisa = sisa.replace(u, " ")
+    return all(t in _PENGISI_TERIMA_KASIH for t in sisa.split())
 
 SAPAAAN_KATA = [
     "halo",
@@ -67,6 +134,19 @@ SAPAAAN_KATA = [
 ]
 
 
+# Kata yang menandakan pesan pendek BUKAN sekadar sapaan walau mengandung kata
+# panggilan ("sedekah min", "zakat kak") - sebelumnya daftarnya terlalu
+# sempit, jadi "sedekah min" malah dibalas salam pembuka (uji ekstrem
+# 21 Sep 2026).
+_KATA_TOPIK = {
+    "beasiswa", "ukt", "bpra", "pinjam", "pintas", "alamat", "rekening", "norek",
+    "donasi", "berdonasi", "zakat", "sedekah", "bersedekah", "infak", "infaq",
+    "wakaf", "fidyah", "program", "qurban", "kurban", "tahfizh", "tahfiz", "tahfidz",
+    "yatim", "sigra", "dsu", "ota", "palestina", "nasi", "senyum", "kolaborasi",
+    "transfer", "riwayat", "resi", "bukti", "kalkulator", "nishab", "nisab", "kantor",
+}
+
+
 def _is_sapaan(teks_norm: str) -> bool:
     """
     Sapaan sering datang dalam bentuk gabungan seperti:
@@ -82,7 +162,7 @@ def _is_sapaan(teks_norm: str) -> bool:
 
     tokens = set(teks_norm.split())
     if any(k in tokens for k in {"p", "ping", "p!", "ping!", "oi", "woi", "lek", "bro", "sis", "cuy", "hei"}):
-        if not any(k in tokens for k in ["beasiswa", "ukt", "bpra", "pinjam", "pintas", "alamat", "rekening", "donasi", "zakat"]):
+        if not tokens & _KATA_TOPIK:
             return True
 
     # jika diawali salah satu kata sapaan dan sisanya hanya panggilan umum
@@ -98,7 +178,7 @@ def _is_sapaan(teks_norm: str) -> bool:
 
     # sapaan pendek (<= 2 kata) yang mengandung kata sapaan (pencocokan kata utuh)
     if len(tokens) <= 2 and any(k in tokens for k in SAPAAAN_KATA):
-        if not any(k in tokens for k in ["beasiswa", "ukt", "bpra", "pinjam", "pintas", "alamat", "rekening", "donasi", "zakat"]):
+        if not tokens & _KATA_TOPIK:
             return True
 
     return False
@@ -147,9 +227,26 @@ QA_SCRIPT = {
     # minta nomor WA dulu SEBELUM benar-benar mengirim notifikasi, supaya
     # admin punya cara nyata membalas.
     "handoff_admin_minta_nomor": "Baik {sapaan_panggilan}, boleh Mimin minta nomor WhatsApp yang aktif? Nanti admin akan langsung menghubungi ke nomor tersebut.",
-    "handoff_admin_nomor_tidak_valid": "Sepertinya itu bukan format nomor WhatsApp yang valid. Coba kirim lagi ya, contoh: 081234567890.",
+    "handoff_admin_nomor_tidak_valid": (
+        "Sepertinya itu bukan format nomor WhatsApp yang valid. Coba kirim lagi ya, contoh: 081234567890.\n\n"
+        "Atau ketik *Batal* kalau tidak jadi disambungkan ke admin."
+    ),
     "handoff_admin_success": "Terima kasih, pesan Anda sudah diteruskan ke admin. Staf kami akan segera menghubungi nomor WhatsApp yang Anda berikan.",
     "handoff_admin_cancel": "Penyambungan ke admin dibatalkan. Silakan kirim pertanyaan lain jika masih ada yang ingin ditanyakan.",
+    # Beda dari handoff_admin_prompt: ini TAWARAN setelah user cuma bertanya
+    # info PINTAS, jadi sengaja tidak mengunci percakapan - user yang lanjut
+    # bertanya hal lain dijawab seperti biasa (lihat susun_balasan()).
+    "tawaran_admin_pintas": (
+        "Untuk pengajuan PINTAS, proses validasi dan wawancara dilakukan langsung bersama admin.\n\n"
+        "Apakah ingin disambungkan ke admin sekarang? Balas *Ya* - atau lanjut saja bertanya hal lain ya 😊"
+    ),
+    "handoff_admin_ditinggalkan": (
+        "Catatan: penyambungan ke admin Mimin batalkan dulu ya. Kapan saja ingin disambungkan lagi, cukup ketik *hubungi admin* 😊"
+    ),
+    "terima_kasih": (
+        "Sama-sama, {sapaan_panggilan} 🙏 Jazakumullahu khairan.\n\n"
+        "Kalau masih ada yang ingin ditanyakan seputar zakat, infak, atau program Rumah Amal USK, Mimin siap bantu kapan saja."
+    ),
 
     # Bagian I: Profil dan informasi umum
     "profil_lembaga": (
@@ -589,7 +686,14 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
     ):
         return "handoff_admin"
 
-    # 3. Sapaan
+    # 3. Ucapan terima kasih - sebelum sapaan, karena "makasih min" ikut
+    # mengandung kata sapaan "min". Sebelumnya jatuh ke "Mimin kurang paham"
+    # (ditemukan lewat uji ekstrem 21 Sep 2026) - padahal menutup obrolan
+    # dengan terima kasih adalah hal paling wajar yang dilakukan donatur.
+    if _is_ucapan_terima_kasih(teks):
+        return "terima_kasih"
+
+    # 3b. Sapaan
     if _is_sapaan(teks):
         return "sapaan"
 
@@ -680,8 +784,23 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
             "mau donasi",
             "mau berdonasi",
             "mau bayar zakat",
+            "ingin sedekah",
+            "ingin bersedekah",
+            "mau sedekah",
+            "mau bersedekah",
+            "ingin infak",
+            "ingin berinfak",
+            "mau infak",
+            "mau berinfak",
+            "ingin menyalurkan",
+            "mau menyalurkan",
         ],
     ):
+        return "ingin_donasi"
+    # Satu kata saja ("donasi", "sedekah min") - sebelumnya jatuh ke "Mimin
+    # kurang paham", padahal niatnya jelas (ditemukan uji ekstrem 21 Sep 2026).
+    inti = " ".join(t for t in teks.split() if t not in _KATA_PENGISI and t != "ya")
+    if inti in {"donasi", "berdonasi", "sedekah", "bersedekah"}:
         return "ingin_donasi"
     if _ada_salah_satu(
         teks,
@@ -1008,9 +1127,25 @@ def susun_balasan(
     menunggu_nomor_wa_handoff = bool(context.get("menunggu_nomor_wa_handoff"))
     output_menunggu_nomor_wa_handoff = False
     admin_handoff_nomor_wa = None
+    handoff_ditinggalkan = False
+
+    # TAWARAN admin setelah user cuma bertanya info PINTAS. Beda dari
+    # menunggu_konfirmasi_admin (user sendiri yang minta hubungi admin, jadi
+    # wajar dikunci sampai menjawab Ya/Batal): tawaran ini OPSIONAL. "Ya"
+    # tetap dilanjutkan ke langkah minta nomor WA, tapi kalau user bertanya
+    # hal lain, dijawab seperti biasa - tidak dipaksa menjawab Ya/Batal dulu
+    # (regresi yang sempat muncul 21 Sep 2026 saat bug "ya tidak dikenali
+    # setelah PINTAS" diperbaiki dengan penanda yang terlalu ketat).
+    tawaran_admin_lunak = bool(context.get("tawaran_admin_lunak"))
+    output_tawaran_admin_lunak = False
 
     KATA_YA_KONFIRMASI = ["ya", "iya", "y", "boleh", "oke", "ok", "baik", "silakan", "lanjut", "setuju", "mau"]
     KATA_BATAL_KONFIRMASI = ["batal", "tidak jadi", "gak jadi", "ga jadi", "nggak jadi", "tidak", "gak", "nggak", "ga", "cancel", "no"]
+    KATA_YA_TAWARAN = KATA_YA_KONFIRMASI + [
+        "iyaa", "yes", "yup", "sip", "siap", "okey", "okay", "bisa", "tolong", "silahkan",
+        "sambungkan", "hubungkan", "disambungkan", "dihubungkan",
+    ]
+    KATA_BATAL_TAWARAN = KATA_BATAL_KONFIRMASI + ["enggak", "engga", "gk", "nanti", "nanti saja", "skip", "tidak dulu", "gak dulu"]
 
     for index, potong in enumerate(potongan):
         potong = potong.strip()
@@ -1023,6 +1158,21 @@ def susun_balasan(
             _tambah_hasil(intents, intent)
             _tambah_hasil(responses, ambil_balasan(intent))
             continue
+
+        if tawaran_admin_lunak and not menunggu_konfirmasi_admin:
+            # Tawaran cuma berlaku untuk balasan PERTAMA setelahnya.
+            tawaran_admin_lunak = False
+            if _jawaban_konfirmasi_singkat(teks_norm, KATA_YA_TAWARAN):
+                output_menunggu_nomor_wa_handoff = True
+                _tambah_hasil(intents, "handoff_admin_minta_nomor")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_minta_nomor", nama_pengirim=nama_pengirim))
+                continue
+            if _jawaban_konfirmasi_singkat(teks_norm, KATA_BATAL_TAWARAN):
+                _tambah_hasil(intents, "handoff_admin_cancel")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_cancel", nama_pengirim=nama_pengirim))
+                continue
+            # Selain itu: user lanjut bertanya hal lain - sengaja TIDAK
+            # `continue`, biarkan diproses alur normal di bawah.
 
         if menunggu_konfirmasi_admin:
             if _balasan_diawali_kata(teks_norm, KATA_YA_KONFIRMASI):
@@ -1047,19 +1197,32 @@ def susun_balasan(
             continue
 
         if menunggu_nomor_wa_handoff:
+            menunggu_nomor_wa_handoff = False
             nomor_bersih = re.sub(r"[^\d]", "", potong)
             if len(nomor_bersih) >= 9 and len(nomor_bersih) <= 15:
                 admin_handoff_nomor_wa = nomor_bersih
                 _tambah_hasil(intents, "handoff_admin_success")
                 _tambah_hasil(responses, ambil_balasan("handoff_admin_success", nama_pengirim=nama_pengirim))
                 continue
-            # Bukan format nomor yang masuk akal - tanya ulang, jangan
-            # lanjut ke alur normal (sama seperti menunggu_konfirmasi_admin,
-            # supaya tidak diam-diam melewatkan langkah ini).
-            output_menunggu_nomor_wa_handoff = True
-            _tambah_hasil(intents, "handoff_admin_nomor_tidak_valid")
-            _tambah_hasil(responses, ambil_balasan("handoff_admin_nomor_tidak_valid", nama_pengirim=nama_pengirim))
-            continue
+            # Sebelumnya SEMUA jawaban selain nomor dibalas "bukan format
+            # nomor yang valid" - termasuk "batal" - selamanya. Karena sesi
+            # disimpan di cookie, memuat ulang halaman pun tidak menolong:
+            # jalan buntu permanen (ditemukan uji ekstrem 21 Sep 2026).
+            if _jawaban_konfirmasi_singkat(teks_norm, KATA_BATAL_TAWARAN) or _balasan_diawali_kata(teks_norm, KATA_BATAL_KONFIRMASI):
+                _tambah_hasil(intents, "handoff_admin_cancel")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_cancel", nama_pengirim=nama_pengirim))
+                continue
+            # Ada angka tapi panjangnya tidak masuk akal, atau cuma "ya" lagi:
+            # user memang sedang mencoba memberi nomor - minta ulang.
+            if nomor_bersih or _jawaban_konfirmasi_singkat(teks_norm, KATA_YA_TAWARAN):
+                output_menunggu_nomor_wa_handoff = True
+                _tambah_hasil(intents, "handoff_admin_nomor_tidak_valid")
+                _tambah_hasil(responses, ambil_balasan("handoff_admin_nomor_tidak_valid", nama_pengirim=nama_pengirim))
+                continue
+            # Tanpa angka sama sekali = user sudah beralih ke pertanyaan lain.
+            # Jawab pertanyaannya, dan beri tahu penyambungan dibatalkan
+            # (jangan diam-diam - dia sempat bilang ingin disambungkan).
+            handoff_ditinggalkan = True
 
         if menunggu_pilihan_kategori:
             # Jawaban apa pun mengakhiri masa "menunggu" - kalau ternyata
@@ -1088,6 +1251,17 @@ def susun_balasan(
                 "ingin bayar zakat",
             ],
         ):
+            # Kalau jenis zakatnya ikut disebut ("bayar zakat mal"), pakai
+            # konfirmasi kategori spesifik - bukan cara donasi generik -
+            # supaya kategorinya tercatat dan terbawa ke resi yang diunggah
+            # sesudahnya (ditemukan uji ekstrem 21 Sep 2026: "saya mau bayar
+            # zakat mal" kehilangan kategori Zakat Mal sama sekali).
+            intent_spesifik = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
+            if intent_spesifik in _INTENT_KE_KODE_DONASI:
+                detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent_spesifik]
+                _tambah_hasil(intents, intent_spesifik)
+                _tambah_hasil(responses, ambil_balasan(intent_spesifik, nama_pengirim=nama_pengirim))
+                continue
             _tambah_hasil(intents, "cara_donasi")
             _tambah_hasil(responses, ambil_balasan("cara_donasi"))
             _tambah_hasil(intents, "info_rekening")
@@ -1198,10 +1372,36 @@ def susun_balasan(
         intents = ["tidak_diketahui"]
         responses = [ambil_balasan("tidak_diketahui", nama_pengirim=nama_pengirim)]
 
-    # Jika PINTAS termasuk salah satu niat, pertahankan alur admin.
-    if should_wait_admin:
+    if handoff_ditinggalkan:
+        if set(intents) <= {"tidak_diketahui"}:
+            # Bukan pertanyaan yang dipahami ("entahlah", "hmm") - user masih
+            # ragu, bukan beralih topik. Tetap minta nomor (balasan ini
+            # menyebut cara membatalkan, jadi tidak lagi jalan buntu).
+            handoff_ditinggalkan = False
+            output_menunggu_nomor_wa_handoff = True
+            intents = ["handoff_admin_nomor_tidak_valid"]
+            responses = [ambil_balasan("handoff_admin_nomor_tidak_valid", nama_pengirim=nama_pengirim)]
+        elif not should_wait_admin:
+            # Kalau pertanyaan barunya soal PINTAS lagi, tawaran admin yang
+            # baru (di bawah) sudah cukup - catatan "dibatalkan" malah
+            # bertentangan dengan tawaran itu.
+            _tambah_hasil(responses, ambil_balasan("handoff_admin_ditinggalkan", nama_pengirim=nama_pengirim))
+
+    # Jika PINTAS termasuk salah satu niat, tawarkan disambungkan ke admin.
+    # Dilewati kalau pesan ini SUDAH berada di alur admin (mis. user barusan
+    # menjawab "ya" dan sedang dimintai nomor WA) - jangan menawarkan ulang.
+    sudah_di_alur_admin = output_menunggu_konfirmasi_admin or output_menunggu_nomor_wa_handoff or admin_handoff_nomor_wa
+    if should_wait_admin and not sudah_di_alur_admin:
         _tambah_hasil(intents, "handoff_admin")
-        _tambah_hasil(responses, ambil_balasan("handoff_admin_prompt", nama_pengirim=nama_pengirim))
+        _tambah_hasil(responses, ambil_balasan("tawaran_admin_pintas", nama_pengirim=nama_pengirim))
+        # WAJIB ikut menyalakan penanda tawaran (bug dilaporkan 21 Sep 2026
+        # lewat screenshot): balasan PINTAS memang DIAKHIRI pertanyaan
+        # "Apakah ingin disambungkan ke admin?", tapi sebelumnya tidak ada
+        # penanda apa pun yang tersimpan - jawaban "ya" pada pesan BERIKUTNYA
+        # tidak punya konteks dan jatuh ke "Mimin kurang paham", padahal bot
+        # sendiri yang baru saja bertanya. Sengaja penanda LUNAK (bukan
+        # menunggu_konfirmasi_admin) - lihat catatan tawaran_admin_lunak.
+        output_tawaran_admin_lunak = True
 
     reply_statis = "\n\n".join(responses)
 
@@ -1212,8 +1412,13 @@ def susun_balasan(
         "kode_program_donasi": detected_kode_donasi or context.get("last_donation_category"),
         "menunggu_pilihan_kategori": "ingin_donasi" in intents,
         "menunggu_konfirmasi_admin": output_menunggu_konfirmasi_admin,
+        "tawaran_admin_lunak": output_tawaran_admin_lunak,
         "menunggu_nomor_wa_handoff": output_menunggu_nomor_wa_handoff,
+        # Katalog program bernomor barusan ditampilkan - dipakai web chat untuk
+        # menerjemahkan balasan angka ("3") jadi program, bukan menu sapaan.
+        "katalog_program_tampil": "info_program" in intents,
         "admin_handoff_nomor_wa": admin_handoff_nomor_wa,
+        "handoff_ditinggalkan": handoff_ditinggalkan,
         "should_wait_admin": should_wait_admin,
         "normalized_model_output": normalisasi_output_model(" | ".join(intents)),
     }

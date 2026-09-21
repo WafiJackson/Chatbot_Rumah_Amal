@@ -13,7 +13,7 @@ from services.llm_agent import (
 )
 from services import state_manager
 from services.form_parser import ekstrak_formulir
-from services.program_manager import get_program_info, format_program_response
+from services.program_manager import get_program_info, format_program_response, kunci_program_dari_nomor
 from services.gender_detector import deteksi_sapaan_gender
 from services.logger import logger
 from services.media_validator import MAKS_UKURAN_RESI_BYTES, sniff_gambar_valid, unduh_dengan_batas_ukuran
@@ -659,22 +659,7 @@ async def waha_webhook(request: Request):
                 send_message_to_waha(chat_id_asli, balasan, nama_sesi)
                 return {"status": "sukses", "intent": "sapaan"}
 
-            PETA_INDEX_PROGRAM = {
-                "1": "ota_beasiswa",
-                "2": "ota_palestina",
-                "3": "pintas",
-                "4": "senyum_ramadhan",
-                "5": "nasi_bungkus",
-                "6": "dsu_umum",
-                "7": "dsu_palestina",
-                "8": "peduli_sigra",
-                "9": "peduli_yatim",
-                "10": "kolaborasi_kebaikan",
-                "11": "rumah_tahfizh",
-                "12": "tabungan_qurban",
-                "13": "infaq_bebas"
-            }
-            prog_key = PETA_INDEX_PROGRAM.get(pesan_clean) or pesan_clean
+            prog_key = kunci_program_dari_nomor(pesan_clean) or pesan_clean
             prog_data = get_program_info(prog_key)
 
             if prog_data:

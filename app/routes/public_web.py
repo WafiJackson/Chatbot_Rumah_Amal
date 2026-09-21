@@ -7,8 +7,9 @@ from fastapi import APIRouter, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from admin_scripts import susun_balasan
+from admin_scripts import ambil_balasan, susun_balasan
 from services import state_manager
+from services.program_manager import kunci_program_dari_nomor, kueri_untuk_program
 from services.llm_agent import ekstrak_resi_vision
 from services.gender_detector import deteksi_sapaan_gender
 from routes.bot_webhook import send_message_to_waha, notify_admin, PETA_NAMA
@@ -86,12 +87,54 @@ def _get_session(request: Request) -> tuple[str, dict, bool]:
             "last_donation_category": None,
             "menunggu_pilihan_kategori": False,
             "menunggu_konfirmasi_admin": False,
+            "tawaran_admin_lunak": False,
             "menunggu_nomor_wa_handoff": False,
+            "katalog_program_tampil": False,
         }
         result = (token, WEB_SESSIONS[token], True)
 
     request.state.web_session = result
     return result
+
+
+# Balasan bot memuat beberapa daftar bernomor (contoh pertanyaan di sapaan,
+# kategori donasi, katalog 13 program) - di WhatsApp itu menu sungguhan, jadi
+# donatur (terutama yang lebih senior) wajar membalas cukup dengan angkanya
+# di web juga. Sebelumnya "1" di web selalu dijawab "Mimin kurang paham"
+# (ditemukan uji ekstrem 21 Sep 2026). Urutan WAJIB sama dengan
+# QA_SCRIPT["sapaan"] dan QA_SCRIPT["ingin_donasi"] di admin_scripts.py.
+_PETA_ANGKA_SAPAAN = {
+    "1": "Program apa saja?",
+    "2": "Ingin berdonasi",
+    "3": "Alamat kantor?",
+    "4": "Cek riwayat transaksi",
+    "5": "Hubungi admin",
+}
+_PETA_ANGKA_KATEGORI = {
+    "1": "Zakat Mal",
+    "2": "Zakat Penghasilan",
+    "3": "Infak Rutin",
+    "4": "Donasi (Bantuan Kemanusiaan)",
+    "5": "OTA Palestina",
+}
+
+
+def _terjemahkan_balasan_angka(pesan: str, session: dict) -> str:
+    """Angka polos ("3" / "3.") -> pertanyaan yang dimaksud, sesuai daftar
+    bernomor TERAKHIR yang ditampilkan bot. Pesan lain dikembalikan apa adanya."""
+    cocok = re.fullmatch(r"\s*(\d{1,2})\s*\.?\s*", pesan)
+    if not cocok:
+        return pesan
+    # Sedang di alur hubungi admin - angka bisa jadi bagian nomor WA, jangan diubah.
+    if session.get("menunggu_konfirmasi_admin") or session.get("menunggu_nomor_wa_handoff"):
+        return pesan
+    angka = cocok.group(1)
+    if session.get("menunggu_pilihan_kategori"):
+        return _PETA_ANGKA_KATEGORI.get(angka, pesan)
+    if session.get("katalog_program_tampil"):
+        kunci = kunci_program_dari_nomor(angka)
+        return kueri_untuk_program(kunci) if kunci else pesan
+    return _PETA_ANGKA_SAPAAN.get(angka, pesan)
 
 
 def _json_with_session(request: Request, data: dict, status_code: int = 200) -> JSONResponse:
@@ -214,9 +257,17 @@ async def web_chat(request: Request, payload: dict):
     token, session, _is_new = _get_session(request)
     state_manager.catat_pesan("web", token, "user", pesan)
 
+    pesan_asli = pesan
+    pesan = _terjemahkan_balasan_angka(pesan, session)
+    # User yang sedang menelusuri katalog lewat angka ("3", lalu "11", ...)
+    # tetap dianggap berada di katalog - jangan sampai angka berikutnya
+    # malah diterjemahkan sebagai menu sapaan.
+    pilih_dari_katalog = pesan != pesan_asli and bool(session.get("katalog_program_tampil"))
     pesan_clean = pesan.lower().strip()
 
     if _is_cek_riwayat(pesan_clean):
+        session["tawaran_admin_lunak"] = False
+        session["katalog_program_tampil"] = False
         reply = "Untuk melihat riwayat transaksi, Mimin perlu verifikasi nomor WhatsApp Bapak/Ibu dulu ya - demi menjaga data donasi tetap aman 🙏"
         state_manager.catat_pesan("web", token, "bot", reply)
         return _json_with_session(request, {"reply": reply, "requires_otp": True})
@@ -228,6 +279,7 @@ async def web_chat(request: Request, payload: dict):
             "last_donation_category": session.get("last_donation_category"),
             "menunggu_pilihan_kategori": session.get("menunggu_pilihan_kategori", False),
             "menunggu_konfirmasi_admin": session.get("menunggu_konfirmasi_admin", False),
+            "tawaran_admin_lunak": session.get("tawaran_admin_lunak", False),
             "menunggu_nomor_wa_handoff": session.get("menunggu_nomor_wa_handoff", False),
         },
         nama_pengirim="",
@@ -258,9 +310,17 @@ async def web_chat(request: Request, payload: dict):
     # ini perlu (web chat anonim, notifikasi admin sebelumnya tidak
     # menyertakan cara apa pun untuk benar-benar dihubungi balik).
     session["menunggu_nomor_wa_handoff"] = hasil.get("menunggu_nomor_wa_handoff", False)
+    # Tawaran admin setelah info PINTAS (opsional, tidak mengunci) - lihat
+    # catatan tawaran_admin_lunak di admin_scripts.py susun_balasan().
+    session["tawaran_admin_lunak"] = hasil.get("tawaran_admin_lunak", False)
+    session["katalog_program_tampil"] = hasil.get("katalog_program_tampil", False) or pilih_dari_katalog
 
     if "tidak_diketahui" in hasil.get("intents", []):
         reply = _WEB_FALLBACK_REPLY
+        # Jangan sampai catatan "penyambungan admin dibatalkan" ikut hilang
+        # bersama balasan asli yang diganti fallback web di atas.
+        if hasil.get("handoff_ditinggalkan"):
+            reply += "\n\n" + ambil_balasan("handoff_admin_ditinggalkan")
     else:
         reply = _bersihkan_navigasi_wa(hasil["reply"])
 
