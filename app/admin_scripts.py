@@ -840,6 +840,17 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
         teks,
         [
             "cara donasi",
+            # Bentuk berimbuhan - tanpa ini, pintasan menu "Cara Berdonasi
+            # Zakat" di web chat sendiri ("Bagaimana cara berdonasi zakat?")
+            # malah dijawab "Mimin kurang paham" (ditemukan 21 Sep 2026).
+            "cara berdonasi",
+            "cara berzakat",
+            "cara berinfak",
+            "cara bersedekah",
+            "cara membayar",
+            "cara bayar",
+            "cara menyalurkan",
+            "cara transfer",
             "cara menyalurkan donasi",
             "cara zakat",
             "cara infak",
@@ -1401,6 +1412,14 @@ def susun_balasan(
             _tambah_hasil(responses, ambil_balasan(
                 intent, nama_pengirim=nama_pengirim, waktu_sapaan=_deteksi_waktu_sapaan(teks_norm)
             ))
+            # "Cara donasi" saja cuma menyuruh "transfer ke rekening resmi"
+            # tanpa nomornya - sertakan sekalian, sama seperti jalur
+            # "bayar zakat" di atas (tombol "Cara Berdonasi Zakat" di menu
+            # web chat adalah ajakan utama, jawabannya harus bisa langsung
+            # ditindaklanjuti).
+            if intent == "cara_donasi":
+                _tambah_hasil(intents, "info_rekening")
+                _tambah_hasil(responses, ambil_balasan("info_rekening"))
 
     if not responses:
         intents = ["tidak_diketahui"]

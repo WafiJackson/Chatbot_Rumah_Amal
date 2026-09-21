@@ -242,18 +242,25 @@
         pertahankanFokusInput(sudahFokus);
     }
 
+    // Pintasan di menu samping: di HP menu itu drawer yang menutupi obrolan,
+    // jadi WAJIB ditutup dulu - kalau tidak, balasan bot muncul di belakang
+    // menu dan pengguna mengira bot tidak membalas (laporan 21 Sep 2026).
+    // Di desktop aman: md:translate-x-0 tetap menang, sidebar tidak bergeser.
     function quickPrompt(text) {
+        closeSidebar();
         inputEl.value = text;
         autoExpand(inputEl);
         sendMessage();
     }
 
     function openGoogleSearch(query) {
+        closeSidebar();
         addMessage("bot", "Membuka pencarian \"" + query + "\" di tab baru ↗️");
         window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank", "noopener");
     }
 
     function openExternalLink(url, label) {
+        closeSidebar();
         addMessage("bot", "Membuka " + label + " di tab baru ↗️");
         window.open(url, "_blank", "noopener");
     }

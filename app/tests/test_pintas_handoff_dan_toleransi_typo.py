@@ -277,3 +277,33 @@ def test_pertanyaan_lain_tidak_disangka_tanya_pencipta(client, pesan):
 def test_pertanyaan_pencipta_lewat_whatsapp(nomor_baru, kirim_pesan):
     _resp, balasan, _ = kirim_pesan(nomor_baru(), "siapa yang membuat kamu?")
     assert "Yafi Hidayatullah" in balasan
+
+
+# ---------------------------------------------------------------------------
+# 7. Setiap tombol pintasan di web chat WAJIB dipahami bot
+# ---------------------------------------------------------------------------
+
+def _teks_pintasan_web_chat():
+    import pathlib
+    import re
+    html = (pathlib.Path(__file__).resolve().parents[1] / "templates" / "public" / "chat.html").read_text(encoding="utf-8")
+    return re.findall(r"quickPrompt\('([^']+)'\)", html)
+
+
+def test_pintasan_web_chat_ditemukan():
+    assert len(_teks_pintasan_web_chat()) >= 3
+
+
+@pytest.mark.parametrize("teks", _teks_pintasan_web_chat())
+def test_setiap_pintasan_web_chat_dipahami_tanpa_llm(client, monkeypatch, teks):
+    """Pintasan "Cara Berdonasi Zakat" di menu web chat sendiri sempat dijawab
+    "Mimin kurang paham" - tombol yang kita sediakan sendiri tidak boleh
+    bergantung pada Gemini untuk dipahami. Teks diambil langsung dari
+    chat.html, jadi pintasan baru otomatis ikut teruji."""
+    from services import llm_agent
+    monkeypatch.setattr(llm_agent, "get_intent", lambda pesan: "tidak_diketahui")
+    resp = client.post("/api/web-chat", json={"message": teks})
+    body = resp.json()
+    assert body.get("requires_otp") or (
+        body["reply"] != public_web._WEB_FALLBACK_REPLY and "kurang paham" not in body["reply"].lower()
+    ), f"Pintasan {teks!r} dijawab: {body['reply'][:80]}"
