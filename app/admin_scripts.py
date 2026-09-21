@@ -90,6 +90,29 @@ _PENGISI_TERIMA_KASIH = _KATA_PENGISI | {
 }
 
 
+_KATA_PEMBUAT = [
+    # "ngembang": k luluh setelah imbuhan (mengembangkan, pengembang).
+    "buat", "bikin", "cipta", "kembang", "ngembang", "develop", "rancang", "rakit", "kreator", "creator",
+]
+_KATA_DIRI_BOT = {"kamu", "mimin", "bot", "chatbot", "kau", "engkau", "anda", "dirimu", "km", "lu", "lo", "ai"}
+_FRASA_DIRI_BOT = ["web ini", "website ini", "situs ini", "aplikasi ini", "sistem ini", "layanan ini", "bot ini"]
+
+
+def _is_tanya_pencipta(teks: str) -> bool:
+    """Pertanyaan siapa pembuat/pencipta bot ini. Wajib menyebut DIRI bot
+    ("kamu", "mimin", "bot ini") sekaligus kata pembuat, supaya "siapa
+    pembuat program PINTAS" atau "siapa direktur" tidak ikut tertangkap."""
+    if "yafi" in teks:
+        return True
+    if "siapa" not in teks and "buatan" not in teks:
+        return False
+    tokens = set(teks.split())
+    menyebut_bot = bool(tokens & _KATA_DIRI_BOT) or any(f in teks for f in _FRASA_DIRI_BOT)
+    # "buatanmu", "penciptamu", "pembuatmu" sudah menunjuk diri bot sendiri.
+    menyebut_bot = menyebut_bot or bool(re.search(r"\b\w*(buat|cipta|kembang|bikin)\w*mu\b", teks))
+    return menyebut_bot and any(k in teks for k in _KATA_PEMBUAT)
+
+
 def _is_ucapan_terima_kasih(teks: str) -> bool:
     """Pesan yang ISINYA cuma ucapan terima kasih ("makasih banyak ya min").
     Kalimat yang membawa hal lain ("terima kasih, saya sudah transfer")
@@ -242,6 +265,12 @@ QA_SCRIPT = {
     ),
     "handoff_admin_ditinggalkan": (
         "Catatan: penyambungan ke admin Mimin batalkan dulu ya. Kapan saja ingin disambungkan lagi, cukup ketik *hubungi admin* 😊"
+    ),
+    "identitas_pencipta": (
+        "Mimin diciptakan oleh *Yafi Hidayatullah*, mahasiswa jurusan Informatika Universitas Syiah Kuala. "
+        "Mimin dirancang khusus menjadi asisten digital resmi Rumah Amal Masjid Jamik USK, supaya donatur dan "
+        "mahasiswa bisa mendapat informasi zakat, infak, dan program bantuan kapan saja, tanpa harus menunggu jam kantor.\n\n"
+        "Ada yang bisa Mimin bantu hari ini? 😊"
     ),
     "terima_kasih": (
         "Sama-sama, {sapaan_panggilan} 🙏 Jazakumullahu khairan.\n\n"
@@ -624,6 +653,11 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
 
     if not teks and has_media:
         return "doa_infak"
+
+    # 0. Siapa pencipta Mimin - paling awal, karena kata "buat"/"bikin" di
+    # dalamnya gampang tertelan pengecekan lain di bawah.
+    if _is_tanya_pencipta(teks):
+        return "identitas_pencipta"
 
     # 1. Konfirmasi transfer / bukti donasi
     is_konfirmasi = has_media or _ada_salah_satu(

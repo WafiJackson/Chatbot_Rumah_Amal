@@ -152,7 +152,7 @@
     <div class="reveal relative z-10 h-full w-full flex flex-col p-0 md:p-5 gap-0 md:gap-4">
 
         <!-- NAVBAR: satu baris mengambang -->
-        <header class="h-16 shrink-0 bg-white/25 dark:bg-amal-950/50 backdrop-blur-lg border-b md:border border-amal-100 dark:border-amal-800/60 md:rounded-2xl px-4 md:px-6 flex items-center justify-between shadow-floating-bar relative z-30">
+        <header class="h-16 shrink-0 bg-white/20 dark:bg-amal-950/30 md:backdrop-blur-sm border-b md:border border-amal-100 dark:border-amal-800/60 md:rounded-2xl px-4 md:px-6 flex items-center justify-between shadow-floating-bar relative z-30">
 
             <div class="flex items-center gap-3.5 min-w-0">
                 <button type="button" onclick="openSidebar()" class="md:hidden p-2 rounded-xl text-slate-600 hover:text-amal-600 hover:bg-slate-100 dark:text-amal-200 dark:hover:text-gold-300 dark:hover:bg-amal-800/60 btn-tactile shrink-0" aria-label="Buka menu">
@@ -191,7 +191,7 @@
         </header>
 
         <!-- KONSOL: sidebar + chat, mengambang di atas latar -->
-        <div class="reveal flex-1 min-h-0 flex overflow-hidden relative z-10 bg-white/10 dark:bg-amal-950/30 backdrop-blur-xl md:rounded-2xl border-t md:border border-amal-100 dark:border-amal-800/60 shadow-floating-bar">
+        <div class="reveal flex-1 min-h-0 flex overflow-hidden relative z-10 bg-transparent md:bg-white/5 md:dark:bg-amal-950/10 md:backdrop-blur-[2px] md:rounded-2xl border-t md:border border-amal-100 dark:border-amal-800/60 shadow-floating-bar">
 
             <!-- Backdrop sidebar mobile. Sengaja di DALAM konsol (bukan anak langsung
                  <body>) supaya satu konteks tumpukan dengan <aside>: z-30 di sini
@@ -199,7 +199,7 @@
                  menimpa seluruh konsol - termasuk sidebar - dan menu ikut buram. -->
             <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden fixed inset-0 bg-slate-900/45 dark:bg-black/60 z-30 md:hidden"></div>
 
-            <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-[340px] max-w-[85vw] md:max-w-none md:w-[370px] lg:w-[390px] bg-white md:bg-white/20 dark:bg-amal-950 md:dark:bg-amal-950/40 md:backdrop-blur-lg border-r border-slate-200/90 dark:border-amal-800/60 flex flex-col justify-between overflow-y-auto shrink-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out shadow-xl md:shadow-none">
+            <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-[340px] max-w-[85vw] md:max-w-none md:w-[370px] lg:w-[390px] bg-white md:bg-white/10 dark:bg-amal-950 md:dark:bg-amal-950/25 md:backdrop-blur-sm border-r border-slate-200/90 dark:border-amal-800/60 flex flex-col justify-between overflow-y-auto shrink-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out shadow-xl md:shadow-none">
 
                 <div class="p-5 md:p-6 space-y-5">
 
@@ -308,7 +308,7 @@
                     </div>
                 </div>
 
-                <div class="p-4 md:p-6 bg-white/25 dark:bg-amal-950/40 backdrop-blur-lg border-t border-slate-200/90 dark:border-amal-800/60 shrink-0">
+                <div class="p-4 md:p-6 bg-transparent md:bg-white/10 md:dark:bg-amal-950/20 md:backdrop-blur-sm border-t border-slate-200/90 dark:border-amal-800/60 shrink-0">
                     <div id="resi-chip" class="hidden items-center gap-2 bg-gold-50 border border-gold-200 text-gold-700 dark:bg-gold-500/10 dark:border-gold-500/40 dark:text-gold-300 rounded-xl px-3 py-2 text-[12px] font-semibold mb-3 w-fit shadow-sm msg-spring">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"></path></svg>
                         <span id="resi-name"></span>

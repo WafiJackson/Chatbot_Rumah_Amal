@@ -246,3 +246,34 @@ def test_nomor_belum_lengkap_tetap_diminta_ulang(client):
     _chat(client, "hubungi admin")
     _chat(client, "ya")
     assert "bukan format nomor" in _chat(client, "0812")
+
+
+# ---------------------------------------------------------------------------
+# 6. Identitas pencipta Mimin
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "pesan",
+    [
+        "siapa yang membuat kamu?", "kamu buatan siapa", "siapa penciptamu", "Siapa pembuat bot ini",
+        "mimin dibuat oleh siapa", "yg bikin kamu siapa min", "siapa developer chatbot ini",
+        "siapa yang mengembangkan website ini", "siapa yafi hidayatullah",
+    ],
+)
+def test_pertanyaan_pencipta_dijawab_identitas(client, pesan):
+    balasan = _chat(client, pesan)
+    assert "Yafi Hidayatullah" in balasan
+    assert "Informatika Universitas Syiah Kuala" in balasan
+
+
+@pytest.mark.parametrize(
+    "pesan",
+    ["siapa pembuat program pintas", "siapa direktur rumah amal", "siapa yang bisa dapat beasiswa"],
+)
+def test_pertanyaan_lain_tidak_disangka_tanya_pencipta(client, pesan):
+    assert "Yafi Hidayatullah" not in _chat(client, pesan)
+
+
+def test_pertanyaan_pencipta_lewat_whatsapp(nomor_baru, kirim_pesan):
+    _resp, balasan, _ = kirim_pesan(nomor_baru(), "siapa yang membuat kamu?")
+    assert "Yafi Hidayatullah" in balasan

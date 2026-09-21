@@ -200,6 +200,7 @@ DAFTAR KATA KUNCI INTENT RESMI:
 - ingin_donasi (pengguna menyatakan niat ingin berdonasi, menyumbang, atau sedekah tapi belum menyebut programnya)
 - minta_bantuan_pintas (pengguna memohon bantuan dana, membutuhkan pinjaman, atau meminta donasi untuk diri sendiri)
 - konfirmasi_donasi (pengguna menyatakan SUDAH transfer, SUDAH membayar, atau mengirim resi/bukti transfer)
+- identitas_pencipta (pengguna bertanya siapa pembuat/pencipta/pengembang chatbot Mimin ini)
 - tidak_diketahui (di luar konteks atau pertanyaan tidak relevan)"""
 
     prompt = f"{system_prompt}\n\nPesan Pengguna: '{pesan}'\nBalasan:"

@@ -121,7 +121,10 @@
     function addMessage(sender, text) {
         var row = document.createElement("div");
         var isUser = sender === "user";
-        row.className = "flex items-start gap-3.5 max-w-[92%] md:max-w-[80%] msg-spring" + (isUser ? " self-end flex-row-reverse" : "");
+        // ml-auto, bukan self-end: #messages itu blok biasa (space-y), bukan
+        // flex, jadi self-end tidak berpengaruh dan gelembung user berhenti di
+        // 80% lebar area - menyisakan ruang kosong di kanan.
+        row.className = "flex items-start gap-3.5 max-w-[92%] md:max-w-[80%] msg-spring" + (isUser ? " ml-auto w-fit flex-row-reverse" : "");
 
         var avatarHtml = isUser ? guestAvatarSvg() : botAvatarHtml();
         var bubbleClass = isUser
