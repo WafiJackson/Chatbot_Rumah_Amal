@@ -27,7 +27,7 @@ Dibangun sebagai layanan tunggal berbasis **FastAPI** (Python) dengan **WAHA** (
 
 ## Ikhtisar
 
-Rumah Amal USK menerima donasi, zakat, dan infak dari civitas akademika serta masyarakat umum, dan menyalurkannya lewat lebih dari 10 program (beasiswa, bantuan UKT, pinjaman tanpa syarat, pemberdayaan UMKM, qurban, dan lainnya). Sebelum sistem ini ada, pertanyaan donatur dan pencatatan transaksi ditangani manual satu per satu.
+Rumah Amal USK menerima donasi, zakat, dan infak dari civitas akademika serta masyarakat umum, dan menyalurkannya lewat **13 Program Kebaikan** resmi (sesuai *Buku Saku Program Fundraising Rumah Amal Masjid Jamik USK*): Beasiswa Orang Tua Asuh (OTA), OTA Palestina, PINTAS, Paket Senyum Ramadhan, Bantuan Nasi Bungkus, Dana Solidaritas Umat (Umum & Palestina), Peduli Sigra, Peduli Yatim, Kolaborasi Kebaikan, Rumah Tahfizh, Tabungan Qurban, dan Infaq Bebas. Sebelum sistem ini ada, pertanyaan donatur dan pencatatan transaksi ditangani manual satu per satu.
 
 Sistem ini menghadirkan:
 
@@ -42,6 +42,7 @@ Sistem ini menghadirkan:
 | Kanal | Rute | Audiens | Autentikasi |
 |---|---|---|---|
 | **Bot WhatsApp** | Webhook `/webhook` (dipanggil WAHA) | Donatur via WhatsApp | Identitas terverifikasi otomatis lewat sesi nomor WA |
+| **Pilih Channel** | `/pilih-channel` | Pengunjung dari widget di beranda rumahamal.usk.ac.id | - (halaman pilihan: lanjut ke WhatsApp atau Web Chat) |
 | **Web Chatbot** | `/`, `/api/web-chat`, `/api/web-otp/*`, `/api/web-chat/upload-resi` | Pengunjung situs resmi | Anonim untuk tanya-jawab umum; verifikasi OTP WhatsApp untuk data transaksi |
 | **Admin Dashboard** | `/admin/*` | Staf internal | Login sesi (username/password) |
 | **Health Check** | `/health` | Pemantauan infrastruktur | - |
@@ -120,15 +121,28 @@ flowchart TD
 - **Rate limiting** per nomor WhatsApp dan **deduplikasi pesan** untuk menahan replay webhook.
 - **Monitor kesehatan sesi WAHA** dengan notifikasi otomatis ke admin bila koneksi WhatsApp terputus.
 
+### 🧠 Pemahaman Bahasa Donatur
+Donatur mayoritas orang dewasa yang menulis apa adanya, jadi mesin jawaban sengaja toleran:
+- **Beda ejaan & salah ketik ringan**: *tahfiz/tahfidz/tahfizh*, *kurban/qurban*, *infak/infaq*, *kolaborsi kebaikan*, *tabungn qurban* tetap dikenali. Kata pendek tetap wajib cocok persis, supaya *korban* (bencana) tidak tertukar dengan *kurban*.
+- **Bahasa sehari-hari**: *apa aja*, *pinjem duit*, *pengen donasi*, *makasih min*, *donasi*/*sedekah* satu kata.
+- **Balasan angka**: di web, mengetik `1`/`3`/`11` dipahami sesuai daftar bernomor terakhir yang ditampilkan bot (menu sapaan, kategori donasi, atau katalog 13 program).
+- **Alur hubungi admin tanpa jalan buntu**: tawaran admin setelah info PINTAS bersifat opsional (tidak mengunci percakapan); saat dimintai nomor WA, pengguna tetap bisa membatalkan atau beralih bertanya hal lain.
+- **Identitas pencipta**: pertanyaan "siapa yang membuat kamu?" dan sejenisnya dijawab dengan perkenalan pencipta Mimin.
+
 ### 💬 Web Chatbot Publik
-- Antarmuka chat responsif dengan pintasan cepat (katalog program, konsultasi zakat, cara berdonasi) dan area unggah bukti transfer.
+- Antarmuka chat responsif dengan pintasan cepat (katalog program, konsultasi zakat, cara berdonasi) dan area unggah bukti transfer. Di HP, menu samping otomatis menutup setelah pintasan ditekan supaya balasan langsung terlihat.
+- **Mode siang/malam** dengan pilihan tersimpan di perangkat, latar kontur topografi WebGL, dan tampilan transparan di HP.
+- **Ramah aksesibilitas**: pinch-zoom tetap diizinkan tanpa merusak tata letak (untuk pengguna yang perlu memperbesar tulisan), dan kolom isian berukuran 16px di HP agar browser tidak zoom otomatis saat keyboard terbuka.
 - Memakai mesin jawaban yang identik dengan bot WhatsApp — jawaban tetap konsisten lintas kanal, dengan penyesuaian navigasi khusus web (tanpa instruksi "ketik angka" yang hanya relevan di WhatsApp).
 - **Verifikasi OTP** lewat WhatsApp sebelum mengizinkan akses ke riwayat transaksi pribadi — mencegah data donasi diintip pihak yang tidak berhak.
 - Bukti transfer yang diunggah lewat web disimpan berstatus **menunggu validasi** hingga ditinjau staf, karena identitas pengunjung belum terverifikasi sepenuhnya saat unggah.
+- Halaman **Pilih Channel** (`/pilih-channel`) untuk pengunjung dari widget beranda: lanjut ke WhatsApp resmi atau Web Chat, dengan tombol kembali ke rumahamal.usk.ac.id.
 
 ### 🖥️ Admin Dashboard
 - **Overview real-time**: total donasi/zakat/infak, jumlah donatur aktif, dan tren arus donasi 7 hari terakhir dalam grafik interaktif.
 - **Manajemen transaksi**: pencarian, filter kategori/status, dan alur persetujuan (**Tervalidasi / Menunggu / Ditolak**) khusus untuk bukti transfer yang masuk lewat web.
+- **Koreksi penuh**: kategori dan status tetap bisa diubah walau transaksi sudah divalidasi, dan transaksi bisa **dihapus permanen** (dengan konfirmasi dua langkah) bila ternyata keliru.
+- Penanda **"ID WA"** pada transaksi yang nomornya berupa ID internal WhatsApp (`@lid`) yang gagal diterjemahkan jadi nomor telepon asli, supaya staf tidak mengira itu salah baca.
 - **Peninjau bukti transfer** — foto resi asli yang diunggah donatur dapat dilihat langsung oleh staf sebelum memutuskan validasi.
 - **Log Bot** — transkrip lengkap percakapan Mimin AI dari kedua kanal (WhatsApp & Web), dikelompokkan per kontak/sesi, untuk audit kualitas jawaban dan penelusuran keluhan.
 - Sesi login terautentikasi dengan proteksi cookie `HttpOnly`.
@@ -139,6 +153,7 @@ flowchart TD
 - Penyimpanan gambar resi dilayani lewat endpoint terproteksi login dengan validasi nama berkas ketat, mencegah *path traversal*.
 - Skema database bermigrasi otomatis saat startup — penambahan kolom baru tidak memerlukan migrasi manual di server produksi.
 - Penyimpanan ganda (SQLite lokal + Supabase cloud) dengan *graceful fallback*: kegagalan koneksi cloud tidak pernah menggagalkan pencatatan transaksi.
+- Validasi nomor WhatsApp di satu titik penyimpanan transaksi (`simpan_transaksi_final`): nilai yang tidak menyerupai nomor telepon (mis. teks "status") ditolak, bukan ikut tersimpan.
 
 ---
 
@@ -171,14 +186,16 @@ bot-rumah-amal/
 │   │   ├── state_manager.py       # Lapisan data (SQLite + orkestrasi Supabase)
 │   │   ├── supabase_client.py     # Klien Supabase Cloud
 │   │   ├── llm_agent.py           # Integrasi Google Gemini (intent, NER, Vision OCR)
-│   │   ├── program_manager.py     # Basis data & logika 10 program penyaluran
+│   │   ├── program_manager.py     # 13 program resmi, urutan katalog, toleransi ejaan/salah ketik
 │   │   ├── gender_detector.py     # Deteksi sapaan gender dari nama
 │   │   ├── form_parser.py         # Parser formulir infak rutin
 │   │   └── logger.py              # Logger produksi dengan rotasi file
 │   ├── templates/
 │   │   ├── public/chat.html       # UI web chatbot
+│   │   ├── public/pilih_channel.html  # Halaman pilih WhatsApp / Web Chat
 │   │   └── admin/                 # UI dashboard (login, overview, transaksi, log bot)
-│   └── static/public/chat.js      # Logika interaktif web chatbot
+│   ├── static/public/             # chat.js, ikon bot (favicon), logo Rumah Amal
+│   └── tests/                     # Test otomatis (pytest)
 ├── docker-compose.yml             # Orkestrasi 3 kontainer: api-bot, waha-gateway, caddy
 ├── Dockerfile                     # Image aplikasi FastAPI
 └── requirements.txt
@@ -207,6 +224,7 @@ Transaksi dari WhatsApp otomatis berstatus **tervalidasi** (identitas sudah past
 |---|---|---|
 | `POST` | `/webhook` | Menerima event pesan dari WAHA |
 | `GET` | `/` | Halaman web chatbot |
+| `GET` | `/pilih-channel` | Halaman pilihan kanal (WhatsApp / Web Chat) |
 | `POST` | `/api/web-chat` | Kirim pesan ke mesin jawaban, menerima balasan JSON |
 | `POST` | `/api/web-otp/request` | Meminta kode OTP verifikasi via WhatsApp |
 | `POST` | `/api/web-otp/verify` | Memverifikasi kode OTP, membuka akses riwayat transaksi |
@@ -214,7 +232,8 @@ Transaksi dari WhatsApp otomatis berstatus **tervalidasi** (identitas sudah past
 | `GET` | `/admin/login` · `POST` `/admin/login` | Autentikasi staf |
 | `GET` | `/admin/dashboard` | Overview KPI & tren donasi |
 | `GET` | `/admin/transactions` | Manajemen & validasi transaksi |
-| `POST` | `/admin/transactions/{id}/status` | Mengubah status validasi transaksi |
+| `POST` | `/admin/transactions/{id}/status` | Mengubah status validasi dan/atau kategori transaksi |
+| `POST` | `/admin/transactions/{id}/delete` | Menghapus transaksi permanen (SQLite + foto resi) |
 | `GET` | `/admin/log-bot` | Transkrip percakapan bot |
 | `GET` | `/admin/resi/{filename}` | Menyajikan foto resi (terproteksi sesi login) |
 | `GET` | `/health` | Status kesehatan layanan |
@@ -234,6 +253,14 @@ docker compose up -d --build
 ```
 
 Layanan akan berjalan di `http://localhost:8000` (aplikasi) dan `http://localhost:3000` (WAHA — perlu dipindai QR code WhatsApp sekali lewat panel WAHA agar bot WhatsApp aktif).
+
+### Menjalankan Test
+
+```bash
+GEMINI_API_KEY= python -m pytest app/tests/ -q
+```
+
+Test memakai database SQLite sementara (tidak pernah menyentuh `donatur.db` atau data produksi) dan mencakup alur WhatsApp, web chat, OTP, unggah resi, serta dashboard admin. `GEMINI_API_KEY=` dikosongkan dengan sengaja: seluruh test harus lulus tanpa Gemini, jadi hasilnya pasti, tidak bergantung jaringan, dan tidak memakan kuota. Termasuk test yang membaca **setiap tombol pintasan** di `chat.html` dan memastikan tidak ada yang dijawab "kurang paham".
 
 ---
 
@@ -290,7 +317,8 @@ docker compose up -d --build
 
 ## Rencana Pengembangan
 
-- Sinkronisasi dua arah SQLite ↔ Supabase dengan penanda status sinkron, untuk pemulihan otomatis pasca gangguan koneksi cloud.
+- Sinkronisasi dua arah SQLite ↔ Supabase dengan penanda status sinkron, untuk pemulihan otomatis pasca gangguan koneksi cloud (termasuk ikut menghapus di Supabase saat staf menghapus transaksi di dashboard — saat ini hanya terhapus di SQLite).
+- Migrasi gateway dari WAHA (otomasi WhatsApp Web, tidak resmi) ke **WhatsApp Business Cloud API** resmi untuk nomor lembaga, supaya nomor tidak berisiko diblokir.
 - Retensi & kontrol akses berjenjang untuk data transkrip percakapan (Log Bot).
 - Cadangan otomatis untuk arsip foto bukti transfer ke penyimpanan objek cloud.
 - Dukungan multi-worker dengan session store terpusat (Redis) untuk skala trafik yang lebih besar.
@@ -299,4 +327,4 @@ docker compose up -d --build
 
 ## Lisensi & Hak Cipta
 
-Dikembangkan untuk **Rumah Amal Masjid Jamik Universitas Syiah Kuala (USK)**.
+Dikembangkan oleh **Yafi Hidayatullah** (Informatika, Universitas Syiah Kuala) untuk **Rumah Amal Masjid Jamik Universitas Syiah Kuala (USK)**.
