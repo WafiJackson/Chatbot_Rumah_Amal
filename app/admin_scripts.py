@@ -353,7 +353,10 @@ QA_SCRIPT = {
     ),
     "kalkulator_zakat": (
         "Ya, situs resmi Rumah Amal Masjid Jamik USK menyediakan fitur kalkulator zakat untuk memudahkan muzakki menghitung kewajiban zakatnya. "
-        "Berikut alamat situs resminya: rumahamal.usk.ac.id"
+        # Wajib dengan https:// - linkify() di web chat hanya menautkan domain
+        # polos TANPA path-nya, jadi tanpa protokol yang bisa diklik cuma
+        # "rumahamal.usk.ac.id" dan pengunjung dibawa ke beranda.
+        "Silakan buka kalkulatornya di sini: https://rumahamal.usk.ac.id/kalkulator"
     ),
     "info_kontak": "Hubungi WhatsApp resmi di nomor 0811-6888-123.",
 

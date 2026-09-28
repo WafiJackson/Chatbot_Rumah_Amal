@@ -20,11 +20,11 @@ templates = Jinja2Templates(directory="templates/public")
 
 SESSION_COOKIE = "web_chat_session"
 
-# Nomor WhatsApp resmi Rumah Amal - SAMA dengan yang tertulis di
-# QA_SCRIPT["info_kontak"] (admin_scripts.py), sudah dikonfirmasi staf valid
-# & aktif (lihat CATATAN_KEKURANGAN_PROYEK.txt bagian 9C). Dipakai halaman
-# "Pilih Channel" untuk tombol "Chat via WhatsApp".
-NOMOR_WA_RESMI = "628116888123"
+# Nomor WhatsApp BOT Mimin (08217979489, format internasional untuk wa.me) -
+# dipakai tombol "Chat via WhatsApp" di halaman Pilih Channel. SENGAJA beda
+# dari QA_SCRIPT["info_kontak"] (0811-6888-123, kontak kantor/admin di buku
+# saku): tombol ini mengarahkan pengunjung ke bot, bukan ke admin manusia.
+NOMOR_WA_RESMI = "628217979489"
 _PESAN_PEMBUKA_WA = "Assalamu'alaikum, saya ingin bertanya seputar zakat/infak di Rumah Amal USK."
 
 # Konteks percakapan per-pengunjung web (pola sama dengan user_sessions di

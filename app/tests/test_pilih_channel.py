@@ -16,7 +16,7 @@ def test_pilih_channel_menampilkan_dua_opsi(client):
 def test_pilih_channel_link_whatsapp_ke_nomor_resmi(client):
     resp = client.get("/pilih-channel")
     body = resp.text
-    assert "https://wa.me/628116888123" in body
+    assert "https://wa.me/628217979489" in body
 
 
 def test_pilih_channel_link_web_chat_ke_root(client):
