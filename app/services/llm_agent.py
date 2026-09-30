@@ -11,7 +11,10 @@ from services.logger import logger
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+# gemini-2.5-flash sudah ditutup Google untuk akun/proyek baru (Sep 2026).
+# 3.5 Flash Lite dipilih lewat uji perbandingan: intent & nominal resi setara,
+# 3,5x lebih cepat, jatah tier gratis 500/hari (Flash biasa hanya 20/hari).
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.5-flash-lite")
 
 # Pelacak pemakaian harian sederhana (in-memory, reset otomatis saat tanggal
 # berganti) - sebelumnya kalau kuota gratis 20/hari habis, semua fitur AI
@@ -43,7 +46,7 @@ def _detect_mime_type(image_bytes: bytes) -> str:
 
 
 def _panggil_gemini_api(prompt: str, image_bytes: bytes | None = None, is_json: bool = False) -> str:
-    """Helper internal 100% Cloud-Only untuk memanggil Google Gemini 2.5 Flash API."""
+    """Helper internal 100% Cloud-Only untuk memanggil Google Gemini API (model dari MODEL_NAME)."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     
@@ -136,7 +139,7 @@ KEMBALIKAN HANYA FORMAT JSON MURNI {"nama": null, "pekerjaan": null, "nominal": 
 
 
 def get_intent(pesan: str) -> str:
-    """Menggunakan Gemini 2.5 Flash untuk mengklasifikasikan intent dari pesan pengguna ke salah satu dari 47 intent resmi."""
+    """Menggunakan Gemini (MODEL_NAME) untuk mengklasifikasikan intent dari pesan pengguna ke salah satu dari 47 intent resmi."""
     system_prompt = """Anda adalah mesin pengklasifikasi niat untuk customer service Rumah Amal Masjid Jamik USK.
 Tugas Anda HANYA membalas dengan SATU KATA KUNCI dari daftar di bawah ini yang paling sesuai dengan pesan pengguna. JANGAN TULIS HAL LAIN SAMA SEKALI.
 
@@ -213,7 +216,7 @@ DAFTAR KATA KUNCI INTENT RESMI:
 
 def ekstrak_resi_vision(image_bytes: bytes, caption: str = "") -> dict:
     """
-    Multimodal Vision OCR via Gemini 2.5 Flash Cloud API:
+    Multimodal Vision OCR via Gemini Cloud API (MODEL_NAME):
     Membaca foto resi transfer bank (BSI Mobile, BYOND, QRIS) secara langsung tanpa Ollama/EasyOCR!
     """
     nama_local = None
@@ -222,13 +225,15 @@ def ekstrak_resi_vision(image_bytes: bytes, caption: str = "") -> dict:
     prompt = f"""Kamu adalah mesin Vision OCR khusus membaca foto resi transfer bank (BSI Mobile, BYOND, QRIS).
 Tugasmu mengekstrak data berikut dari foto resi ini:
 - nama: Nama Pengirim / Donatur (pada resi BSI Mobile cari 'Pengirim'/'Dari Rekening', pada BYOND cari nama pemilik rekening sumber di bawah nominal). Jika tidak ada, isi null.
+  PENTING: JANGAN PERNAH mengisi nama dengan nama PENERIMA/tujuan transfer (label 'Penerima', 'Ke', 'Tujuan', 'Kepada', atau nama toko/merchant). Jika nama pengirim tidak terlihat di foto, isi null - jangan menebak.
+- penerima: Nama PENERIMA/tujuan transfer (label 'Penerima', 'Ke', 'Tujuan', 'Kepada', atau nama merchant). Jika tidak ada, isi null.
 - nominal: Angka nominal murni tanpa titik/koma/rupiah (misal 'Rp 50.000' -> '50000', '100.000' -> '100000'). Jika tidak ada, isi null.
 - program: Kode program ('ZKT-MAL', 'ZKT-PENGHASILAN', 'INF-RUTIN', 'DON-PALESTINA', atau 'UMUM').
 
 Caption Pengguna: '{caption}'
 
 KEMBALIKAN HANYA FORMAT JSON MURNI:
-{{"nama": "NAMA_DONATUR", "nominal": "NOMINAL_ANGKA", "program": "KODE_PROGRAM"}}"""
+{{"nama": "NAMA_DONATUR", "penerima": "NAMA_PENERIMA", "nominal": "NOMINAL_ANGKA", "program": "KODE_PROGRAM"}}"""
 
     raw_json = _panggil_gemini_api(prompt, image_bytes=image_bytes, is_json=True)
 
@@ -244,6 +249,18 @@ KEMBALIKAN HANYA FORMAT JSON MURNI:
             return str(val).strip()
 
         nama_res = _clean(data.get("nama"))
+        # Pengaman di luar kepatuhan model (uji 30 Sep): saat nama pengirim
+        # tidak terlihat di foto, model ringan kadang mengisinya dengan nama
+        # PENERIMA - di resi ke Rumah Amal itu berarti donatur tercatat
+        # sebagai "Rumah Amal". Instruksi di prompt saja tidak cukup andal
+        # (resi kabur tetap lolos), jadi nama yang sama dengan penerima dibuang.
+        penerima_res = _clean(data.get("penerima"))
+        if nama_res and penerima_res:
+            a, b = " ".join(nama_res.lower().split()), " ".join(penerima_res.lower().split())
+            # Sama persis saja: pencocokan sebagian akan ikut membuang nama
+            # donatur sungguhan seperti "Amal" pada transfer ke "Rumah Amal".
+            if a == b:
+                nama_res = None
         nominal_raw = _clean(data.get("nominal"))
         nominal_clean = None
         if nominal_raw:

@@ -2,7 +2,7 @@
 
 Platform digital donasi & layanan informasi untuk **Rumah Amal Masjid Jamik Universitas Syiah Kuala (USK)** — sebuah Lembaga Amil Zakat (LAZ) kampus. Sistem ini menggantikan proses manual pencatatan donasi, layanan tanya-jawab, dan verifikasi transaksi dengan satu backend terpadu yang melayani tiga kanal sekaligus: **bot WhatsApp**, **web chatbot publik**, dan **dashboard admin internal**.
 
-Dibangun sebagai layanan tunggal berbasis **FastAPI** (Python) dengan **WAHA** (WhatsApp HTTP API) sebagai gateway WhatsApp, **Google Gemini 2.5 Flash** untuk pemahaman bahasa alami & OCR, serta **SQLite + Supabase** sebagai lapisan penyimpanan ganda (lokal + cloud). Seluruh komponen dijalankan sebagai satu unit lewat Docker Compose, di belakang reverse proxy Caddy untuk HTTPS otomatis.
+Dibangun sebagai layanan tunggal berbasis **FastAPI** (Python) dengan **WAHA** (WhatsApp HTTP API) sebagai gateway WhatsApp, **Google Gemini 3.5 Flash Lite** untuk pemahaman bahasa alami & OCR, serta **SQLite + Supabase** sebagai lapisan penyimpanan ganda (lokal + cloud). Seluruh komponen dijalankan sebagai satu unit lewat Docker Compose, di belakang reverse proxy Caddy untuk HTTPS otomatis.
 
 ---
 
@@ -75,7 +75,7 @@ flowchart TD
         QAEngine["🧠 Shared Q&A Engine (susun_balasan)"]
     end
 
-    subgraph AI_Layer ["🤖 Google Gemini 2.5 Flash"]
+    subgraph AI_Layer ["🤖 Google Gemini 3.5 Flash Lite"]
         Intent["Klasifikasi Intent & NER"]
         VisionOCR["👁️ Vision OCR Bukti Transfer"]
     end
@@ -164,7 +164,7 @@ Donatur mayoritas orang dewasa yang menulis apa adanya, jadi mesin jawaban senga
 | Backend | Python 3.10, FastAPI, Uvicorn |
 | Templating & Frontend | Jinja2 (server-rendered), Tailwind CSS, vanilla JavaScript |
 | Gateway WhatsApp | WAHA (WebJS engine, self-hosted via Docker) |
-| Kecerdasan Buatan | Google Gemini 2.5 Flash (klasifikasi intent, NER, Vision OCR) |
+| Kecerdasan Buatan | Google Gemini 3.5 Flash Lite (klasifikasi intent, NER, Vision OCR) |
 | Basis Data | SQLite (penyimpanan utama lokal), Supabase/PostgreSQL (cloud, opsional) |
 | Reverse Proxy & TLS | Caddy 2 (HTTPS otomatis) |
 | Orkestrasi | Docker Compose |
@@ -269,7 +269,7 @@ Test memakai database SQLite sementara (tidak pernah menyentuh `donatur.db` atau
 ```env
 # Google Gemini (klasifikasi intent, NER, Vision OCR)
 GEMINI_API_KEY=your-gemini-api-key
-MODEL_NAME=gemini-2.5-flash
+MODEL_NAME=gemini-3.5-flash-lite
 
 # WAHA WhatsApp Gateway
 WAHA_ENDPOINT=http://waha-gateway:3000
