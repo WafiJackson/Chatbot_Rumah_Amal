@@ -27,7 +27,16 @@ services:
 
   # 2. Container untuk Gateway WhatsApp (WAHA WebJS)
   waha-gateway:
-    image: devlikeapro/waha
+    # VERSI SENGAJA DIKUNCI - jangan kembali ke "devlikeapro/waha" (= latest).
+    # VPS kampus (KVM/QEMU, CPU tanpa SSE4.2 / x86-64-v2) membuat WAHA >= 2026.9.1
+    # crash saat startup: WAHA menaikkan sharp ke 0.35.3 (commit 11 Sep 2026),
+    # dan sharp 0.35 menolak berjalan di CPU tanpa SSE4.2 lewat cek cpuid saat
+    # runtime - tambalan WAHA sendiri (rebuild sharp -march=x86-64, ada sejak
+    # Apr 2026) jadi tidak terpakai. 2026.8.2 adalah rilis terakhir dengan sharp
+    # 0.34 yang masih memuat hasil rebuild itu.
+    # Naikkan versi HANYA setelah: (a) CPU VM diganti ke tipe "host" /
+    # x86-64-v2 oleh ICT, atau (b) WAHA memperbaiki dukungan CPU lama.
+    image: devlikeapro/waha:latest-2026.8.2
     container_name: rumah_amal_waha
     ports:
       # Diikat KHUSUS ke loopback (127.0.0.1) - TIDAK ke 0.0.0.0 seperti

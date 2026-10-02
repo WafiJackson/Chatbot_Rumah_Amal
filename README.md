@@ -299,6 +299,8 @@ Arsitektur produksi menjalankan tiga kontainer dalam satu jaringan Docker intern
 
 Volume Docker (`sqlite_data`) memastikan basis data dan arsip foto resi tetap persisten lintas pembaruan/rebuild kontainer.
 
+> **Versi WAHA dikunci ke `latest-2026.8.2`.** VPS dengan vCPU KVM/QEMU standar (tanpa SSE4.2 / x86-64-v2) membuat WAHA versi 2026.9.1 ke atas crash saat startup (`Failed to start WAHA: TypeError: Cannot read properties of undefined (reading 'endsWith')` dari `sharp`). Penyebabnya, sharp 0.35 yang dipakai WAHA terbaru menolak CPU tanpa SSE4.2. Jangan naikkan versi WAHA sebelum tipe CPU VM diganti ke `host`/`x86-64-v2` (pengaturan di hypervisor, oleh pengelola VPS) atau WAHA memperbaiki dukungan CPU lama. Detail lengkap ada di komentar `docker-compose.yml`.
+
 ```bash
 docker compose up -d --build
 ```
