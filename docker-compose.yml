@@ -1,3 +1,11 @@
+# Nama proyek DIKUNCI. Tanpa ini Docker Compose memakai nama FOLDER sebagai
+# nama proyek, dan nama volume ikut berubah: menjalankan compose dari folder
+# "Chatbot_Rumah_Amal" (bukan folder lama) membuat volume database BARU yang
+# kosong ("chatbot_rumah_amal_sqlite_data") - bot jalan dengan dasbor kosong
+# sementara data asli diam di "rumahamal_sqlite_data" (kejadian 5 Okt 2026
+# di VPS kampus). Nama "rumahamal" = nama volume data yang sudah ada.
+name: rumahamal
+
 services:
   # 1. Container untuk Logika Bot (FastAPI + Regex/Gemini Engine)
   api-bot:
