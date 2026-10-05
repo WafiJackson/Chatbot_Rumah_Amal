@@ -1,0 +1,30 @@
+# WAHA untuk VPS kampus: vCPU KVM standar TANPA SSE4.2 (x86-64-v2).
+#
+# Masalah: sharp >= 0.35 menolak berjalan di CPU tanpa SSE4.2 (cek cpuid saat
+# runtime). WAHA 2026.8.2 memakai sharp UTAMA 0.34 yang sudah dibangun ulang
+# WAHA untuk CPU lama (aman), TAPI paket @wppconnect-team/wppconnect membawa
+# salinan sharp 0.35 sendiri - itu yang membuat WAHA crash saat startup:
+#   .../wppconnect/node_modules/sharp/dist/sharp.cjs ... reading 'endsWith'
+#
+# Tambalan: hapus salinan sharp >= 0.35 yang bersarang, supaya paket-paket itu
+# memakai sharp utama. Lalu UJI memuat sharp saat build - build berjalan di CPU
+# VPS ini sendiri, jadi kalau masih ditolak, build GAGAL dengan pesan jelas
+# (bukan crash diam-diam setelah kontainer jalan).
+#
+# Hapus berkas ini dan kembali ke image resmi terbaru setelah ICT mengganti
+# tipe CPU VM ke "host" / "x86-64-v2".
+FROM devlikeapro/waha:latest-2026.8.2
+
+RUN set -e; \
+    for pj in $(find /app/node_modules -path '*/node_modules/sharp/package.json' ! -path '/app/node_modules/sharp/package.json'); do \
+        dir=$(dirname "$pj"); \
+        ver=$(node -p "require('$pj').version"); \
+        echo "sharp bersarang: $dir (v$ver)"; \
+        case "$ver" in \
+            0.3[5-9].*|0.[4-9]*) echo "  -> dihapus, memakai sharp utama"; rm -rf "$dir" ;; \
+        esac; \
+    done; \
+    echo "sharp utama: v$(node -p "require('/app/node_modules/sharp/package.json').version")"
+
+RUN node -e "require('/app/node_modules/sharp'); console.log('UJI: sharp utama berhasil dimuat di CPU ini')" && \
+    node -e "const p = require.resolve('sharp', { paths: ['/app/node_modules/@wppconnect-team/wppconnect'] }); console.log('UJI: wppconnect memakai ' + p); require(p); console.log('UJI: berhasil dimuat')"

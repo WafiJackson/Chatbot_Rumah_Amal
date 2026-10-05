@@ -44,7 +44,14 @@ services:
     # 0.34 yang masih memuat hasil rebuild itu.
     # Naikkan versi HANYA setelah: (a) CPU VM diganti ke tipe "host" /
     # x86-64-v2 oleh ICT, atau (b) WAHA memperbaiki dukungan CPU lama.
-    image: devlikeapro/waha:latest-2026.8.2
+    #
+    # 2026.8.2 saja TERNYATA MASIH crash (diuji 5 Okt): salinan sharp 0.35 di
+    # dalam paket wppconnect tetap kena cek CPU. Dockerfile.waha menghapus
+    # salinan itu & menguji sharp saat build - lihat penjelasan di berkas itu.
+    build:
+      context: .
+      dockerfile: Dockerfile.waha
+    image: rumahamal-waha-cpu-lama:2026.8.2
     container_name: rumah_amal_waha
     ports:
       # Diikat KHUSUS ke loopback (127.0.0.1) - TIDAK ke 0.0.0.0 seperti
