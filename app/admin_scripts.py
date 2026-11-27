@@ -75,6 +75,42 @@ def _jawaban_konfirmasi_singkat(teks: str, daftar_kata: list[str]) -> bool:
     return " ".join(inti) in daftar_kata or all(t in kata_tunggal for t in inti)
 
 
+# Jawaban pendek yang menutup/mengiyakan tanpa pertanyaan baru. Dicek lewat
+# _jawaban_konfirmasi_singkat(), jadi "oke, syaratnya apa?" TIDAK ikut.
+_KATA_PENUTUP_SINGKAT = [
+    "oke", "ok", "okay", "okey", "oce", "okee", "baik", "baiklah", "sip", "siip", "siap", "mantap",
+    "ya", "iya", "iyaa", "y", "noted", "paham", "mengerti", "ngerti", "cukup", "itu saja",
+    "batal", "tidak jadi", "gak jadi", "ga jadi", "nggak jadi", "enggak jadi", "gk jadi", "tak jadi",
+    "nanti saja", "nanti aja", "lain kali",
+]
+
+# User yang bilang lapar/butuh makan diarahkan ke program Nasi Bungkus.
+_KATA_LAPAR = [
+    "lapar", "kelaparan", "belum makan", "bantu makan", "bantu saya makan", "butuh makan",
+    "tidak bisa makan", "gak bisa makan", "ga bisa makan", "nggak bisa makan", "minta makan",
+    "makan gratis", "nasi gratis",
+]
+
+# Jawaban satu-dua kata saat memilih kategori donasi ("mal", "penghasilan",
+# "palestina") - sebelumnya "mal" malah dijawab daftar jenis zakat.
+_KATEGORI_SINGKAT = {
+    "mal": "daftar_zakat_mal", "maal": "daftar_zakat_mal", "harta": "daftar_zakat_mal",
+    "penghasilan": "daftar_zakat_penghasilan", "profesi": "daftar_zakat_penghasilan", "gaji": "daftar_zakat_penghasilan",
+    "infak": "daftar_infak_rutin", "infaq": "daftar_infak_rutin", "rutin": "daftar_infak_rutin",
+    "kemanusiaan": "daftar_donasi_kemanusiaan",
+    "palestina": "daftar_peduli_palestina", "ota": "daftar_peduli_palestina",
+}
+_PENGISI_KATEGORI = {"zakat", "yang", "ya", "untuk", "pilih", "saya", "aku", "mau", "ingin", "nomor", "no"}
+
+
+def _kategori_dari_jawaban_singkat(teks: str) -> str | None:
+    tokens = [t for t in teks.split() if t not in _KATA_PENGISI and t not in _PENGISI_KATEGORI]
+    if not tokens or len(tokens) > 2:
+        return None
+    hasil = {_KATEGORI_SINGKAT.get(t) for t in tokens}
+    return hasil.pop() if len(hasil) == 1 and None not in hasil else None
+
+
 _UCAPAN_TERIMA_KASIH = [
     "terima kasih", "terimakasih", "trimakasih", "trima kasih", "makasih", "makasi",
     "mksh", "trims", "thanks", "thank you", "thankyou", "thx", "tq", "tengkyu",
@@ -272,6 +308,21 @@ QA_SCRIPT = {
         "mahasiswa bisa mendapat informasi zakat, infak, dan program bantuan kapan saja, tanpa harus menunggu jam kantor.\n\n"
         "Ada yang bisa Mimin bantu hari ini? 😊"
     ),
+    # Jawaban penutup pendek tanpa konteks ("oke", "baik", "ga jadi lah min",
+    # "batal" padahal tidak ada yang dibatalkan) - sebelumnya dijawab "Mimin
+    # kurang paham", bahkan sempat berulang 3x dalam satu percakapan
+    # (temuan review Log Bot 27 Nov 2026).
+    "penutup_singkat": (
+        "Baik {sapaan_panggilan} 👍 Kalau ada lagi yang ingin ditanyakan seputar zakat, infak, "
+        "atau program Rumah Amal USK, Mimin siap bantu kapan saja."
+    ),
+    # Pembuka sebelum info program Nasi Bungkus untuk user yang bilang lapar /
+    # butuh makan - sebelumnya ditebak LLM sebagai pengajuan PINTAS (pinjaman).
+    "empati_lapar": (
+        "Mimin turut prihatin {sapaan_panggilan} 🙏 Rumah Amal USK punya program *Bantuan Nasi Bungkus* "
+        "untuk yang sedang membutuhkan makanan. Kalau kondisinya mendesak, ketik *hubungi admin* "
+        "supaya Mimin sambungkan langsung ke staf kami.\n\nBerikut informasi programnya:"
+    ),
     "terima_kasih": (
         "Sama-sama, {sapaan_panggilan} 🙏 Jazakumullahu khairan.\n\n"
         "Kalau masih ada yang ingin ditanyakan seputar zakat, infak, atau program Rumah Amal USK, Mimin siap bantu kapan saja."
@@ -318,7 +369,7 @@ QA_SCRIPT = {
     ),
     "info_rekening": (
         "Rekening BSI dengan nomor rekening 7099400409 atas nama Rumah Amal Mesjid Unsyiah dengan mencantumkan "
-        "keterangan zakat/infak.donasi."
+        "keterangan zakat/infak/donasi."
     ),
     "info_qris": (
         "Ya, Rumah Amal USK menyediakan kode QRIS resmi yang dapat dipindai menggunakan mobile banking atau dompet digital (e-wallet)."
@@ -336,7 +387,8 @@ QA_SCRIPT = {
         "*FORMULIR INFAK RUTIN*\n"
         "Nama : \n"
         "Instansi/Pekerjaan : \n"
-        "Nominal Komitmen : "
+        "Nominal Komitmen : \n\n"
+        "Infak bulanannya dapat ditransfer ke Rekening BSI 7099400409 atas nama Rumah Amal Mesjid Unsyiah."
     ),
 
     "zakat_pajak": (
@@ -729,6 +781,8 @@ def klasifikasi_pesan(pesan: str, has_media: bool = False) -> str:
     # dengan terima kasih adalah hal paling wajar yang dilakukan donatur.
     if _is_ucapan_terima_kasih(teks):
         return "terima_kasih"
+    if _jawaban_konfirmasi_singkat(teks, _KATA_PENUTUP_SINGKAT):
+        return "penutup_singkat"
 
     # 3b. Sapaan
     if _is_sapaan(teks):
@@ -953,6 +1007,10 @@ def ambil_balasan(intent: str, nama_pengirim: str | None = None, waktu_sapaan: s
     from services.gender_detector import deteksi_sapaan_gender, bersihkan_dan_normalisasi_nama
     sapaan_donatur = deteksi_sapaan_gender(nama_pengirim)
     clean_name = bersihkan_dan_normalisasi_nama(nama_pengirim).title() if nama_pengirim else ""
+    # Nama profil WA satu-dua huruf ("N", "Ab") menghasilkan sapaan janggal
+    # "Bapak/Ibu N!" (temuan review Log Bot 27 Nov 2026) - lebih baik tanpa nama.
+    if len(clean_name.replace(" ", "")) < 3:
+        clean_name = ""
     # Hindari duplikasi seperti "Kak Kak" saat nama asli tidak diketahui dan
     # fallback-nya kebetulan sama dengan kata sapaan (mis. nama_pengirim="Kak").
     if clean_name and clean_name.lower() != sapaan_donatur.lower():
@@ -1278,7 +1336,14 @@ def susun_balasan(
             # ini di potongan/pesan berikutnya, lanjutkan saja ke alur normal
             # di bawah (jangan `continue` supaya tetap dapat balasan yang wajar).
             menunggu_pilihan_kategori = False
-            intent_kategori = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
+            intent_kategori = _kategori_dari_jawaban_singkat(teks_norm) or klasifikasi_pesan(
+                potong, has_media=has_media if index == 0 else False
+            )
+            # "Infak Rutin" polos (atau angka 3 di web) sengaja dibaca sebagai
+            # pertanyaan info di luar konteks - tapi DI SINI user sedang memilih
+            # kategori dari katalog, jadi itu pilihan, bukan pertanyaan.
+            if intent_kategori == "info_infak_rutin":
+                intent_kategori = "daftar_infak_rutin"
             if intent_kategori in _INTENT_KE_KODE_DONASI:
                 detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent_kategori]
                 _tambah_hasil(intents, intent_kategori)
@@ -1350,6 +1415,10 @@ def susun_balasan(
 
         is_pinjam = _ada_salah_satu(teks_norm, ["pintas", "pinjam", "pinjaman", "meminjam", "pinjam uang"])
         program_key = "pintas" if is_pinjam else extract_program_keyword(potong)
+        is_lapar = not program_key and _ada_salah_satu(teks_norm, _KATA_LAPAR)
+        if is_lapar:
+            program_key = "nasi_bungkus"
+            _tambah_hasil(responses, ambil_balasan("empati_lapar", nama_pengirim=nama_pengirim))
         if not program_key:
             program_key = _gunakan_konteks_program(potong, context_dinamis)
 
@@ -1404,7 +1473,11 @@ def susun_balasan(
         intent = klasifikasi_pesan(potong, has_media=has_media if index == 0 else False)
         if intent in _INTENT_KE_KODE_DONASI:
             detected_kode_donasi = _INTENT_KE_KODE_DONASI[intent]
-        if intent in ("handoff_admin", "handoff_admin_umum"):
+        # minta_bantuan_pintas (hasil tebakan LLM, mis. "saya butuh bantuan")
+        # memakai teks yang SAMA persis dengan handoff_admin ("Balas *Ya* atau
+        # *Batal*") - dulu lupa ikut didaftarkan di sini, jadi jawaban Ya/Batal
+        # user dibalas "Mimin kurang paham" (temuan review Log Bot 27 Nov 2026).
+        if intent in ("handoff_admin", "handoff_admin_umum", "minta_bantuan_pintas"):
             output_menunggu_konfirmasi_admin = True
         # Jika sudah ada jawaban lain dan potongan ini hanya jatuh ke "tidak_diketahui",
         # jangan ganggu user dengan fallback yang terasa kaku.

@@ -209,16 +209,16 @@ def send_message_to_waha(chat_id: str, text: str, session_name: str = "default",
     # Catat balasan bot ke log_percakapan (untuk halaman admin Log Bot) -
     # kecuali kalau tujuannya nomor admin sendiri (notifikasi internal,
     # bukan percakapan dengan donatur). catat_log=False dipakai pengirim OTP
-    # supaya kode verifikasi TIDAK PERNAH tersimpan apa adanya ke database -
-    # kredensial semacam itu tidak seharusnya pernah masuk log permanen,
-    # meski masa berlakunya cuma 5 menit.
+    # supaya kode verifikasi TIDAK PERNAH tersimpan ke database. Pengiriman
+    # OTP sudah dicatat di percakapan WEB pemintanya (public_web.request_otp),
+    # jadi di sini tidak dicatat sama sekali - dulu tercatat sebagai
+    # "percakapan WhatsApp" baru yang cuma berisi "Kode OTP dikirim" dan
+    # mengotori daftar Log Bot (temuan review 27 Nov 2026).
     digits_tujuan = re.sub(r"[^\d]", "", chat_id or "")
     digits_admin = re.sub(r"[^\d]", "", ADMIN_WA_NUMBER)
-    if digits_tujuan and digits_tujuan != digits_admin:
+    if catat_log and digits_tujuan and digits_tujuan != digits_admin:
         try:
-            teks_log = text if catat_log else "Kode OTP dikirim"
-            dari_log = "bot" if catat_log else "sistem"
-            state_manager.catat_pesan("whatsapp", state_manager.normalisasi_no_wa(digits_tujuan), dari_log, teks_log)
+            state_manager.catat_pesan("whatsapp", state_manager.normalisasi_no_wa(digits_tujuan), "bot", text)
         except Exception as e:
             print(f"[Warning Log Percakapan] {e}")
 
@@ -1423,7 +1423,14 @@ async def waha_webhook(request: Request):
         session_data["last_program_key"] = hasil.get("last_program_key")
         session_data["last_intents"] = hasil.get("intents", [])
 
-        if hasil.get("should_wait_admin"):
+        # menunggu_konfirmasi_admin: balasan barusan bertanya "Balas *Ya* atau
+        # *Batal*" (mis. minta_bantuan_pintas hasil tebakan LLM) - status FSM
+        # di DB (yang dibaca get_status() di awal webhook) harus ikut
+        # MENUNGGU_ADMIN, kalau tidak "Ya" berikutnya jatuh ke "kurang paham"
+        # (temuan review Log Bot 27 Nov 2026).
+        if hasil.get("menunggu_konfirmasi_admin"):
+            state_manager.update_status(nomor_wa, "MENUNGGU_ADMIN", target_program="ADMIN")
+        if hasil.get("should_wait_admin") or hasil.get("menunggu_konfirmasi_admin"):
             session_data["state"] = "MENUNGGU_ADMIN"
         else:
             session_data["state"] = "IDLE"

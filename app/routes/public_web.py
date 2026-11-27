@@ -90,6 +90,7 @@ def _get_session(request: Request) -> tuple[str, dict, bool]:
             "tawaran_admin_lunak": False,
             "menunggu_nomor_wa_handoff": False,
             "katalog_program_tampil": False,
+            "menu_sapaan_tampil": False,
         }
         result = (token, WEB_SESSIONS[token], True)
 
@@ -119,10 +120,19 @@ _PETA_ANGKA_KATEGORI = {
 }
 
 
+_ANGKA_POLOS = re.compile(r"\s*(\d{1,2})\s*\.?\s*")
+
+
 def _terjemahkan_balasan_angka(pesan: str, session: dict) -> str:
     """Angka polos ("3" / "3.") -> pertanyaan yang dimaksud, sesuai daftar
-    bernomor TERAKHIR yang ditampilkan bot. Pesan lain dikembalikan apa adanya."""
-    cocok = re.fullmatch(r"\s*(\d{1,2})\s*\.?\s*", pesan)
+    bernomor TERAKHIR yang ditampilkan bot. Pesan lain dikembalikan apa adanya.
+
+    Menu sapaan & daftar kategori hanya berlaku untuk balasan TEPAT setelah
+    ditampilkan; katalog program berlaku sampai muncul daftar bernomor lain
+    (donatur biasa menelusuri beberapa program sambil bertanya). Dulu angka
+    tanpa konteks selalu jatuh ke menu sapaan - "4" setelah melihat detail
+    program malah membuka Cek Riwayat (temuan review Log Bot 27 Nov 2026)."""
+    cocok = _ANGKA_POLOS.fullmatch(pesan)
     if not cocok:
         return pesan
     # Sedang di alur hubungi admin - angka bisa jadi bagian nomor WA, jangan diubah.
@@ -131,10 +141,27 @@ def _terjemahkan_balasan_angka(pesan: str, session: dict) -> str:
     angka = cocok.group(1)
     if session.get("menunggu_pilihan_kategori"):
         return _PETA_ANGKA_KATEGORI.get(angka, pesan)
+    if session.get("menu_sapaan_tampil"):
+        return _PETA_ANGKA_SAPAAN.get(angka, pesan)
     if session.get("katalog_program_tampil"):
         kunci = kunci_program_dari_nomor(angka)
         return kueri_untuk_program(kunci) if kunci else pesan
-    return _PETA_ANGKA_SAPAAN.get(angka, pesan)
+    return pesan
+
+
+def _angka_tanpa_konteks(pesan: str, session: dict) -> bool:
+    """Angka polos yang tidak bisa dipetakan ke daftar mana pun - lebih baik
+    ditanyakan balik daripada ditebak (atau dijawab "kurang paham")."""
+    if session.get("menunggu_konfirmasi_admin") or session.get("menunggu_nomor_wa_handoff"):
+        return False
+    return bool(_ANGKA_POLOS.fullmatch(pesan))
+
+
+_BALASAN_ANGKA_AMBIGU = (
+    "Mohon maaf Bapak/Ibu, Mimin belum bisa memastikan nomor *{angka}* itu merujuk ke daftar yang mana 🙏\n\n"
+    "Boleh ketik langsung yang dimaksud, misalnya *program apa saja*, *ingin berdonasi*, "
+    "atau *cek riwayat transaksi* ya."
+)
 
 
 def _json_with_session(request: Request, data: dict, status_code: int = 200) -> JSONResponse:
@@ -153,10 +180,11 @@ def _normalisasi_wa(nomor: str) -> str:
 
 
 def _is_cek_riwayat(pesan_clean: str) -> bool:
-    """Sama persis dengan deteksi 'cek riwayat' di bot_webhook.py, supaya
-    perilaku web chat konsisten dengan bot WhatsApp."""
+    """Sama dengan deteksi 'cek riwayat' di bot_webhook.py, KECUALI angka
+    "4" polos - di web, angka diterjemahkan dulu oleh _terjemahkan_balasan_angka()
+    sesuai daftar terakhir yang tampil (bukan selalu menu sapaan)."""
     return (
-        pesan_clean in ["4", "4.", "cek riwayat", "riwayat donasi", "histori donasi", "riwayat transaksi", "cek transaksi", "donasi saya", "riwayat saya", "histori saya"]
+        pesan_clean in ["cek riwayat", "riwayat donasi", "histori donasi", "riwayat transaksi", "cek transaksi", "donasi saya", "riwayat saya", "histori saya"]
     ) or bool(re.search(r"(cek|lihat|tampilkan|minta|riwayat|histori|history)\s*(riwayat|histori|history|transaksi|donasi)", pesan_clean))
 
 
@@ -167,7 +195,8 @@ def _is_cek_riwayat(pesan_clean: str) -> bool:
 _WEB_FALLBACK_REPLY = (
     "Wah, Mimin kurang paham nih kalau mengenai hal itu 🙏\n\n"
     "Mimin fokus membantu seputar *Zakat, Infak, Sedekah,* serta *Program Beasiswa USK* ya Bapak/Ibu. "
-    "Coba klik salah satu pintasan di panel kiri, atau tanyakan dengan kalimat lain ya 😊"
+    "Coba klik salah satu pintasan di menu (di HP: tombol ☰ di bagian atas layar), "
+    "atau tanyakan dengan kalimat lain ya 😊"
 )
 
 # get_program_list()/format_program_response() (program_manager.py) diakhiri
@@ -259,15 +288,17 @@ async def web_chat(request: Request, payload: dict):
 
     pesan_asli = pesan
     pesan = _terjemahkan_balasan_angka(pesan, session)
-    # User yang sedang menelusuri katalog lewat angka ("3", lalu "11", ...)
-    # tetap dianggap berada di katalog - jangan sampai angka berikutnya
-    # malah diterjemahkan sebagai menu sapaan.
-    pilih_dari_katalog = pesan != pesan_asli and bool(session.get("katalog_program_tampil"))
+    if pesan == pesan_asli and _angka_tanpa_konteks(pesan, session):
+        # Status sesi sengaja TIDAK diubah: user yang salah ketik nomor
+        # kategori ("7") masih bisa langsung memilih ulang ("1").
+        reply = _BALASAN_ANGKA_AMBIGU.format(angka=pesan.strip().rstrip("."))
+        state_manager.catat_pesan("web", token, "bot", reply)
+        return _json_with_session(request, {"reply": reply, "requires_otp": False})
     pesan_clean = pesan.lower().strip()
 
     if _is_cek_riwayat(pesan_clean):
         session["tawaran_admin_lunak"] = False
-        session["katalog_program_tampil"] = False
+        session["menu_sapaan_tampil"] = False
         reply = "Untuk melihat riwayat transaksi, Mimin perlu verifikasi nomor WhatsApp Bapak/Ibu dulu ya - demi menjaga data donasi tetap aman 🙏"
         state_manager.catat_pesan("web", token, "bot", reply)
         return _json_with_session(request, {"reply": reply, "requires_otp": True})
@@ -313,16 +344,32 @@ async def web_chat(request: Request, payload: dict):
     # Tawaran admin setelah info PINTAS (opsional, tidak mengunci) - lihat
     # catatan tawaran_admin_lunak di admin_scripts.py susun_balasan().
     session["tawaran_admin_lunak"] = hasil.get("tawaran_admin_lunak", False)
-    session["katalog_program_tampil"] = hasil.get("katalog_program_tampil", False) or pilih_dari_katalog
+    # Katalog program tetap "aktif" untuk balasan angka sampai muncul daftar
+    # bernomor lain (menu sapaan / kategori donasi); menu sapaan hanya untuk
+    # balasan tepat sesudahnya.
+    intents = hasil.get("intents", [])
+    daftar_lain_tampil = "sapaan" in intents or "ingin_donasi" in intents
+    session["katalog_program_tampil"] = hasil.get("katalog_program_tampil", False) or (
+        bool(session.get("katalog_program_tampil")) and not daftar_lain_tampil
+    )
+    session["menu_sapaan_tampil"] = "sapaan" in intents
 
-    if "tidak_diketahui" in hasil.get("intents", []):
+    if set(intents) <= {"tidak_diketahui"}:
         reply = _WEB_FALLBACK_REPLY
         # Jangan sampai catatan "penyambungan admin dibatalkan" ikut hilang
         # bersama balasan asli yang diganti fallback web di atas.
         if hasil.get("handoff_ditinggalkan"):
             reply += "\n\n" + ambil_balasan("handoff_admin_ditinggalkan")
     else:
-        reply = _bersihkan_navigasi_wa(hasil["reply"])
+        # Sebagian pesan dipahami ("yafi siapa? sarjana?") - jawab bagian yang
+        # dipahami saja, buang fallback versi WhatsApp untuk bagian lainnya.
+        # Dulu SELURUH balasan diganti fallback hanya karena satu potongan
+        # tidak dikenali (temuan review Log Bot 27 Nov 2026).
+        reply = hasil["reply"]
+        if "tidak_diketahui" in intents:
+            reply = reply.replace(ambil_balasan("tidak_diketahui"), "")
+            reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
+        reply = _bersihkan_navigasi_wa(reply)
 
     # Cuma notify admin begitu nomor WA-nya BENAR-BENAR ada - jangan lagi
     # cuma bilang "pesan Anda sedang diteruskan ke admin" tanpa cara apa pun
